@@ -7,7 +7,6 @@ import VetProfile from './components/VetProfile';
 import Dashboard from './components/Dashboard';
 import Login from './components/Login';
 import Footer from './components/Footer';
-import AIChat from './components/AIChat';
 import UserProfile from './components/UserProfile';
 import AddPet from './components/AddPet';
 import EditPet from './components/EditPet';
@@ -863,7 +862,6 @@ const App: React.FC = () => {
                 {renderView()}
             </main>
             {viewState !== 'LOGIN' && viewState !== 'VET_REGISTRATION' && <Footer />}
-            <AIChat />
         </div>
     );
 };
