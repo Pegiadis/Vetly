@@ -6,11 +6,11 @@ FastAPI backend for the Vetly veterinary care platform.
 
 - ✅ PostgreSQL database with SQLAlchemy 2.0 ORM
 - ✅ Alembic database migrations
-- ✅ JWT authentication with bcrypt password hashing
 - ✅ Docker & Docker Compose configuration
-- ✅ Complete database models (11 tables)
+- ✅ Complete database models (10 tables)
 - ✅ Seed data script for development
 - ✅ Database verification script
+- ✅ Clean, simple architecture
 
 ## Technology Stack
 
@@ -18,7 +18,6 @@ FastAPI backend for the Vetly veterinary care platform.
 - **Database**: PostgreSQL 15
 - **ORM**: SQLAlchemy 2.0
 - **Migrations**: Alembic
-- **Authentication**: JWT (python-jose) + bcrypt (passlib)
 - **Validation**: Pydantic 2.6
 - **Server**: Uvicorn
 
@@ -33,7 +32,6 @@ vetly-back/
 │   ├── api/             # API routes
 │   ├── core/            # Core configuration
 │   │   ├── config.py    # Settings
-│   │   ├── security.py  # JWT & password hashing
 │   │   ├── deps.py      # FastAPI dependencies
 │   │   └── exceptions.py # Custom exceptions
 │   ├── db/              # Database configuration
@@ -49,24 +47,24 @@ vetly-back/
 │   │   ├── appointment.py
 │   │   ├── review.py
 │   │   ├── notification.py
-│   │   ├── blog_post.py
-│   │   └── session.py
-│   ├── repositories/    # Data access layer
-│   ├── schemas/         # Pydantic schemas
-│   ├── services/        # Business logic
+│   │   └── blog_post.py
+│   ├── repositories/    # Data access layer (future)
+│   ├── schemas/         # Pydantic schemas (future)
+│   ├── services/        # Business logic (future)
 │   └── main.py          # Application entry point
 ├── scripts/             # Utility scripts
 │   ├── seed_data.py     # Database seeding
-│   └── verify_db.py     # Database verification
+│   ├── verify_db.py     # Database verification
+│   └── quick_test.py    # Quick connection test
 └── tests/               # Test suite
 ```
 
 ## Database Schema
 
-The application uses 11 tables:
+The application uses 10 tables:
 
-- **users** - Pet owners
-- **vets** - Veterinarians
+- **users** - Pet owners (no passwords for now)
+- **vets** - Veterinarians (no passwords for now)
 - **pets** - Pet profiles
 - **medical_events** - Medical history
 - **weight_history** - Weight tracking
@@ -75,7 +73,6 @@ The application uses 11 tables:
 - **reviews** - Vet reviews
 - **notifications** - System notifications
 - **blog_posts** - Educational content
-- **sessions** - Authentication sessions
 
 ## Quick Start
 
@@ -90,12 +87,6 @@ The application uses 11 tables:
 ```bash
 cd vetly-back
 cp .env.example .env
-```
-
-Edit `.env` and set your `SECRET_KEY`:
-```bash
-# Generate a secure secret key
-python -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
 ### 2. Start PostgreSQL with Docker
@@ -151,166 +142,232 @@ This creates:
 python scripts/verify_db.py
 ```
 
-### 7. Start Development Server
+Should output:
+```
+✓ Database connection successful
+✓ All 10 tables verified
+✓ Sample data queries working
+✓ Relationships working correctly
+```
+
+### 7. Start API Server
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-The API will be available at:
-- API: http://localhost:8000
-- Docs: http://localhost:8000/api/v1/docs
-- ReDoc: http://localhost:8000/api/v1/redoc
+API will be available at:
+- **API Root**: http://localhost:8000/api/v1
+- **API Docs (Swagger)**: http://localhost:8000/api/v1/docs
+- **API Docs (ReDoc)**: http://localhost:8000/api/v1/redoc
+- **Health Check**: http://localhost:8000/health
 
-## Using Docker (Full Stack)
+## Environment Variables
 
-To run both the database and backend in Docker:
+Create a `.env` file based on `.env.example`:
 
-```bash
-# From root directory
-docker-compose up --build
+```env
+# Project
+PROJECT_NAME=Vetly API
+VERSION=1.0.0
+ENVIRONMENT=development
+API_V1_STR=/api/v1
+
+# Database
+DATABASE_URL=postgresql://vetly:vetly_dev_password@localhost:5432/vetly
+
+# CORS
+ALLOWED_ORIGINS=["http://localhost:3000","http://localhost:8000"]
 ```
-
-This starts:
-- PostgreSQL on port 5432
-- Backend API on port 8000
-
-## Test Credentials
-
-After running the seed script:
-
-**Pet Owners:**
-- Email: `maria.papadopoulos@example.com`
-- Email: `nikos.georgiadis@example.com`
-- Password: `password123`
-
-**Veterinarians:**
-- Email: `dr.antonis.vasilis@vetly.gr`
-- Email: `dr.elena.nikolaou@vetly.gr`
-- Email: `dr.dimitris.papadakis@vetly.gr`
-- Password: `vet123`
 
 ## Development Commands
 
 ### Database Migrations
 
 ```bash
-# Create new migration
-alembic revision --autogenerate -m "description"
+# Create new migration after model changes
+alembic revision --autogenerate -m "Description of changes"
 
-# Apply migrations
+# Apply all pending migrations
 alembic upgrade head
 
 # Rollback one migration
 alembic downgrade -1
 
-# Show current migration
+# View current migration version
 alembic current
 
-# Show migration history
+# View migration history
 alembic history
 ```
 
 ### Database Management
 
 ```bash
-# Seed database
+# Re-seed database (clears existing data)
 python scripts/seed_data.py
 
-# Verify database
+# Verify database setup
 python scripts/verify_db.py
+
+# Quick connection test
+python scripts/quick_test.py
+
+# Connect to PostgreSQL with psql
+docker exec -it vetly-postgres psql -U vetly -d vetly
 ```
 
-### Running Tests
+### Docker Commands
 
 ```bash
+# Start PostgreSQL
+docker-compose up -d postgres
+
+# Stop PostgreSQL
+docker-compose down
+
+# View PostgreSQL logs
+docker logs vetly-postgres
+
+# Follow PostgreSQL logs
+docker logs -f vetly-postgres
+
+# Restart PostgreSQL
+docker-compose restart postgres
+```
+
+### Development Server
+
+```bash
+# Start with auto-reload
+uvicorn app.main:app --reload
+
+# Start on specific port
+uvicorn app.main:app --reload --port 8001
+
+# Start with custom host
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+## Testing
+
+```bash
+# Run all tests
 pytest
+
+# Run with coverage
 pytest --cov=app tests/
+
+# Run specific test file
+pytest tests/test_database.py
+
+# Run with verbose output
+pytest -v
 ```
 
-### Code Quality
+## Troubleshooting
+
+### Port 5432 Already in Use
 
 ```bash
-# Format code
-black app/
-isort app/
+# Windows: Find process
+netstat -ano | findstr :5432
+taskkill /PID <PID> /F
 
-# Lint
-flake8 app/
-pylint app/
+# Linux/Mac: Find and kill process
+lsof -i :5432
+kill -9 <PID>
 
-# Type checking
-mypy app/
+# Or use different port in docker-compose.yml
+```
+
+### Cannot Connect to Database
+
+```bash
+# Check if PostgreSQL is running
+docker ps | grep vetly-postgres
+
+# Check PostgreSQL logs
+docker logs vetly-postgres
+
+# Verify DATABASE_URL in .env matches docker-compose.yml
+```
+
+### Migration Errors
+
+```bash
+# Reset database (WARNING: deletes all data)
+docker exec -it vetly-postgres psql -U vetly -d vetly -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+# Re-run migrations
+alembic upgrade head
+
+# Re-seed data
+python scripts/seed_data.py
+```
+
+### Import Errors
+
+```bash
+# Make sure virtual environment is activated
+# You should see (venv) in your terminal
+
+# Reinstall dependencies
+pip install -r requirements.txt --upgrade
 ```
 
 ## API Documentation
 
 Once the server is running, visit:
+
 - **Swagger UI**: http://localhost:8000/api/v1/docs
 - **ReDoc**: http://localhost:8000/api/v1/redoc
 
-## Environment Variables
+## Sample Data
 
-Key environment variables (see `.env.example`):
+After running `seed_data.py`, you'll have:
 
-```env
-# Security
-SECRET_KEY=your-secret-key-here-min-32-chars
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+- **2 Pet Owners**:
+  - maria.papadopoulos@example.com
+  - nikos.georgiadis@example.com
 
-# Database
-DATABASE_URL=postgresql://vetly:password@localhost:5432/vetly
+- **3 Veterinarians**:
+  - dr.antonis.vasilis@vetly.gr (General Practice)
+  - dr.elena.nikolaou@vetly.gr (Surgery)
+  - dr.dimitris.papadakis@vetly.gr (Emergency - 24/7)
 
-# CORS
-ALLOWED_ORIGINS=["http://localhost:3000"]
-```
-
-## Troubleshooting
-
-### Database Connection Issues
-
-```bash
-# Check if PostgreSQL is running
-docker ps | grep postgres
-
-# View PostgreSQL logs
-docker logs vetly-postgres
-
-# Connect to database
-docker exec -it vetly-postgres psql -U vetly -d vetly
-```
-
-### Migration Issues
-
-```bash
-# Reset database (WARNING: destroys all data)
-alembic downgrade base
-alembic upgrade head
-```
-
-### Port Already in Use
-
-```bash
-# Find process using port 8000
-netstat -ano | findstr :8000  # Windows
-lsof -i :8000                  # Linux/Mac
-
-# Kill the process
-taskkill /PID <PID> /F         # Windows
-kill -9 <PID>                  # Linux/Mac
-```
+- **5 Pets** (3 dogs, 2 cats)
+- **Medical Events** and **Weight History**
+- **Active Medications**
+- **Appointments** (past, today, upcoming)
+- **Reviews** with ratings
+- **Blog Posts**
 
 ## Next Steps
 
-1. ✅ Database setup complete
-2. ⏭️ Implement authentication endpoints
-3. ⏭️ Create API routes for users and vets
-4. ⏭️ Add pet management endpoints
-5. ⏭️ Implement appointment booking system
+Now that the database is set up:
 
-See `ARCHITECTURE.md` in the root directory for the complete development roadmap.
+1. **Add Authentication** (when needed)
+2. **Build API Endpoints** for CRUD operations
+3. **Add Business Logic** in services layer
+4. **Create Pydantic Schemas** for validation
+5. **Implement Repositories** for data access
 
-## License
+## Documentation
 
-Proprietary - Vetly Platform
+- [Database Setup Complete](../docs/DATABASE_SETUP_COMPLETE.md)
+- [Setup Instructions](../docs/SETUP_INSTRUCTIONS.md)
+- [Architecture](../docs/ARCHITECTURE.md)
+- [Deployment Guide](../docs/DEPLOYMENT.md)
+
+## Support
+
+For issues or questions:
+1. Check the [troubleshooting section](#troubleshooting)
+2. Review logs: `docker logs vetly-postgres`
+3. Run verification script: `python scripts/verify_db.py`
+
+---
+
+**Status**: ✅ Database layer complete, ready for API development
+**Last Updated**: January 27, 2026
