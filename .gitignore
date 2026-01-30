@@ -46,3 +46,7 @@ vetly-landing-page/.next/
 # Misc
 **/*.log
 **/.cache
+
+.obsidian
+*.venv*
+__pycache__/
