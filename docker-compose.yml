@@ -1,14 +1,11 @@
-version: '3.8'
-
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     container_name: vetly-postgres
     environment:
       POSTGRES_DB: vetly
       POSTGRES_USER: vetly
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
       - "5432:5432"
     volumes:
@@ -18,35 +15,36 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - vetly-network
 
   backend:
-    build:
-      context: ./vetly-back
-      dockerfile: Dockerfile
+    build: ./vetly-back
     container_name: vetly-backend
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://vetly:${DB_PASSWORD:-vetly_dev_password}@postgres:5432/vetly
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
-      ENVIRONMENT: development
-      ALLOWED_ORIGINS: '["http://localhost:3000","http://localhost:8000"]'
+      DATABASE_URL: postgresql://vetly:${DB_PASSWORD}@postgres:5432/vetly
+      SECRET_KEY: ${SECRET_KEY}
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - ./vetly-back:/app
-      - /app/__pycache__
-    networks:
-      - vetly-network
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build: ./vetly-front
+    container_name: vetly-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+
+  landing:
+    build: ./vetly-landing-page
+    container_name: vetly-landing
+    ports:
+      - "3001:3001"
 
 volumes:
   postgres_data:
-    driver: local
-
-networks:
-  vetly-network:
-    driver: bridge

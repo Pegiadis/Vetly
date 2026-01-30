@@ -3,11 +3,11 @@ Appointment model
 """
 
 import enum
-from sqlalchemy import Column, String, Date, Time, Integer, Text, Enum, ForeignKey
+from sqlalchemy import Column, String, DateTime, Integer, Text, Enum, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.db.base_class import BaseModel
 
 
 class AppointmentStatus(str, enum.Enum):
@@ -47,8 +47,7 @@ class Appointment(BaseModel):
     )
     
     # Appointment Details
-    date = Column(Date, nullable=False, index=True)
-    time = Column(Time, nullable=False)
+    scheduled_at = Column(DateTime, nullable=False, index=True)
     duration_minutes = Column(Integer, default=30, nullable=False)
     type = Column(String(100), nullable=False)  # e.g., "Checkup", "Vaccination", "Emergency"
     status = Column(
@@ -67,4 +66,4 @@ class Appointment(BaseModel):
     pet = relationship("Pet", back_populates="appointments")
     
     def __repr__(self):
-        return f"<Appointment(id={self.id}, date={self.date}, status={self.status.value})>"
+        return f"<Appointment(id={self.id}, scheduled_at={self.scheduled_at}, status={self.status.value})>"

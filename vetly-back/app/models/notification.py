@@ -6,7 +6,7 @@ from sqlalchemy import Column, String, Text, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.db.base_class import BaseModel
 
 
 class Notification(BaseModel):
@@ -26,7 +26,7 @@ class Notification(BaseModel):
     )
     vet_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("vets.id", ondelete="CASCADE"),
+        ForeignKey("vets.id", ondelete="SET NULL"),
         nullable=True,
         index=True
     )

@@ -15,15 +15,15 @@ Base = declarative_base()
 class BaseModel(Base):
     """
     Base model class with common fields
-    
+
     All models inherit from this class and get:
     - id: UUID primary key
     - created_at: Timestamp of creation
     - updated_at: Timestamp of last update
     """
-    
+
     __abstract__ = True
-    
+
     id = Column(
         UUID(as_uuid=True),
         primary_key=True,
@@ -41,7 +41,7 @@ class BaseModel(Base):
         onupdate=datetime.utcnow,
         nullable=False
     )
-    
+
     def dict(self):
         """Convert model to dictionary"""
         return {

@@ -6,7 +6,7 @@ from sqlalchemy import Column, String, Boolean, Numeric, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.db.base_class import BaseModel
 
 
 class Vet(BaseModel):
@@ -66,9 +66,12 @@ class Vet(BaseModel):
     notifications = relationship(
         "Notification",
         back_populates="vet",
-        cascade="all, delete-orphan",
         overlaps="user"
     )
-    
+    blog_posts = relationship(
+        "BlogPost",
+        back_populates="author_vet"
+    )
+
     def __repr__(self):
         return f"<Vet(id={self.id}, name={self.name}, specialty={self.specialty})>"

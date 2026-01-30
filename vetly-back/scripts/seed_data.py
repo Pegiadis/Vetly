@@ -349,14 +349,15 @@ def seed_appointments(db: DBSession, users, vets, pets):
     """Create test appointments"""
     print("Creating appointments...")
     
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+
     appointments = [
         # Upcoming appointment
         Appointment(
             vet_id=vets[0].id,
             user_id=users[0].id,
             pet_id=pets[0].id,
-            date=date.today() + timedelta(days=7),
-            time=time(10, 0),
+            scheduled_at=today + timedelta(days=7, hours=10),
             duration_minutes=30,
             type="Checkup",
             status=AppointmentStatus.CONFIRMED,
@@ -367,8 +368,7 @@ def seed_appointments(db: DBSession, users, vets, pets):
             vet_id=vets[1].id,
             user_id=users[1].id,
             pet_id=pets[2].id,
-            date=date.today(),
-            time=time(14, 0),
+            scheduled_at=today + timedelta(hours=14),
             duration_minutes=45,
             type="Follow-up",
             status=AppointmentStatus.CONFIRMED,
@@ -379,8 +379,7 @@ def seed_appointments(db: DBSession, users, vets, pets):
             vet_id=vets[0].id,
             user_id=users[1].id,
             pet_id=pets[4].id,
-            date=date.today() + timedelta(days=3),
-            time=time(11, 30),
+            scheduled_at=today + timedelta(days=3, hours=11, minutes=30),
             duration_minutes=30,
             type="Vaccination",
             status=AppointmentStatus.PENDING,

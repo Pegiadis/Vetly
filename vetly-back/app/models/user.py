@@ -5,7 +5,7 @@ User (Pet Owner) model
 from sqlalchemy import Column, String, Boolean
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.db.base_class import BaseModel
 
 
 class User(BaseModel):

@@ -10,7 +10,7 @@
 
 ### Technology Stack (Backend)
 - **Backend**: FastAPI + Python 3.11+
-- **Database**: PostgreSQL 15
+- **Database**: PostgreSQL 17
 - **ORM**: SQLAlchemy 2.0
 - **Migrations**: Alembic
 - **Containerization**: Docker
@@ -29,7 +29,7 @@ The frontend currently exists as a React prototype with:
 
 #### **Backend**
 - **Framework**: FastAPI
-- **Database**: PostgreSQL 15
+- **Database**: PostgreSQL 17
 - **ORM**: SQLAlchemy 2.0
 - **Migrations**: Alembic
 - **Containerization**: Docker
@@ -126,8 +126,7 @@ appointments
   - vet_id (UUID, FK -> vets.id)
   - user_id (UUID, FK -> users.id)
   - pet_id (UUID, FK -> pets.id)
-  - date (DATE)
-  - time (TIME)
+  - scheduled_at (TIMESTAMP)
   - duration_minutes (INTEGER)
   - type (VARCHAR)
   - status (ENUM: 'pending', 'confirmed', 'completed', 'cancelled')
@@ -168,6 +167,7 @@ blog_posts
   - excerpt (TEXT)
   - content (TEXT)
   - author (VARCHAR)
+  - author_id (UUID, FK -> vets.id, NULLABLE)
   - image_url (VARCHAR)
   - category (VARCHAR)
   - read_time (VARCHAR)
@@ -195,6 +195,7 @@ notifications
 
 #### User (Pet Owner)
 ```
+POST   /api/v1/users/profile
 GET    /api/v1/users/profile
 PUT    /api/v1/users/profile
 ```

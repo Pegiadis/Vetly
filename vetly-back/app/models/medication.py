@@ -7,7 +7,7 @@ from sqlalchemy import Column, String, Date, Time, Text, Boolean, Enum, ForeignK
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
-from app.models.base import BaseModel
+from app.db.base_class import BaseModel
 
 
 class MedicationFrequency(str, enum.Enum):

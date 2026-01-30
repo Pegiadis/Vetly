@@ -3,7 +3,7 @@ Import all models here for Alembic migrations
 This ensures all models are registered with SQLAlchemy
 """
 
-from app.models.base import Base  # noqa
+from app.db.base_class import Base, BaseModel  # noqa
 
 # Import all models
 from app.models.user import User  # noqa
