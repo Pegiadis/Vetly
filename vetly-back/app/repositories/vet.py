@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
-from app.models.vet import Vet
+from app.db.base import Vet
 
 
 class VetRepository:
