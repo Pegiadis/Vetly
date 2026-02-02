@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: 'Βρείτε τον κατάλληλο κτηνίατρο για το κατοικίδιό σας',
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 async function getVets(): Promise<VetListResponse> {
   const res = await fetch(`${API_URL}/vets`, {
