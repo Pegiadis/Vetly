@@ -19,6 +19,7 @@ class Vet(BaseModel):
     
     # Basic Information
     email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=True)  # Nullable for existing records
     name = Column(String(255), nullable=False)
     specialty = Column(String(255), nullable=False)  # e.g., "General Practice", "Surgery"
     license_number = Column(String(100), unique=True, nullable=False, index=True)

@@ -15,6 +15,11 @@ class VetRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def get_by_email(self, email: str) -> Vet | None:
+        """Get a vet by email"""
+        query = select(Vet).where(Vet.email == email)
+        return self.db.scalar(query)
+
     def get_all(self, skip: int = 0, limit: int = 10) -> tuple[list[Vet], int]:
         """Get all vets with pagination"""
         query = select(Vet).offset(skip).limit(limit)
