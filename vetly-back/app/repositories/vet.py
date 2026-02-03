@@ -2,6 +2,7 @@
 Vet repository - data access layer
 """
 
+from typing import Any
 from uuid import UUID
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
@@ -57,3 +58,26 @@ class VetRepository:
         total = self.db.scalar(select(func.count(Vet.id)).where(search_filter))
 
         return list(vets), total or 0
+
+    def update(self, vet: Vet, data: dict[str, Any]) -> Vet:
+        """Update a vet's fields"""
+        for key, value in data.items():
+            if value is not None:
+                setattr(vet, key, value)
+        self.db.commit()
+        self.db.refresh(vet)
+        return vet
+
+    def update_hours(self, vet: Vet, hours: dict) -> Vet:
+        """Update a vet's working hours"""
+        vet.hours = hours
+        self.db.commit()
+        self.db.refresh(vet)
+        return vet
+
+    def toggle_on_call(self, vet: Vet, is_on_call: bool) -> Vet:
+        """Toggle a vet's on-call status"""
+        vet.is_on_call = is_on_call
+        self.db.commit()
+        self.db.refresh(vet)
+        return vet

@@ -61,3 +61,26 @@ class VetListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class VetUpdateRequest(BaseModel):
+    """Vet profile update request"""
+    name: str | None = None
+    specialty: str | None = None
+    phone: str | None = None
+    address: str | None = None
+    city: str | None = None
+    description: str | None = None
+    image_url: str | None = None
+    coordinates_lat: Decimal | None = None
+    coordinates_lng: Decimal | None = None
+
+
+class VetHoursUpdateRequest(BaseModel):
+    """Vet working hours update request"""
+    hours: WorkingHours
+
+
+class OnCallToggleRequest(BaseModel):
+    """On-call status toggle request"""
+    is_on_call: bool

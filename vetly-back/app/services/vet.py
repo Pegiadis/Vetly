@@ -6,8 +6,14 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.db.base import Vet
 from app.repositories.vet import VetRepository
-from app.schemas.vet import VetResponse, VetListResponse
+from app.schemas.vet import (
+    VetResponse,
+    VetListResponse,
+    VetUpdateRequest,
+    VetHoursUpdateRequest,
+)
 
 
 class VetService:
@@ -59,3 +65,20 @@ class VetService:
             page=page,
             page_size=page_size,
         )
+
+    def update_profile(self, vet: Vet, data: VetUpdateRequest) -> VetResponse:
+        """Update a vet's profile"""
+        update_data = data.model_dump(exclude_unset=True, exclude_none=True)
+        updated_vet = self.repository.update(vet, update_data)
+        return VetResponse.model_validate(updated_vet)
+
+    def update_hours(self, vet: Vet, data: VetHoursUpdateRequest) -> VetResponse:
+        """Update a vet's working hours"""
+        hours_dict = data.hours.model_dump(exclude_none=True)
+        updated_vet = self.repository.update_hours(vet, hours_dict)
+        return VetResponse.model_validate(updated_vet)
+
+    def toggle_on_call(self, vet: Vet, is_on_call: bool) -> VetResponse:
+        """Toggle a vet's on-call status"""
+        updated_vet = self.repository.toggle_on_call(vet, is_on_call)
+        return VetResponse.model_validate(updated_vet)

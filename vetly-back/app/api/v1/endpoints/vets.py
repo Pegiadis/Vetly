@@ -6,9 +6,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db
+from app.core.deps import get_db, get_current_vet
+from app.db.base import Vet
 from app.services.vet import VetService
-from app.schemas.vet import VetResponse, VetListResponse
+from app.schemas.vet import (
+    VetResponse,
+    VetListResponse,
+    VetUpdateRequest,
+    VetHoursUpdateRequest,
+    OnCallToggleRequest,
+)
 
 router = APIRouter()
 
@@ -35,6 +42,47 @@ def search_vets(
     """Search vets by name, specialty, or city"""
     service = VetService(db)
     return service.search_vets(query=q, city=city, page=page, page_size=page_size)
+
+
+@router.get("/me", response_model=VetResponse)
+def get_current_vet_profile(
+    current_vet: Vet = Depends(get_current_vet),
+) -> VetResponse:
+    """Get the current authenticated vet's profile"""
+    return VetResponse.model_validate(current_vet)
+
+
+@router.put("/me", response_model=VetResponse)
+def update_current_vet_profile(
+    data: VetUpdateRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> VetResponse:
+    """Update the current authenticated vet's profile"""
+    service = VetService(db)
+    return service.update_profile(current_vet, data)
+
+
+@router.put("/me/hours", response_model=VetResponse)
+def update_current_vet_hours(
+    data: VetHoursUpdateRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> VetResponse:
+    """Update the current authenticated vet's working hours"""
+    service = VetService(db)
+    return service.update_hours(current_vet, data)
+
+
+@router.patch("/me/on-call", response_model=VetResponse)
+def toggle_current_vet_on_call(
+    data: OnCallToggleRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> VetResponse:
+    """Toggle the current authenticated vet's on-call status"""
+    service = VetService(db)
+    return service.toggle_on_call(current_vet, data.is_on_call)
 
 
 @router.get("/{vet_id}", response_model=VetResponse)
