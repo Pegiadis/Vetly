@@ -5,7 +5,14 @@ Combines all endpoint routers
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import vets, auth, vet_patients, vet_appointments, vet_reviews
+from app.api.v1.endpoints import (
+    vets,
+    auth,
+    vet_patients,
+    vet_appointments,
+    vet_reviews,
+    vet_analytics,
+)
 
 # Create the main API router
 api_router = APIRouter()
@@ -16,6 +23,7 @@ api_router.include_router(vets.router, prefix="/vets", tags=["Vets"])
 api_router.include_router(vet_patients.router, prefix="/vet/patients", tags=["Vet Patients"])
 api_router.include_router(vet_appointments.router, prefix="/vet/appointments", tags=["Vet Appointments"])
 api_router.include_router(vet_reviews.router, prefix="/vet/reviews", tags=["Vet Reviews"])
+api_router.include_router(vet_analytics.router, prefix="/vet", tags=["Vet Analytics"])
 
 @api_router.get("/")
 async def root():
