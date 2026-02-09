@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     vet_appointments,
     vet_reviews,
     vet_analytics,
+    owner,
 )
 
 # Create the main API router
@@ -24,6 +25,7 @@ api_router.include_router(vet_patients.router, prefix="/vet/patients", tags=["Ve
 api_router.include_router(vet_appointments.router, prefix="/vet/appointments", tags=["Vet Appointments"])
 api_router.include_router(vet_reviews.router, prefix="/vet/reviews", tags=["Vet Reviews"])
 api_router.include_router(vet_analytics.router, prefix="/vet", tags=["Vet Analytics"])
+api_router.include_router(owner.router, prefix="/owner", tags=["Pet Owner"])
 
 @api_router.get("/")
 async def root():
