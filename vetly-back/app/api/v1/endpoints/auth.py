@@ -6,11 +6,12 @@ from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_current_vet
-from app.db.base import Vet
+from app.core.deps import get_db, get_current_vet, get_current_pet_owner
+from app.db.base import Vet, PetOwner
 from app.services.auth import AuthService
-from app.schemas.auth import LoginRequest, TokenResponse, VetRegisterRequest
+from app.schemas.auth import LoginRequest, TokenResponse, VetRegisterRequest, PetOwnerRegisterRequest
 from app.schemas.vet import VetResponse
+from app.schemas.owner import PetOwnerResponse
 
 router = APIRouter()
 
@@ -52,3 +53,31 @@ def get_current_vet_profile(
 ) -> VetResponse:
     """Get the current authenticated vet's profile"""
     return VetResponse.model_validate(current_vet)
+
+
+@router.post("/pet-owner/login", response_model=TokenResponse)
+def login_pet_owner(
+    credentials: LoginRequest,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """Authenticate a pet owner and return access token"""
+    service = AuthService(db)
+    return service.login_pet_owner(credentials)
+
+
+@router.post("/pet-owner/register", response_model=PetOwnerResponse, status_code=201)
+def register_pet_owner(
+    data: PetOwnerRegisterRequest,
+    db: Session = Depends(get_db),
+) -> PetOwnerResponse:
+    """Register a new pet owner account"""
+    service = AuthService(db)
+    return service.register_pet_owner(data)
+
+
+@router.get("/pet-owner/me", response_model=PetOwnerResponse)
+def get_current_pet_owner_profile(
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+) -> PetOwnerResponse:
+    """Get the current authenticated pet owner's profile"""
+    return PetOwnerResponse.model_validate(current_owner)

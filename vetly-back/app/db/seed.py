@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.db.base import Vet, User, Pet, Appointment, Review, MedicalEvent
+from app.db.base import Vet, PetOwner, Pet, Appointment, Review, MedicalEvent
 from app.models.pet import PetType, Gender
 from app.models.appointment import AppointmentStatus
 from app.core.security import get_password_hash
@@ -74,7 +74,7 @@ VET_DATA = [
     },
 ]
 
-USER_DATA = [
+PET_OWNER_DATA = [
     {"name": "John Smith", "email": "john.smith@example.com", "phone": "+1 (555) 111-1111"},
     {"name": "Emma Davis", "email": "emma.davis@example.com", "phone": "+1 (555) 222-2222"},
     {"name": "Robert Brown", "email": "robert.brown@example.com", "phone": "+1 (555) 333-3333"},
@@ -183,34 +183,36 @@ def seed_vets(db: Session) -> list[Vet]:
     return vets
 
 
-def seed_users(db: Session) -> list[User]:
-    """Seed users (pet owners)"""
-    users = []
+def seed_pet_owners(db: Session) -> list[PetOwner]:
+    """Seed pet owners"""
+    pet_owners = []
+    default_password = get_password_hash("password123")
 
-    for data in USER_DATA:
-        user = User(
+    for data in PET_OWNER_DATA:
+        pet_owner = PetOwner(
             id=uuid4(),
             email=data["email"],
+            password_hash=default_password,
             name=data["name"],
             phone=data.get("phone"),
             email_verified=True,
         )
-        db.add(user)
-        users.append(user)
+        db.add(pet_owner)
+        pet_owners.append(pet_owner)
 
     db.commit()
-    return users
+    return pet_owners
 
 
-def seed_pets(db: Session, users: list[User]) -> list[Pet]:
+def seed_pets(db: Session, pet_owners: list[PetOwner]) -> list[Pet]:
     """Seed pets"""
     pets = []
 
     for i, (name, pet_type, breed, gender) in enumerate(PET_NAMES):
-        user = users[i % len(users)]
+        pet_owner = pet_owners[i % len(pet_owners)]
         pet = Pet(
             id=uuid4(),
-            user_id=user.id,
+            pet_owner_id=pet_owner.id,
             name=name,
             type=pet_type,
             breed=breed,
@@ -225,7 +227,7 @@ def seed_pets(db: Session, users: list[User]) -> list[Pet]:
     return pets
 
 
-def seed_appointments(db: Session, vets: list[Vet], users: list[User], pets: list[Pet]) -> list[Appointment]:
+def seed_appointments(db: Session, vets: list[Vet], pet_owners: list[PetOwner], pets: list[Pet]) -> list[Appointment]:
     """Seed appointments"""
     appointments = []
     statuses = list(AppointmentStatus)
@@ -252,15 +254,15 @@ def seed_appointments(db: Session, vets: list[Vet], users: list[User], pets: lis
             status = random.choice([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED])
 
         vet = random.choice(vets)
-        user = random.choice(users)
-        # Get a pet owned by this user, or any pet
-        user_pets = [p for p in pets if p.user_id == user.id]
-        pet = random.choice(user_pets) if user_pets else random.choice(pets)
+        pet_owner = random.choice(pet_owners)
+        # Get a pet owned by this pet owner, or any pet
+        owner_pets = [p for p in pets if p.pet_owner_id == pet_owner.id]
+        pet = random.choice(owner_pets) if owner_pets else random.choice(pets)
 
         appointment = Appointment(
             id=uuid4(),
             vet_id=vet.id,
-            user_id=user.id,
+            pet_owner_id=pet_owner.id,
             pet_id=pet.id,
             scheduled_at=scheduled_date,
             duration_minutes=random.choice([15, 30, 45, 60]),
@@ -275,7 +277,7 @@ def seed_appointments(db: Session, vets: list[Vet], users: list[User], pets: lis
     return appointments
 
 
-def seed_reviews(db: Session, vets: list[Vet], users: list[User], appointments: list[Appointment]) -> list[Review]:
+def seed_reviews(db: Session, vets: list[Vet], pet_owners: list[PetOwner], appointments: list[Appointment]) -> list[Review]:
     """Seed reviews"""
     reviews = []
 
@@ -286,7 +288,7 @@ def seed_reviews(db: Session, vets: list[Vet], users: list[User], appointments: 
         review = Review(
             id=uuid4(),
             vet_id=appointment.vet_id,
-            user_id=appointment.user_id,
+            pet_owner_id=appointment.pet_owner_id,
             appointment_id=appointment.id,
             rating=random.choices([5, 4, 3, 2, 1], weights=[50, 30, 10, 7, 3])[0],
             comment=random.choice(REVIEW_COMMENTS),
@@ -343,20 +345,20 @@ def seed_database(db: Session):
     vets = seed_vets(db)
     print(f"Created {len(vets)} vets")
 
-    print("Seeding users...")
-    users = seed_users(db)
-    print(f"Created {len(users)} users")
+    print("Seeding pet owners...")
+    pet_owners = seed_pet_owners(db)
+    print(f"Created {len(pet_owners)} pet owners")
 
     print("Seeding pets...")
-    pets = seed_pets(db, users)
+    pets = seed_pets(db, pet_owners)
     print(f"Created {len(pets)} pets")
 
     print("Seeding appointments...")
-    appointments = seed_appointments(db, vets, users, pets)
+    appointments = seed_appointments(db, vets, pet_owners, pets)
     print(f"Created {len(appointments)} appointments")
 
     print("Seeding reviews...")
-    reviews = seed_reviews(db, vets, users, appointments)
+    reviews = seed_reviews(db, vets, pet_owners, appointments)
     print(f"Created {len(reviews)} reviews")
 
     print("Seeding medical events...")
@@ -365,5 +367,5 @@ def seed_database(db: Session):
 
     print("\nDatabase seeding completed!")
     print("\nTest credentials:")
-    print("Email: sarah.johnson@vetly.com")
-    print("Password: password123")
+    print("Vet: sarah.johnson@vetly.com / password123")
+    print("Pet Owner: john.smith@example.com / password123")

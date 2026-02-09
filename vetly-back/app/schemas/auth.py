@@ -29,3 +29,12 @@ class VetRegisterRequest(BaseModel):
     city: str = Field(..., min_length=2, max_length=100)
     description: str | None = None
     image_url: str | None = None
+
+
+class PetOwnerRegisterRequest(BaseModel):
+    """Pet owner registration request schema"""
+    email: EmailStr
+    password: str = Field(..., min_length=6)
+    name: str = Field(..., min_length=2, max_length=255)
+    phone: str | None = Field(None, max_length=50)
+    address: str | None = Field(None, max_length=500)
