@@ -2,6 +2,8 @@
  * API client utility
  */
 
+import { getStoredToken } from '@/contexts/AuthContext';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 class ApiError extends Error {
@@ -11,6 +13,14 @@ class ApiError extends Error {
   }
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  if (token) {
+    return { 'Authorization': `Bearer ${token}` };
+  }
+  return {};
+}
+
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
@@ -18,6 +28,7 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...getAuthHeaders(),
       ...options?.headers,
     },
   });
@@ -42,6 +53,12 @@ export const api = {
   put: <T>(endpoint: string, data: unknown) =>
     fetchApi<T>(endpoint, {
       method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  patch: <T>(endpoint: string, data: unknown) =>
+    fetchApi<T>(endpoint, {
+      method: 'PATCH',
       body: JSON.stringify(data),
     }),
 
