@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, func, distinct
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.base import Pet, Appointment, User, MedicalEvent
+from app.db.base import Pet, Appointment, PetOwner, MedicalEvent
 
 
 class PetRepository:

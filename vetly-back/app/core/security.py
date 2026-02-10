@@ -3,19 +3,18 @@ Security utilities for JWT tokens and password hashing
 """
 
 from datetime import datetime, timedelta
-from typing import Any
 
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
+from app.core.config import settings
+
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # JWT Configuration
-SECRET_KEY = "vetly-secret-key-change-in-production"  # TODO: Move to env
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 hours
 
 
 class TokenData(BaseModel):
@@ -40,7 +39,7 @@ def create_access_token(subject: str, token_type: str = "vet", expires_delta: ti
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode = {
         "sub": str(subject),
@@ -49,7 +48,7 @@ def create_access_token(subject: str, token_type: str = "vet", expires_delta: ti
         "iat": datetime.utcnow(),
     }
 
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
 def decode_token(token: str) -> TokenData | None:
@@ -63,7 +62,7 @@ def decode_token(token: str) -> TokenData | None:
         TokenData if valid, None otherwise
     """
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
         return TokenData(
             sub=payload.get("sub"),
             type=payload.get("type", "vet"),

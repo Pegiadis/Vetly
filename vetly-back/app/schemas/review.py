@@ -7,8 +7,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ReviewUserResponse(BaseModel):
-    """Simplified user response for reviews"""
+class ReviewPetOwnerResponse(BaseModel):
+    """Simplified pet owner response for reviews"""
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -22,7 +22,7 @@ class ReviewResponse(BaseModel):
 
     id: UUID
     vet_id: UUID
-    user_id: UUID
+    pet_owner_id: UUID
     appointment_id: UUID | None = None
     rating: int
     comment: str
@@ -32,8 +32,8 @@ class ReviewResponse(BaseModel):
 
 
 class ReviewDetailResponse(ReviewResponse):
-    """Review response with user details"""
-    user: ReviewUserResponse | None = None
+    """Review response with pet owner details"""
+    pet_owner: ReviewPetOwnerResponse | None = None
 
 
 class ReviewListResponse(BaseModel):

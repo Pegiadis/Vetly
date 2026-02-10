@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session as DBSession
 from app.db.session import SessionLocal
-from app.models.user import User
+from app.models.pet_owner import PetOwner
 from app.models.vet import Vet
 from app.models.pet import Pet, PetType, Gender
 from app.models.medical_event import MedicalEvent
@@ -22,6 +22,7 @@ from app.models.appointment import Appointment, AppointmentStatus
 from app.models.review import Review
 from app.models.blog_post import BlogPost
 from app.models.notification import Notification
+from app.core.security import get_password_hash
 
 
 def clear_database(db: DBSession):
@@ -37,51 +38,58 @@ def clear_database(db: DBSession):
     db.query(MedicalEvent).delete()
     db.query(Pet).delete()
     db.query(BlogPost).delete()
-    db.query(User).delete()
+    db.query(PetOwner).delete()
     db.query(Vet).delete()
     
     db.commit()
     print("Database cleared!")
 
 
-def seed_users(db: DBSession):
-    """Create test users (pet owners)"""
-    print("Creating users...")
-    
-    users = [
-        User(
+def seed_pet_owners(db: DBSession):
+    """Create test pet owners"""
+    print("Creating pet owners...")
+
+    default_password = get_password_hash("password123")
+
+    pet_owners = [
+        PetOwner(
             email="maria.papadopoulos@example.com",
+            password_hash=default_password,
             name="Maria Papadopoulos",
             phone="+30 210 123 4567",
             address="Kifisia, Athens",
             email_verified=True
         ),
-        User(
+        PetOwner(
             email="nikos.georgiadis@example.com",
+            password_hash=default_password,
             name="Nikos Georgiadis",
             phone="+30 210 987 6543",
             address="Glyfada, Athens",
             email_verified=True
         ),
     ]
-    
-    db.add_all(users)
+
+    db.add_all(pet_owners)
     db.commit()
-    
-    for user in users:
-        db.refresh(user)
-    
-    print(f"Created {len(users)} users")
-    return users
+
+    for owner in pet_owners:
+        db.refresh(owner)
+
+    print(f"Created {len(pet_owners)} pet owners")
+    return pet_owners
 
 
 def seed_vets(db: DBSession):
     """Create test veterinarians"""
     print("Creating vets...")
     
+    default_password = get_password_hash("password123")
+
     vets = [
         Vet(
             email="dr.antonis.vasilis@vetly.gr",
+            password_hash=default_password,
             name="Dr. Antonis Vasilis",
             specialty="General Practice",
             license_number="VET-GR-12345",
@@ -106,6 +114,7 @@ def seed_vets(db: DBSession):
         ),
         Vet(
             email="dr.elena.nikolaou@vetly.gr",
+            password_hash=default_password,
             name="Dr. Elena Nikolaou",
             specialty="Surgery",
             license_number="VET-GR-67890",
@@ -131,6 +140,7 @@ def seed_vets(db: DBSession):
         ),
         Vet(
             email="dr.dimitris.papadakis@vetly.gr",
+            password_hash=default_password,
             name="Dr. Dimitris Papadakis",
             specialty="Emergency Care",
             license_number="VET-GR-11111",
@@ -166,14 +176,14 @@ def seed_vets(db: DBSession):
     return vets
 
 
-def seed_pets(db: DBSession, users):
+def seed_pets(db: DBSession, pet_owners):
     """Create test pets"""
     print("Creating pets...")
-    
+
     pets = [
         # Maria's pets
         Pet(
-            user_id=users[0].id,
+            pet_owner_id=pet_owners[0].id,
             name="Max",
             type=PetType.DOG,
             breed="Golden Retriever",
@@ -183,7 +193,7 @@ def seed_pets(db: DBSession, users):
             chip_number="GR-DOG-123456789"
         ),
         Pet(
-            user_id=users[0].id,
+            pet_owner_id=pet_owners[0].id,
             name="Luna",
             type=PetType.CAT,
             breed="Persian",
@@ -194,7 +204,7 @@ def seed_pets(db: DBSession, users):
         ),
         # Nikos's pets
         Pet(
-            user_id=users[1].id,
+            pet_owner_id=pet_owners[1].id,
             name="Rocky",
             type=PetType.DOG,
             breed="German Shepherd",
@@ -204,7 +214,7 @@ def seed_pets(db: DBSession, users):
             chip_number="GR-DOG-111222333"
         ),
         Pet(
-            user_id=users[1].id,
+            pet_owner_id=pet_owners[1].id,
             name="Bella",
             type=PetType.DOG,
             breed="Beagle",
@@ -214,7 +224,7 @@ def seed_pets(db: DBSession, users):
             chip_number="GR-DOG-444555666"
         ),
         Pet(
-            user_id=users[1].id,
+            pet_owner_id=pet_owners[1].id,
             name="Whiskers",
             type=PetType.CAT,
             breed="Siamese",
@@ -345,7 +355,7 @@ def seed_medications(db: DBSession, pets):
     return medications
 
 
-def seed_appointments(db: DBSession, users, vets, pets):
+def seed_appointments(db: DBSession, pet_owners, vets, pets):
     """Create test appointments"""
     print("Creating appointments...")
     
@@ -355,7 +365,7 @@ def seed_appointments(db: DBSession, users, vets, pets):
         # Upcoming appointment
         Appointment(
             vet_id=vets[0].id,
-            user_id=users[0].id,
+            pet_owner_id=pet_owners[0].id,
             pet_id=pets[0].id,
             scheduled_at=today + timedelta(days=7, hours=10),
             duration_minutes=30,
@@ -366,7 +376,7 @@ def seed_appointments(db: DBSession, users, vets, pets):
         # Today's appointment
         Appointment(
             vet_id=vets[1].id,
-            user_id=users[1].id,
+            pet_owner_id=pet_owners[1].id,
             pet_id=pets[2].id,
             scheduled_at=today + timedelta(hours=14),
             duration_minutes=45,
@@ -377,7 +387,7 @@ def seed_appointments(db: DBSession, users, vets, pets):
         # Pending appointment
         Appointment(
             vet_id=vets[0].id,
-            user_id=users[1].id,
+            pet_owner_id=pet_owners[1].id,
             pet_id=pets[4].id,
             scheduled_at=today + timedelta(days=3, hours=11, minutes=30),
             duration_minutes=30,
@@ -394,27 +404,27 @@ def seed_appointments(db: DBSession, users, vets, pets):
     return appointments
 
 
-def seed_reviews(db: DBSession, users, vets):
+def seed_reviews(db: DBSession, pet_owners, vets):
     """Create vet reviews"""
     print("Creating reviews...")
     
     reviews = [
         Review(
             vet_id=vets[0].id,
-            user_id=users[0].id,
+            pet_owner_id=pet_owners[0].id,
             rating=5,
             comment="Dr. Vasilis is amazing! Very caring and knowledgeable. Max always feels comfortable here.",
         ),
         Review(
             vet_id=vets[1].id,
-            user_id=users[1].id,
+            pet_owner_id=pet_owners[1].id,
             rating=5,
             comment="Excellent surgeon. Dr. Nikolaou performed a complex procedure on Rocky and he recovered perfectly. Highly recommend!",
             reply="Thank you for your kind words! I'm glad Rocky is doing well."
         ),
         Review(
             vet_id=vets[0].id,
-            user_id=users[1].id,
+            pet_owner_id=pet_owners[1].id,
             rating=4,
             comment="Good service, friendly staff. Wait times can be a bit long during busy hours."
         ),
@@ -477,20 +487,20 @@ def seed_blog_posts(db: DBSession):
     return posts
 
 
-def seed_notifications(db: DBSession, users, vets):
+def seed_notifications(db: DBSession, pet_owners, vets):
     """Create sample notifications"""
     print("Creating notifications...")
     
     notifications = [
         Notification(
-            user_id=users[0].id,
+            pet_owner_id=pet_owners[0].id,
             type="appointment",
             title="Upcoming Appointment",
             message="You have an appointment with Dr. Vasilis next week.",
             is_read=False
         ),
         Notification(
-            user_id=users[1].id,
+            pet_owner_id=pet_owners[1].id,
             type="medication",
             title="Medication Reminder",
             message="Time to give Whiskers their medication.",
@@ -525,25 +535,25 @@ def main():
         clear_database(db)
         
         # Seed data in order
-        users = seed_users(db)
+        pet_owners = seed_pet_owners(db)
         vets = seed_vets(db)
-        pets = seed_pets(db, users)
+        pets = seed_pets(db, pet_owners)
         seed_medical_events(db, pets, vets)
         seed_weight_history(db, pets)
         seed_medications(db, pets)
-        seed_appointments(db, users, vets, pets)
-        seed_reviews(db, users, vets)
+        seed_appointments(db, pet_owners, vets, pets)
+        seed_reviews(db, pet_owners, vets)
         seed_blog_posts(db)
-        seed_notifications(db, users, vets)
+        seed_notifications(db, pet_owners, vets)
         
         print("=" * 50)
         print("Database seeding completed successfully!")
         print("=" * 50)
         print("\nTest Data Created:")
-        print("\nUsers (Pet Owners):")
+        print("\nPet Owners (password: password123):")
         print("  - maria.papadopoulos@example.com")
         print("  - nikos.georgiadis@example.com")
-        print("\nVets:")
+        print("\nVets (password: password123):")
         print("  - dr.antonis.vasilis@vetly.gr")
         print("  - dr.elena.nikolaou@vetly.gr")
         print("  - dr.dimitris.papadakis@vetly.gr")

@@ -23,7 +23,7 @@ class PetResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
-    user_id: UUID
+    pet_owner_id: UUID
     name: str
     type: str
     breed: str

@@ -25,7 +25,7 @@ class AppointmentRepository:
                 Appointment.id == appointment_id,
                 Appointment.vet_id == vet_id,
             )
-            .options(joinedload(Appointment.pet), joinedload(Appointment.user))
+            .options(joinedload(Appointment.pet), joinedload(Appointment.pet_owner))
         )
         return self.db.scalar(query)
 
@@ -66,7 +66,7 @@ class AppointmentRepository:
         query = (
             select(Appointment)
             .where(and_(*filters))
-            .options(joinedload(Appointment.pet), joinedload(Appointment.user))
+            .options(joinedload(Appointment.pet), joinedload(Appointment.pet_owner))
             .order_by(Appointment.scheduled_at.desc())
             .offset(skip)
             .limit(limit)
@@ -94,7 +94,7 @@ class AppointmentRepository:
         query = (
             select(Appointment)
             .where(and_(*filters))
-            .options(joinedload(Appointment.pet), joinedload(Appointment.user))
+            .options(joinedload(Appointment.pet), joinedload(Appointment.pet_owner))
             .order_by(Appointment.scheduled_at)
             .offset(skip)
             .limit(limit)
@@ -118,7 +118,7 @@ class AppointmentRepository:
         query = (
             select(Appointment)
             .where(and_(*filters))
-            .options(joinedload(Appointment.pet), joinedload(Appointment.user))
+            .options(joinedload(Appointment.pet), joinedload(Appointment.pet_owner))
             .order_by(Appointment.scheduled_at)
             .offset(skip)
             .limit(limit)

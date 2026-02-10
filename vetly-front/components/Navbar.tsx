@@ -73,14 +73,14 @@ const Navbar: React.FC = () => {
 
                     {/* Right Side Buttons */}
                     <div className="flex items-center gap-3">
-                        <button 
-                            onClick={() => router.push('/pet-owners')}
+                        <button
+                            onClick={() => router.push('/owner/login')}
                             className="hidden md:block text-slate-600 hover:text-teal-600 text-sm font-bold px-4 py-2 transition-colors rounded-lg hover:bg-slate-50"
                         >
                             Σύνδεση
                         </button>
-                        <button 
-                            onClick={() => router.push('/login')}
+                        <button
+                            onClick={() => router.push('/vet/login')}
                             className="hidden md:flex bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-5 py-2.5 rounded-full transition-all shadow-md items-center gap-2"
                         >
                             <StethoscopeIcon className="w-4 h-4" />
@@ -135,18 +135,18 @@ const Navbar: React.FC = () => {
                             Blog
                         </button>
                         <div className="pt-3 border-t border-slate-200 space-y-2">
-                            <button 
+                            <button
                                 onClick={() => {
-                                    router.push('/pet-owners');
+                                    router.push('/owner/login');
                                     setMobileMenuOpen(false);
                                 }}
                                 className="block w-full text-center px-4 py-3 text-sm font-bold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
                             >
                                 Σύνδεση
                             </button>
-                            <button 
+                            <button
                                 onClick={() => {
-                                    router.push('/login');
+                                    router.push('/vet/login');
                                     setMobileMenuOpen(false);
                                 }}
                                 className="block w-full text-center px-4 py-3 text-sm font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"

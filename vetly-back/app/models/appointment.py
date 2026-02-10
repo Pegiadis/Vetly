@@ -33,9 +33,9 @@ class Appointment(BaseModel):
         nullable=False,
         index=True
     )
-    user_id = Column(
+    pet_owner_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("pet_owners.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -62,7 +62,7 @@ class Appointment(BaseModel):
     
     # Relationships
     vet = relationship("Vet", back_populates="appointments")
-    user = relationship("User", back_populates="appointments")
+    pet_owner = relationship("PetOwner", back_populates="appointments")
     pet = relationship("Pet", back_populates="appointments")
     
     def __repr__(self):

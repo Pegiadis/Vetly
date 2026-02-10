@@ -14,7 +14,7 @@ from app.schemas.appointment import (
     AppointmentListResponse,
     AppointmentStatusUpdate,
     AppointmentPetResponse,
-    AppointmentUserResponse,
+    AppointmentPetOwnerResponse,
 )
 
 
@@ -25,12 +25,12 @@ class AppointmentService:
         self.repository = AppointmentRepository(db)
 
     def _build_detail_response(self, appointment) -> AppointmentDetailResponse:
-        """Build a detailed appointment response with pet and user info"""
+        """Build a detailed appointment response with pet and pet owner info"""
         response = AppointmentDetailResponse.model_validate(appointment)
         if appointment.pet:
             response.pet = AppointmentPetResponse.model_validate(appointment.pet)
-        if appointment.user:
-            response.user = AppointmentUserResponse.model_validate(appointment.user)
+        if appointment.pet_owner:
+            response.pet_owner = AppointmentPetOwnerResponse.model_validate(appointment.pet_owner)
         return response
 
     def list_appointments(

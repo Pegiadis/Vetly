@@ -20,7 +20,7 @@ class ReviewRepository:
         query = (
             select(Review)
             .where(Review.id == review_id, Review.vet_id == vet_id)
-            .options(joinedload(Review.user))
+            .options(joinedload(Review.pet_owner))
         )
         return self.db.scalar(query)
 
@@ -44,7 +44,7 @@ class ReviewRepository:
         query = (
             select(Review)
             .where(Review.vet_id == vet_id)
-            .options(joinedload(Review.user))
+            .options(joinedload(Review.pet_owner))
             .order_by(Review.created_at.desc())
             .offset(skip)
             .limit(limit)

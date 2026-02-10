@@ -10,16 +10,20 @@ from pydantic import field_validator
 
 class Settings(BaseSettings):
     """Application settings"""
-    
+
     # Project
     PROJECT_NAME: str = "Vetly API"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
-    
+
     # Database
     DATABASE_URL: str
-    
+
+    # Security
+    SECRET_KEY: str = "vetly-dev-secret-key-change-in-production"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
+
     # CORS
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
     

@@ -12,7 +12,7 @@ from app.schemas.review import (
     ReviewListResponse,
     ReviewReplyRequest,
     ReviewStatsResponse,
-    ReviewUserResponse,
+    ReviewPetOwnerResponse,
     RatingDistribution,
 )
 
@@ -24,10 +24,10 @@ class ReviewService:
         self.repository = ReviewRepository(db)
 
     def _build_detail_response(self, review) -> ReviewDetailResponse:
-        """Build a detailed review response with user info"""
+        """Build a detailed review response with pet owner info"""
         response = ReviewDetailResponse.model_validate(review)
-        if review.user:
-            response.user = ReviewUserResponse.model_validate(review.user)
+        if review.pet_owner:
+            response.pet_owner = ReviewPetOwnerResponse.model_validate(review.pet_owner)
         return response
 
     def list_reviews(

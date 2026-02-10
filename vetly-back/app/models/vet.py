@@ -67,7 +67,7 @@ class Vet(BaseModel):
     notifications = relationship(
         "Notification",
         back_populates="vet",
-        overlaps="user"
+        overlaps="pet_owner"
     )
     blog_posts = relationship(
         "BlogPost",

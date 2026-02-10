@@ -15,14 +15,14 @@ from app.api.v1.router import api_router
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
-    print("🚀 Starting Vetly API...")
-    print(f"📍 Environment: {settings.ENVIRONMENT}")
-    print(f"🗄️  Database: {settings.DATABASE_URL.split('@')[-1]}")
+    print("Starting Vetly API...")
+    print(f"Environment: {settings.ENVIRONMENT}")
+    print(f"Database: {settings.DATABASE_URL.split('@')[-1]}")
 
     yield
 
     # Shutdown
-    print("👋 Shutting down Vetly API...")
+    print("Shutting down Vetly API...")
 
 
 app = FastAPI(

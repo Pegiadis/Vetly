@@ -20,8 +20,8 @@ class AppointmentPetResponse(BaseModel):
     image_url: str | None = None
 
 
-class AppointmentUserResponse(BaseModel):
-    """Simplified user response for appointments"""
+class AppointmentPetOwnerResponse(BaseModel):
+    """Simplified pet owner response for appointments"""
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -36,7 +36,7 @@ class AppointmentResponse(BaseModel):
 
     id: UUID
     vet_id: UUID
-    user_id: UUID
+    pet_owner_id: UUID
     pet_id: UUID
     scheduled_at: datetime
     duration_minutes: int
@@ -48,9 +48,9 @@ class AppointmentResponse(BaseModel):
 
 
 class AppointmentDetailResponse(AppointmentResponse):
-    """Appointment response with pet and user details"""
+    """Appointment response with pet and pet owner details"""
     pet: AppointmentPetResponse | None = None
-    user: AppointmentUserResponse | None = None
+    pet_owner: AppointmentPetOwnerResponse | None = None
 
 
 class AppointmentListResponse(BaseModel):
