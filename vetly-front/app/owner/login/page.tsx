@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,8 +13,14 @@ interface TokenResponse {
 
 export default function OwnerLoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, isAuthenticated, userType, isLoading } = useAuth();
   const [email, setEmail] = useState('');
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && userType === 'pet_owner') {
+      router.replace('/owner/dashboard');
+    }
+  }, [isLoading, isAuthenticated, userType, router]);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

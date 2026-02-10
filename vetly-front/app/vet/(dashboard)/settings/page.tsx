@@ -1,46 +1,121 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useVetProfile, updateVetProfile, updateVetHours, DayHours } from '@/hooks/useVetData';
+
+const defaultHours: Record<string, DayHours> = {
+  monday: { open: '09:00', close: '21:00', closed: false },
+  tuesday: { open: '09:00', close: '21:00', closed: false },
+  wednesday: { open: '09:00', close: '21:00', closed: false },
+  thursday: { open: '09:00', close: '21:00', closed: false },
+  friday: { open: '09:00', close: '18:00', closed: false },
+  saturday: { open: '10:00', close: '14:00', closed: false },
+  sunday: { open: '', close: '', closed: true },
+};
+
+const dayNames: Record<string, string> = {
+  monday: 'Δευτέρα',
+  tuesday: 'Τρίτη',
+  wednesday: 'Τετάρτη',
+  thursday: 'Πέμπτη',
+  friday: 'Παρασκευή',
+  saturday: 'Σάββατο',
+  sunday: 'Κυριακή',
+};
+
+const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export default function VetSettingsPage() {
+  const { profile, loading, error } = useVetProfile();
+
   const [formData, setFormData] = useState({
-    name: 'Δρ. Γεώργιος Παπαδόπουλος',
-    specialty: 'Γενικός Κτηνίατρος',
-    email: 'g.papadopoulos@vetly.gr',
-    phone: '+30 210 1234567',
-    address: 'Λεωφ. Κηφισίας 120',
-    city: 'Αθήνα',
-    description: 'Εξειδικευμένος στην παθολογία μικρών ζώων με πάνω από 15 χρόνια εμπειρίας.',
-    licenseNumber: 'VET-2024-12345',
+    name: '',
+    specialty: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    description: '',
+    licenseNumber: '',
   });
 
-  const [hours, setHours] = useState({
-    monday: { open: '09:00', close: '21:00', closed: false },
-    tuesday: { open: '09:00', close: '21:00', closed: false },
-    wednesday: { open: '09:00', close: '21:00', closed: false },
-    thursday: { open: '09:00', close: '21:00', closed: false },
-    friday: { open: '09:00', close: '18:00', closed: false },
-    saturday: { open: '10:00', close: '14:00', closed: false },
-    sunday: { open: '', close: '', closed: true },
-  });
+  const [hours, setHours] = useState<Record<string, DayHours>>(defaultHours);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const dayNames: Record<string, string> = {
-    monday: 'Δευτέρα',
-    tuesday: 'Τρίτη',
-    wednesday: 'Τετάρτη',
-    thursday: 'Πέμπτη',
-    friday: 'Παρασκευή',
-    saturday: 'Σάββατο',
-    sunday: 'Κυριακή',
+  useEffect(() => {
+    if (!profile) return;
+    setFormData({
+      name: profile.name || '',
+      specialty: profile.specialty || '',
+      email: profile.email || '',
+      phone: profile.phone || '',
+      address: profile.address || '',
+      city: profile.city || '',
+      description: profile.description || '',
+      licenseNumber: profile.license_number || '',
+    });
+    if (profile.hours) {
+      const merged: Record<string, DayHours> = {};
+      for (const day of dayOrder) {
+        const h = profile.hours[day];
+        merged[day] = h
+          ? { open: h.open || '', close: h.close || '', closed: h.closed ?? false }
+          : defaultHours[day];
+      }
+      setHours(merged);
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+    try {
+      await updateVetProfile({
+        name: formData.name,
+        specialty: formData.specialty,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        description: formData.description,
+      });
+      await updateVetHours(hours);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Αποτυχία αποθήκευσης');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <p className="text-red-700 font-medium">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-6">
         <Link href="/vet/dashboard" className="text-slate-500 text-sm font-bold mb-2 hover:text-indigo-600 block">
-          ← Dashboard
+          &larr; Dashboard
         </Link>
         <h1 className="text-3xl font-bold text-slate-900">Ρυθμίσεις Προφίλ</h1>
       </div>
@@ -51,11 +126,11 @@ export default function VetSettingsPage() {
           <h2 className="text-lg font-bold text-slate-800 mb-4">Φωτογραφία Προφίλ</h2>
           <div className="flex items-center gap-6">
             <div className="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
-              <img
-                src="https://picsum.photos/400/400?random=1"
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
+              {profile?.image_url ? (
+                <img src={profile.image_url} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-indigo-600 font-bold text-3xl">{formData.name.charAt(0) || '?'}</span>
+              )}
             </div>
             <div>
               <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors">
@@ -93,8 +168,8 @@ export default function VetSettingsPage() {
               <input
                 type="email"
                 value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-500 cursor-not-allowed"
               />
             </div>
             <div>
@@ -138,8 +213,8 @@ export default function VetSettingsPage() {
               <input
                 type="text"
                 value={formData.licenseNumber}
-                onChange={e => setFormData({ ...formData, licenseNumber: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                disabled
+                className="w-full px-4 py-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-500 cursor-not-allowed"
               />
             </div>
           </div>
@@ -149,51 +224,70 @@ export default function VetSettingsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <h2 className="text-lg font-bold text-slate-800 mb-4">Ωράριο Λειτουργίας</h2>
           <div className="space-y-3">
-            {Object.entries(hours).map(([day, schedule]) => (
-              <div key={day} className="flex items-center gap-4">
-                <span className="w-24 text-sm font-medium text-slate-700">{dayNames[day]}</span>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={!schedule.closed}
-                    onChange={() =>
-                      setHours({ ...hours, [day]: { ...schedule, closed: !schedule.closed } })
-                    }
-                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-slate-600">Ανοιχτά</span>
-                </label>
-                {!schedule.closed && (
-                  <>
+            {dayOrder.map(day => {
+              const schedule = hours[day];
+              return (
+                <div key={day} className="flex items-center gap-4">
+                  <span className="w-24 text-sm font-medium text-slate-700">{dayNames[day]}</span>
+                  <label className="flex items-center gap-2">
                     <input
-                      type="time"
-                      value={schedule.open}
-                      onChange={e =>
-                        setHours({ ...hours, [day]: { ...schedule, open: e.target.value } })
+                      type="checkbox"
+                      checked={!schedule.closed}
+                      onChange={() =>
+                        setHours({ ...hours, [day]: { ...schedule, closed: !schedule.closed } })
                       }
-                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
                     />
-                    <span className="text-slate-400">-</span>
-                    <input
-                      type="time"
-                      value={schedule.close}
-                      onChange={e =>
-                        setHours({ ...hours, [day]: { ...schedule, close: e.target.value } })
-                      }
-                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
-                  </>
-                )}
-                {schedule.closed && <span className="text-sm text-slate-400 italic">Κλειστά</span>}
-              </div>
-            ))}
+                    <span className="text-sm text-slate-600">Ανοιχτά</span>
+                  </label>
+                  {!schedule.closed && (
+                    <>
+                      <input
+                        type="time"
+                        value={schedule.open || ''}
+                        onChange={e =>
+                          setHours({ ...hours, [day]: { ...schedule, open: e.target.value } })
+                        }
+                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                      <span className="text-slate-400">-</span>
+                      <input
+                        type="time"
+                        value={schedule.close || ''}
+                        onChange={e =>
+                          setHours({ ...hours, [day]: { ...schedule, close: e.target.value } })
+                        }
+                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </>
+                  )}
+                  {schedule.closed && <span className="text-sm text-slate-400 italic">Κλειστά</span>}
+                </div>
+              );
+            })}
           </div>
         </div>
 
+        {/* Save Feedback */}
+        {saveError && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+            <p className="text-red-700 font-medium">{saveError}</p>
+          </div>
+        )}
+        {saveSuccess && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+            <p className="text-green-700 font-medium">Οι αλλαγές αποθηκεύτηκαν επιτυχώς!</p>
+          </div>
+        )}
+
         {/* Save Button */}
         <div className="flex justify-end">
-          <button className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg">
-            Αποθήκευση Αλλαγών
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg disabled:opacity-50"
+          >
+            {saving ? 'Αποθήκευση...' : 'Αποθήκευση Αλλαγών'}
           </button>
         </div>
       </div>

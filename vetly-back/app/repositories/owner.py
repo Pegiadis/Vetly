@@ -6,7 +6,7 @@ from uuid import UUID
 from datetime import datetime
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.db.base import Pet, Appointment, Vet, PetOwner
 from app.models.appointment import AppointmentStatus
@@ -29,19 +29,21 @@ class OwnerRepository:
         return self.db.scalar(query)
 
     def get_appointments_by_owner_id(self, owner_id: UUID) -> list[Appointment]:
-        """Get all appointments for a pet owner"""
+        """Get all appointments for a pet owner with pet and vet details"""
         query = (
             select(Appointment)
+            .options(joinedload(Appointment.pet), joinedload(Appointment.vet))
             .where(Appointment.pet_owner_id == owner_id)
             .order_by(Appointment.scheduled_at.desc())
         )
-        return list(self.db.scalars(query).all())
+        return list(self.db.scalars(query).unique().all())
 
     def get_upcoming_appointments(self, owner_id: UUID) -> list[Appointment]:
-        """Get upcoming appointments for a pet owner"""
+        """Get upcoming appointments for a pet owner with pet and vet details"""
         now = datetime.utcnow()
         query = (
             select(Appointment)
+            .options(joinedload(Appointment.pet), joinedload(Appointment.vet))
             .where(
                 Appointment.pet_owner_id == owner_id,
                 Appointment.scheduled_at >= now,
@@ -49,7 +51,7 @@ class OwnerRepository:
             )
             .order_by(Appointment.scheduled_at)
         )
-        return list(self.db.scalars(query).all())
+        return list(self.db.scalars(query).unique().all())
 
     def create_appointment(
         self,

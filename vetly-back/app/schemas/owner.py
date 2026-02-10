@@ -32,6 +32,7 @@ class PetResponse(BaseModel):
     age: int | None = None
     weight: float | None = None
     gender: str | None = None
+    chip_number: str | None = None
     image_url: str | None = None
     created_at: datetime
 
@@ -48,6 +49,29 @@ class AppointmentCreateRequest(BaseModel):
     notes: str | None = Field(None, max_length=1000)
 
 
+class AppointmentPetInfo(BaseModel):
+    """Nested pet info inside appointment response"""
+    id: UUID
+    name: str
+    type: str
+    breed: str | None = None
+    image_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class AppointmentVetInfo(BaseModel):
+    """Nested vet info inside appointment response"""
+    id: UUID
+    name: str
+    specialty: str
+    address: str | None = None
+    city: str | None = None
+    image_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class AppointmentResponse(BaseModel):
     """Appointment response for owner endpoints"""
     id: UUID
@@ -61,6 +85,8 @@ class AppointmentResponse(BaseModel):
     notes: str | None = None
     created_at: datetime
     updated_at: datetime
+    pet: AppointmentPetInfo | None = None
+    vet: AppointmentVetInfo | None = None
 
     model_config = {"from_attributes": True}
 

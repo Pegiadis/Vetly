@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 const navItems = [
   {
@@ -85,6 +86,13 @@ const bottomNavItems = [
 
 export default function VetSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    router.push('/vet/login');
+  };
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-100 flex flex-col z-40">
@@ -154,15 +162,15 @@ export default function VetSidebar() {
         })}
 
         {/* Logout */}
-        <Link
-          href="/vet/login"
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all mt-2"
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all mt-2 w-full"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
           Αποσύνδεση
-        </Link>
+        </button>
       </div>
     </aside>
   );

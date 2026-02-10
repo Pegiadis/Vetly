@@ -9,6 +9,7 @@ export interface Pet {
   age: number | null;
   weight: number | null;
   gender: string | null;
+  chip_number: string | null;
   image_url: string | null;
   created_at: string;
 }
@@ -20,6 +21,23 @@ export interface Vet {
   city: string | null;
   rating_average: number;
   reviews_count: number;
+  image_url: string | null;
+}
+
+export interface AppointmentPetInfo {
+  id: string;
+  name: string;
+  type: string;
+  breed: string | null;
+  image_url: string | null;
+}
+
+export interface AppointmentVetInfo {
+  id: string;
+  name: string;
+  specialty: string;
+  address: string | null;
+  city: string | null;
   image_url: string | null;
 }
 
@@ -35,6 +53,8 @@ export interface Appointment {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  pet: AppointmentPetInfo | null;
+  vet: AppointmentVetInfo | null;
 }
 
 interface VetListResponse {
@@ -105,6 +125,31 @@ export function useMyAppointments() {
     try {
       setLoading(true);
       const data = await api.get<Appointment[]>('/owner/appointments');
+      setAppointments(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  return { appointments, loading, error, refetch: fetchAppointments };
+}
+
+export function useUpcomingAppointments() {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<Appointment[]>('/owner/appointments/upcoming');
       setAppointments(data);
       setError(null);
     } catch (err) {

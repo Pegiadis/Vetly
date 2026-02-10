@@ -1,30 +1,34 @@
 'use client';
 
 import Link from 'next/link';
+import { useMyPets, useUpcomingAppointments } from '@/hooks/useOwnerData';
 
-// Mock data
-const mockOwner = {
-  id: '1',
-  name: 'Κωνσταντίνος Παπαδόπουλος',
-  email: 'kostas@example.com',
-};
+function formatDateTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const day = date.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
+  const time = date.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
+  return `${day}, ${time}`;
+}
 
-const mockPets = [
-  { id: '1', name: 'Μάξ', type: 'Σκύλος', breed: 'Golden Retriever', age: 3, image: 'https://picsum.photos/200/200?random=10' },
-  { id: '2', name: 'Λούνα', type: 'Γάτα', breed: 'Persian', age: 2, image: 'https://picsum.photos/200/200?random=11' },
-];
-
-const mockAppointments = [
-  { id: '1', petName: 'Μάξ', vetName: 'Δρ. Παπαδόπουλος', type: 'Εμβολιασμός', date: 'Αύριο', time: '10:00', status: 'confirmed' },
-  { id: '2', petName: 'Λούνα', vetName: 'Δρ. Γεωργίου', type: 'Ετήσιος Έλεγχος', date: '25 Ιουν', time: '14:30', status: 'pending' },
-];
-
-const mockMedications = [
-  { id: '1', petName: 'Μάξ', name: 'Αντιπαρασιτικό', nextDose: 'Σε 2 ώρες', frequency: 'Κάθε μήνα' },
-  { id: '2', petName: 'Λούνα', name: 'Βιταμίνες', nextDose: 'Αύριο πρωί', frequency: 'Καθημερινά' },
-];
+function PetTypeLabel({ type }: { type: string }) {
+  const labels: Record<string, string> = { Dog: 'Σκύλος', Cat: 'Γάτα', Other: 'Άλλο' };
+  return <>{labels[type] || type}</>;
+}
 
 export default function OwnerDashboardPage() {
+  const { pets, loading: petsLoading } = useMyPets();
+  const { appointments, loading: appointmentsLoading } = useUpcomingAppointments();
+
+  const loading = petsLoading || appointmentsLoading;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
@@ -47,7 +51,7 @@ export default function OwnerDashboardPage() {
             </div>
             <div>
               <p className="text-slate-500 text-xs font-bold uppercase">Κατοικίδια</p>
-              <h3 className="text-2xl font-bold text-slate-800">{mockPets.length}</h3>
+              <h3 className="text-2xl font-bold text-slate-800">{pets.length}</h3>
             </div>
           </div>
         </Link>
@@ -64,7 +68,7 @@ export default function OwnerDashboardPage() {
             </div>
             <div>
               <p className="text-slate-500 text-xs font-bold uppercase">Ραντεβού</p>
-              <h3 className="text-2xl font-bold text-slate-800">{mockAppointments.length}</h3>
+              <h3 className="text-2xl font-bold text-slate-800">{appointments.length}</h3>
             </div>
           </div>
         </Link>
@@ -81,7 +85,7 @@ export default function OwnerDashboardPage() {
             </div>
             <div>
               <p className="text-slate-500 text-xs font-bold uppercase">Φάρμακα</p>
-              <h3 className="text-2xl font-bold text-slate-800">{mockMedications.length}</h3>
+              <h3 className="text-2xl font-bold text-slate-800">0</h3>
             </div>
           </div>
         </Link>
@@ -116,27 +120,27 @@ export default function OwnerDashboardPage() {
               </Link>
             </h3>
 
-            {mockAppointments.length > 0 ? (
+            {appointments.length > 0 ? (
               <div className="space-y-3">
-                {mockAppointments.map(apt => (
+                {appointments.slice(0, 5).map(apt => (
                   <div
                     key={apt.id}
                     className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-teal-200 transition-colors"
                   >
                     <div className="flex items-center gap-3 mb-3 sm:mb-0">
                       <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 font-bold">
-                        {apt.petName.charAt(0)}
+                        {apt.pet?.name?.charAt(0) || '?'}
                       </div>
                       <div>
                         <h4 className="font-bold text-slate-800">
-                          {apt.petName} <span className="text-slate-400 font-normal text-sm">• {apt.type}</span>
+                          {apt.pet?.name || 'Κατοικίδιο'} <span className="text-slate-400 font-normal text-sm">• {apt.type}</span>
                         </h4>
-                        <p className="text-sm text-slate-600">{apt.vetName}</p>
+                        <p className="text-sm text-slate-600">{apt.vet?.name || 'Κτηνίατρος'}</p>
                         <div className="flex items-center gap-1 mt-1 text-xs text-teal-600 bg-teal-50 px-2 py-0.5 rounded w-fit">
                           <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
-                          {apt.date}, {apt.time}
+                          {formatDateTime(apt.scheduled_at)}
                         </div>
                       </div>
                     </div>
@@ -173,46 +177,6 @@ export default function OwnerDashboardPage() {
               Κλείστε Ραντεβού
             </Link>
           </div>
-
-          {/* Medication Reminders */}
-          {mockMedications.length > 0 && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm border border-amber-100 relative overflow-hidden">
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-amber-400 to-orange-500" />
-              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <span className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
-                  Υπενθυμίσεις Φαρμάκων
-                </span>
-                <Link href="/owner/medications" className="text-sm text-amber-600 font-bold hover:underline">
-                  Όλα
-                </Link>
-              </h3>
-
-              <div className="space-y-3">
-                {mockMedications.map(med => (
-                  <div
-                    key={med.id}
-                    className="flex items-center justify-between p-4 bg-amber-50 rounded-xl border border-amber-100"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-amber-200 rounded-full flex items-center justify-center text-amber-700">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800">{med.name}</h4>
-                        <p className="text-sm text-slate-600">{med.petName} • {med.frequency}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-amber-700">{med.nextDose}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Right Column */}
@@ -226,28 +190,36 @@ export default function OwnerDashboardPage() {
               </Link>
             </h3>
             <div className="space-y-3">
-              {mockPets.map((pet) => (
-                <Link
-                  key={pet.id}
-                  href={`/owner/pets?selected=${pet.id}`}
-                  className="flex items-center gap-3 group cursor-pointer p-2 -mx-2 rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-slate-100">
-                    <img src={pet.image} alt={pet.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-slate-800 text-sm group-hover:text-teal-600 transition-colors">
-                      {pet.name}
-                    </p>
-                    <p className="text-xs text-slate-400">{pet.type} • {pet.breed}</p>
-                  </div>
-                  <div className="text-slate-300 group-hover:text-teal-600 transition-colors">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </div>
-                </Link>
-              ))}
+              {pets.length > 0 ? (
+                pets.map((pet) => (
+                  <Link
+                    key={pet.id}
+                    href={`/owner/pets?selected=${pet.id}`}
+                    className="flex items-center gap-3 group cursor-pointer p-2 -mx-2 rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-slate-100 bg-teal-50 flex items-center justify-center flex-shrink-0">
+                      {pet.image_url ? (
+                        <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-teal-600 font-bold">{pet.name.charAt(0)}</span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-bold text-slate-800 text-sm group-hover:text-teal-600 transition-colors">
+                        {pet.name}
+                      </p>
+                      <p className="text-xs text-slate-400"><PetTypeLabel type={pet.type} /> • {pet.breed || '-'}</p>
+                    </div>
+                    <div className="text-slate-300 group-hover:text-teal-600 transition-colors">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <p className="text-sm text-slate-400 py-2">Δεν έχετε κατοικίδια ακόμα.</p>
+              )}
             </div>
 
             <Link
