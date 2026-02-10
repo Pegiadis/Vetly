@@ -337,8 +337,28 @@ def seed_medical_events(db: Session, pets: list[Pet], vets: list[Vet]) -> list[M
     return events
 
 
-def seed_database(db: Session):
+def clear_database(db: Session):
+    """Clear all data from the database"""
+    from sqlalchemy import text
+    print("Clearing existing data...")
+    # Delete in order respecting foreign key constraints
+    db.execute(text("DELETE FROM notifications"))
+    db.execute(text("DELETE FROM reviews"))
+    db.execute(text("DELETE FROM medical_events"))
+    db.execute(text("DELETE FROM weight_history"))
+    db.execute(text("DELETE FROM medications"))
+    db.execute(text("DELETE FROM appointments"))
+    db.execute(text("DELETE FROM pets"))
+    db.execute(text("DELETE FROM pet_owners"))
+    db.execute(text("DELETE FROM vets"))
+    db.commit()
+    print("Database cleared.")
+
+
+def seed_database(db: Session, clear_first: bool = True):
     """Main function to seed the database"""
+    if clear_first:
+        clear_database(db)
     print("Starting database seeding...")
 
     print("Seeding vets...")
