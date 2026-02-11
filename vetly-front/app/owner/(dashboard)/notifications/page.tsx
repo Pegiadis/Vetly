@@ -1,50 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-
-// Mock data
-const mockNotifications = [
-  {
-    id: '1',
-    type: 'medication',
-    title: 'Υπενθύμιση φαρμάκου',
-    message: 'Ώρα για το αντιπαρασιτικό του Μάξ!',
-    date: '2024-06-23T09:00:00',
-    isRead: false,
-  },
-  {
-    id: '2',
-    type: 'appointment',
-    title: 'Επιβεβαίωση ραντεβού',
-    message: 'Το ραντεβού σας με τον Δρ. Παπαδόπουλο επιβεβαιώθηκε για 25/06 στις 10:00.',
-    date: '2024-06-22T14:30:00',
-    isRead: false,
-  },
-  {
-    id: '3',
-    type: 'reply',
-    title: 'Νέα απάντηση στην αξιολόγησή σας',
-    message: 'Ο Δρ. Γεωργίου απάντησε στην αξιολόγησή σας.',
-    date: '2024-06-21T10:15:00',
-    isRead: true,
-  },
-  {
-    id: '4',
-    type: 'reminder',
-    title: 'Υπενθύμιση ραντεβού',
-    message: 'Έχετε ραντεβού αύριο στις 10:00 για εμβολιασμό του Μάξ.',
-    date: '2024-06-20T18:00:00',
-    isRead: true,
-  },
-  {
-    id: '5',
-    type: 'system',
-    title: 'Καλώς ήρθατε στο Vetly!',
-    message: 'Ευχαριστούμε για την εγγραφή σας. Ανακαλύψτε τις δυνατότητες της εφαρμογής.',
-    date: '2024-06-15T09:00:00',
-    isRead: true,
-  },
-];
+import { useMemo } from 'react';
+import {
+  useMyNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+} from '@/hooks/useOwnerData';
 
 const notificationIcons: Record<string, { bg: string; icon: JSX.Element }> = {
   medication: {
@@ -89,34 +50,63 @@ const notificationIcons: Record<string, { bg: string; icon: JSX.Element }> = {
   },
 };
 
+function formatDate(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 60) return `${diffMins} λεπτά πριν`;
+  if (diffHours < 24) return `${diffHours} ώρες πριν`;
+  if (diffDays < 7) return `${diffDays} ημέρες πριν`;
+  return date.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
+}
+
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const { notifications, loading, error, refetch } = useMyNotifications();
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = useMemo(
+    () => notifications.filter(n => !n.is_read).length,
+    [notifications]
+  );
 
-  const markAsRead = (id: string) => {
-    setNotifications(prev =>
-      prev.map(n => (n.id === id ? { ...n, isRead: true } : n))
+  const handleMarkRead = async (id: string) => {
+    try {
+      await markNotificationRead(id);
+      refetch();
+    } catch {
+      // silent
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead();
+      refetch();
+    } catch {
+      // silent
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+      </div>
     );
-  };
+  }
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
-  };
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 60) return `${diffMins} λεπτά πριν`;
-    if (diffHours < 24) return `${diffHours} ώρες πριν`;
-    if (diffDays < 7) return `${diffDays} ημέρες πριν`;
-    return date.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
-  };
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <p className="text-red-700 font-medium">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -132,7 +122,7 @@ export default function NotificationsPage() {
         </div>
         {unreadCount > 0 && (
           <button
-            onClick={markAllAsRead}
+            onClick={handleMarkAllRead}
             className="text-teal-600 font-bold text-sm hover:text-teal-700 transition-colors"
           >
             Σήμανση όλων ως αναγνωσμένα
@@ -149,9 +139,11 @@ export default function NotificationsPage() {
             return (
               <div
                 key={notification.id}
-                onClick={() => markAsRead(notification.id)}
-                className={`bg-white rounded-2xl p-5 shadow-sm border transition-all cursor-pointer ${
-                  notification.isRead
+                onClick={() => !notification.is_read && handleMarkRead(notification.id)}
+                className={`bg-white rounded-2xl p-5 shadow-sm border transition-all ${
+                  !notification.is_read ? 'cursor-pointer' : ''
+                } ${
+                  notification.is_read
                     ? 'border-slate-100 hover:border-slate-200'
                     : 'border-teal-200 bg-teal-50/30 hover:bg-teal-50/50'
                 }`}
@@ -163,19 +155,19 @@ export default function NotificationsPage() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-4 mb-1">
-                      <h3 className={`font-bold ${notification.isRead ? 'text-slate-700' : 'text-slate-900'}`}>
+                      <h3 className={`font-bold ${notification.is_read ? 'text-slate-700' : 'text-slate-900'}`}>
                         {notification.title}
                       </h3>
                       <span className="text-xs text-slate-400 whitespace-nowrap">
-                        {formatDate(notification.date)}
+                        {formatDate(notification.created_at)}
                       </span>
                     </div>
-                    <p className={`text-sm ${notification.isRead ? 'text-slate-500' : 'text-slate-700'}`}>
+                    <p className={`text-sm ${notification.is_read ? 'text-slate-500' : 'text-slate-700'}`}>
                       {notification.message}
                     </p>
                   </div>
 
-                  {!notification.isRead && (
+                  {!notification.is_read && (
                     <div className="w-2 h-2 bg-teal-500 rounded-full flex-shrink-0 mt-2" />
                   )}
                 </div>

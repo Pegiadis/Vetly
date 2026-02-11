@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
 
 export interface Pet {
@@ -177,4 +177,221 @@ export interface CreateAppointmentRequest {
 
 export async function createAppointment(data: CreateAppointmentRequest): Promise<Appointment> {
   return api.post<Appointment>('/owner/appointments', data);
+}
+
+// --- Medical History ---
+
+export interface MedicalEventVetInfo {
+  id: string;
+  name: string;
+  specialty: string;
+}
+
+export interface OwnerMedicalEvent {
+  id: string;
+  pet_id: string;
+  vet_id: string | null;
+  date: string;
+  title: string;
+  notes: string | null;
+  event_type: string;
+  created_at: string;
+  vet: MedicalEventVetInfo | null;
+}
+
+interface MedicalHistoryResponse {
+  items: OwnerMedicalEvent[];
+  total: number;
+}
+
+export function usePetMedicalHistory(petId: string | null) {
+  const [events, setEvents] = useState<OwnerMedicalEvent[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchHistory = useCallback(async () => {
+    if (!petId) return;
+    try {
+      setLoading(true);
+      const data = await api.get<MedicalHistoryResponse>(`/owner/pets/${petId}/medical-history`);
+      setEvents(data.items);
+      setTotal(data.total);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch medical history');
+    } finally {
+      setLoading(false);
+    }
+  }, [petId]);
+
+  useEffect(() => {
+    if (petId) fetchHistory();
+    else { setEvents([]); setTotal(0); }
+  }, [petId, fetchHistory]);
+
+  return { events, total, loading, error, refetch: fetchHistory };
+}
+
+// --- Medications ---
+
+export interface MedicationPetInfo {
+  id: string;
+  name: string;
+  type: string;
+  image_url: string | null;
+}
+
+export interface OwnerMedication {
+  id: string;
+  pet_id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  time: string;
+  start_date: string;
+  end_date: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  pet: MedicationPetInfo | null;
+}
+
+export function useMyMedications(isActive?: boolean) {
+  const [medications, setMedications] = useState<OwnerMedication[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMedications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (isActive !== undefined) params.set('is_active', String(isActive));
+      const query = params.toString() ? `?${params.toString()}` : '';
+      const data = await api.get<OwnerMedication[]>(`/owner/medications${query}`);
+      setMedications(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch medications');
+    } finally {
+      setLoading(false);
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    fetchMedications();
+  }, [fetchMedications]);
+
+  return { medications, loading, error, refetch: fetchMedications };
+}
+
+// --- Reviews ---
+
+export interface ReviewVetInfo {
+  id: string;
+  name: string;
+  specialty: string;
+  image_url: string | null;
+}
+
+export interface OwnerReview {
+  id: string;
+  vet_id: string;
+  pet_owner_id: string;
+  appointment_id: string | null;
+  rating: number;
+  comment: string;
+  reply: string | null;
+  created_at: string;
+  updated_at: string;
+  vet: ReviewVetInfo | null;
+}
+
+export function useMyReviews() {
+  const [reviews, setReviews] = useState<OwnerReview[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchReviews = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<OwnerReview[]>('/owner/reviews');
+      setReviews(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch reviews');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
+
+  return { reviews, loading, error, refetch: fetchReviews };
+}
+
+export async function createReview(data: {
+  vet_id: string;
+  appointment_id?: string;
+  rating: number;
+  comment: string;
+}): Promise<OwnerReview> {
+  return api.post<OwnerReview>('/owner/reviews', data);
+}
+
+export async function updateReview(
+  reviewId: string,
+  data: { rating?: number; comment?: string }
+): Promise<OwnerReview> {
+  return api.put<OwnerReview>(`/owner/reviews/${reviewId}`, data);
+}
+
+export async function deleteReview(reviewId: string): Promise<void> {
+  return api.delete<void>(`/owner/reviews/${reviewId}`);
+}
+
+// --- Notifications ---
+
+export interface OwnerNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export function useMyNotifications() {
+  const [notifications, setNotifications] = useState<OwnerNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<OwnerNotification[]>('/owner/notifications');
+      setNotifications(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  return { notifications, loading, error, refetch: fetchNotifications };
+}
+
+export async function markNotificationRead(notificationId: string): Promise<OwnerNotification> {
+  return api.patch<OwnerNotification>(`/owner/notifications/${notificationId}/read`, {});
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  return api.post<void>('/owner/notifications/mark-all-read', {});
 }

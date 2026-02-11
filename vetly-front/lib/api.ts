@@ -38,6 +38,10 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
     throw new ApiError(response.status, error.detail || 'Request failed');
   }
 
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return response.json();
 }
 

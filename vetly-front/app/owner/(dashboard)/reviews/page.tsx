@@ -1,41 +1,31 @@
 'use client';
 
 import { useState } from 'react';
-
-// Mock data
-const mockReviews = [
-  {
-    id: '1',
-    vetId: '1',
-    vetName: 'Δρ. Γεώργιος Παπαδόπουλος',
-    vetSpecialty: 'Γενικός Κτηνίατρος',
-    vetImage: 'https://picsum.photos/100/100?random=1',
-    petName: 'Μάξ',
-    appointmentType: 'Εμβολιασμός',
-    rating: 5,
-    comment: 'Εξαιρετικός κτηνίατρος! Ο Μάξ αισθάνθηκε πολύ άνετα και ο Δρ. Παπαδόπουλος μας εξήγησε τα πάντα με λεπτομέρεια.',
-    reply: 'Ευχαριστούμε πολύ για τα καλά σας λόγια! Χαρήκαμε που ο Μάξ είχε μια θετική εμπειρία.',
-    date: '2024-06-15',
-  },
-  {
-    id: '2',
-    vetId: '2',
-    vetName: 'Δρ. Μαρία Γεωργίου',
-    vetSpecialty: 'Δερματολόγος',
-    vetImage: 'https://picsum.photos/100/100?random=2',
-    petName: 'Λούνα',
-    appointmentType: 'Έλεγχος Δέρματος',
-    rating: 4,
-    comment: 'Πολύ επαγγελματική και καταρτισμένη. Η Λούνα βελτιώθηκε πολύ μετά τη θεραπεία.',
-    reply: null,
-    date: '2024-05-20',
-  },
-];
+import {
+  useMyReviews,
+  useVets,
+  createReview,
+  updateReview,
+  deleteReview,
+  OwnerReview,
+} from '@/hooks/useOwnerData';
 
 export default function ReviewsPage() {
+  const { reviews, loading, error, refetch } = useMyReviews();
+  const { vets } = useVets();
+
+  // Create form state
   const [showForm, setShowForm] = useState(false);
-  const [newRating, setNewRating] = useState(0);
-  const [newComment, setNewComment] = useState('');
+  const [formVetId, setFormVetId] = useState('');
+  const [formRating, setFormRating] = useState(0);
+  const [formComment, setFormComment] = useState('');
+  const [formSubmitting, setFormSubmitting] = useState(false);
+
+  // Edit state
+  const [editingReview, setEditingReview] = useState<OwnerReview | null>(null);
+
+  // Delete state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const renderStars = (rating: number, interactive = false, onSelect?: (r: number) => void) => {
     return (
@@ -59,35 +49,133 @@ export default function ReviewsPage() {
     );
   };
 
+  const handleCreate = async () => {
+    if (!formVetId || formRating === 0 || !formComment.trim()) return;
+    setFormSubmitting(true);
+    try {
+      await createReview({
+        vet_id: formVetId,
+        rating: formRating,
+        comment: formComment.trim(),
+      });
+      setShowForm(false);
+      setFormVetId('');
+      setFormRating(0);
+      setFormComment('');
+      refetch();
+    } catch {
+      // Error handled silently
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const handleEdit = (review: OwnerReview) => {
+    setEditingReview(review);
+    setFormRating(review.rating);
+    setFormComment(review.comment);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingReview || formRating === 0 || !formComment.trim()) return;
+    setFormSubmitting(true);
+    try {
+      await updateReview(editingReview.id, {
+        rating: formRating,
+        comment: formComment.trim(),
+      });
+      setEditingReview(null);
+      setFormRating(0);
+      setFormComment('');
+      refetch();
+    } catch {
+      // Error handled silently
+    } finally {
+      setFormSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (reviewId: string) => {
+    setDeletingId(reviewId);
+    try {
+      await deleteReview(reviewId);
+      refetch();
+    } catch {
+      // Error handled silently
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <p className="text-red-700 font-medium">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Οι Αξιολογήσεις Μου</h1>
-        <p className="text-slate-500 mt-1">Δείτε και διαχειριστείτε τις αξιολογήσεις που έχετε αφήσει.</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Οι Αξιολογήσεις Μου</h1>
+          <p className="text-slate-500 mt-1">Δείτε και διαχειριστείτε τις αξιολογήσεις που έχετε αφήσει.</p>
+        </div>
+        <button
+          onClick={() => {
+            setEditingReview(null);
+            setFormVetId('');
+            setFormRating(0);
+            setFormComment('');
+            setShowForm(true);
+          }}
+          className="px-5 py-2.5 bg-teal-600 text-white rounded-xl font-bold text-sm hover:bg-teal-700 transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          Νέα Αξιολόγηση
+        </button>
       </div>
 
       {/* Reviews List */}
       <div className="space-y-4">
-        {mockReviews.length > 0 ? (
-          mockReviews.map((review) => (
+        {reviews.length > 0 ? (
+          reviews.map((review) => (
             <div
               key={review.id}
               className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100"
             >
               {/* Vet Info */}
               <div className="flex items-center gap-4 mb-4 pb-4 border-b border-slate-100">
-                <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0">
-                  <img src={review.vetImage} alt={review.vetName} className="w-full h-full object-cover" />
+                <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-teal-100 flex items-center justify-center">
+                  {review.vet?.image_url ? (
+                    <img src={review.vet.image_url} alt={review.vet.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-teal-700 font-bold text-lg">
+                      {review.vet?.name?.charAt(0) || '?'}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-bold text-slate-900">{review.vetName}</h3>
-                  <p className="text-sm text-slate-500">{review.vetSpecialty}</p>
+                  <h3 className="font-bold text-slate-900">{review.vet?.name || 'Άγνωστος'}</h3>
+                  <p className="text-sm text-slate-500">{review.vet?.specialty || ''}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-slate-500">{review.petName} • {review.appointmentType}</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {new Date(review.date).toLocaleDateString('el-GR', {
+                  <p className="text-xs text-slate-400">
+                    {new Date(review.created_at).toLocaleDateString('el-GR', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
@@ -112,7 +200,7 @@ export default function ReviewsPage() {
                     <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                     </svg>
-                    <span className="text-sm font-bold text-slate-600">Απάντηση από {review.vetName}</span>
+                    <span className="text-sm font-bold text-slate-600">Απάντηση από {review.vet?.name || 'κτηνίατρο'}</span>
                   </div>
                   <p className="text-sm text-slate-600">{review.reply}</p>
                 </div>
@@ -120,17 +208,24 @@ export default function ReviewsPage() {
 
               {/* Actions */}
               <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
-                <button className="text-sm text-slate-500 hover:text-slate-700 transition-colors flex items-center gap-1">
+                <button
+                  onClick={() => handleEdit(review)}
+                  className="text-sm text-slate-500 hover:text-slate-700 transition-colors flex items-center gap-1"
+                >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
                   Επεξεργασία
                 </button>
-                <button className="text-sm text-red-500 hover:text-red-700 transition-colors flex items-center gap-1">
+                <button
+                  onClick={() => handleDelete(review.id)}
+                  disabled={deletingId === review.id}
+                  className="text-sm text-red-500 hover:text-red-700 transition-colors flex items-center gap-1 disabled:opacity-50"
+                >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
-                  Διαγραφή
+                  {deletingId === review.id ? 'Διαγραφή...' : 'Διαγραφή'}
                 </button>
               </div>
             </div>
@@ -148,7 +243,7 @@ export default function ReviewsPage() {
         )}
       </div>
 
-      {/* Write Review Modal */}
+      {/* Create Review Modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg">
@@ -166,15 +261,31 @@ export default function ReviewsPage() {
 
             <div className="space-y-4">
               <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Κτηνίατρος</label>
+                <select
+                  value={formVetId}
+                  onChange={(e) => setFormVetId(e.target.value)}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                >
+                  <option value="">Επιλέξτε κτηνίατρο...</option>
+                  {vets.map((vet) => (
+                    <option key={vet.id} value={vet.id}>
+                      {vet.name} — {vet.specialty}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Βαθμολογία</label>
-                {renderStars(newRating, true, setNewRating)}
+                {renderStars(formRating, true, setFormRating)}
               </div>
 
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Σχόλιο</label>
                 <textarea
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
+                  value={formComment}
+                  onChange={(e) => setFormComment(e.target.value)}
                   placeholder="Περιγράψτε την εμπειρία σας..."
                   rows={4}
                   className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
@@ -189,8 +300,79 @@ export default function ReviewsPage() {
               >
                 Ακύρωση
               </button>
-              <button className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors">
-                Υποβολή
+              <button
+                onClick={handleCreate}
+                disabled={formSubmitting || !formVetId || formRating === 0 || !formComment.trim()}
+                className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {formSubmitting ? 'Υποβολή...' : 'Υποβολή'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Review Modal */}
+      {editingReview && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-slate-900">Επεξεργασία Αξιολόγησης</h2>
+              <button
+                onClick={() => setEditingReview(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4 flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
+              <div className="w-10 h-10 rounded-lg overflow-hidden bg-teal-100 flex items-center justify-center flex-shrink-0">
+                {editingReview.vet?.image_url ? (
+                  <img src={editingReview.vet.image_url} alt={editingReview.vet.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-teal-700 font-bold">{editingReview.vet?.name?.charAt(0) || '?'}</span>
+                )}
+              </div>
+              <div>
+                <p className="font-bold text-slate-900 text-sm">{editingReview.vet?.name || 'Άγνωστος'}</p>
+                <p className="text-xs text-slate-500">{editingReview.vet?.specialty || ''}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Βαθμολογία</label>
+                {renderStars(formRating, true, setFormRating)}
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Σχόλιο</label>
+                <textarea
+                  value={formComment}
+                  onChange={(e) => setFormComment(e.target.value)}
+                  placeholder="Περιγράψτε την εμπειρία σας..."
+                  rows={4}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditingReview(null)}
+                className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+              >
+                Ακύρωση
+              </button>
+              <button
+                onClick={handleUpdate}
+                disabled={formSubmitting || formRating === 0 || !formComment.trim()}
+                className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {formSubmitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
               </button>
             </div>
           </div>

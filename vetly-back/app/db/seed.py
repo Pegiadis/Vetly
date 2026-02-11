@@ -8,9 +8,10 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.db.base import Vet, PetOwner, Pet, Appointment, Review, MedicalEvent
+from app.db.base import Vet, PetOwner, Pet, Appointment, Review, MedicalEvent, Medication, Notification
 from app.models.pet import PetType, Gender
 from app.models.appointment import AppointmentStatus
+from app.models.medication import MedicationFrequency
 from app.core.security import get_password_hash
 
 
@@ -337,6 +338,98 @@ def seed_medical_events(db: Session, pets: list[Pet], vets: list[Vet]) -> list[M
     return events
 
 
+MEDICATION_DATA = [
+    {"name": "Αντιπαρασιτικό Frontline", "dosage": "1 αμπούλα", "frequency": MedicationFrequency.ONCE, "notes": "Εφαρμογή στον αυχένα"},
+    {"name": "Χάπι για αρθρώσεις", "dosage": "1 χάπι", "frequency": MedicationFrequency.DAILY, "notes": "Με το φαγητό"},
+    {"name": "Βιταμίνες", "dosage": "1/2 κ.γ.", "frequency": MedicationFrequency.DAILY, "notes": "Ανακατεύουμε με τροφή"},
+    {"name": "Αντιισταμινικό", "dosage": "1/4 χάπι", "frequency": MedicationFrequency.DAILY, "notes": "Για αλλεργία"},
+    {"name": "Αντιβιοτικό Amoxicillin", "dosage": "250mg", "frequency": MedicationFrequency.DAILY, "notes": "Πρωί και βράδυ"},
+    {"name": "Αποπαρασιτικό", "dosage": "1 χάπι", "frequency": MedicationFrequency.ONCE, "notes": None},
+]
+
+
+def seed_medications(db: Session, pets: list[Pet]) -> list[Medication]:
+    """Seed medications for pets"""
+    from datetime import time
+    medications = []
+
+    for pet in pets:
+        num_meds = random.randint(1, 3)
+        chosen = random.sample(MEDICATION_DATA, min(num_meds, len(MEDICATION_DATA)))
+
+        for med_data in chosen:
+            days_ago = random.randint(10, 180)
+            start = date.today() - timedelta(days=days_ago)
+            is_active = random.random() > 0.3
+            end = None if is_active else start + timedelta(days=random.randint(14, 60))
+            hour = random.choice([8, 9, 12, 18, 20])
+
+            med = Medication(
+                id=uuid4(),
+                pet_id=pet.id,
+                name=med_data["name"],
+                dosage=med_data["dosage"],
+                frequency=med_data["frequency"],
+                time=time(hour=hour, minute=0),
+                start_date=start,
+                end_date=end,
+                notes=med_data["notes"],
+                is_active=is_active,
+            )
+            db.add(med)
+            medications.append(med)
+
+    db.commit()
+    return medications
+
+
+NOTIFICATION_TEMPLATES = [
+    {"type": "appointment", "title": "Επιβεβαίωση ραντεβού", "message": "Το ραντεβού σας επιβεβαιώθηκε."},
+    {"type": "appointment", "title": "Ακύρωση ραντεβού", "message": "Ένα ραντεβού σας ακυρώθηκε."},
+    {"type": "medication", "title": "Υπενθύμιση φαρμάκου", "message": "Ώρα για τη φαρμακευτική αγωγή του κατοικιδίου σας!"},
+    {"type": "reminder", "title": "Υπενθύμιση ραντεβού", "message": "Έχετε ραντεβού αύριο. Μην ξεχάσετε!"},
+    {"type": "reply", "title": "Νέα απάντηση στην αξιολόγησή σας", "message": "Ένας κτηνίατρος απάντησε στην αξιολόγησή σας."},
+    {"type": "system", "title": "Καλώς ήρθατε στο Vetly!", "message": "Ευχαριστούμε για την εγγραφή σας. Ανακαλύψτε τις δυνατότητες της εφαρμογής."},
+    {"type": "system", "title": "Ενημέρωση συστήματος", "message": "Νέες δυνατότητες είναι τώρα διαθέσιμες στο Vetly."},
+    {"type": "medication", "title": "Λήξη φαρμάκου", "message": "Η αγωγή ενός φαρμάκου ολοκληρώθηκε."},
+]
+
+
+def seed_notifications(db: Session, pet_owners: list[PetOwner]) -> list[Notification]:
+    """Seed notifications for pet owners"""
+    notifications = []
+
+    for owner in pet_owners:
+        num = random.randint(3, 6)
+        chosen = random.sample(NOTIFICATION_TEMPLATES, min(num, len(NOTIFICATION_TEMPLATES)))
+
+        for i, tmpl in enumerate(chosen):
+            hours_ago = random.randint(1, 720)
+            created = datetime.now() - timedelta(hours=hours_ago)
+            is_read = i >= 2  # first 2 are unread
+
+            notif = Notification(
+                id=uuid4(),
+                pet_owner_id=owner.id,
+                type=tmpl["type"],
+                title=tmpl["title"],
+                message=tmpl["message"],
+                is_read=is_read,
+            )
+            # Manually set created_at after creation
+            db.add(notif)
+            notifications.append(notif)
+
+        db.flush()
+        # Update created_at for this owner's notifications
+        for j, n in enumerate(notifications[-num:]):
+            hours_ago = random.randint(1, 720)
+            n.created_at = datetime.now() - timedelta(hours=hours_ago)
+
+    db.commit()
+    return notifications
+
+
 def clear_database(db: Session):
     """Clear all data from the database"""
     from sqlalchemy import text
@@ -384,6 +477,14 @@ def seed_database(db: Session, clear_first: bool = True):
     print("Seeding medical events...")
     events = seed_medical_events(db, pets, vets)
     print(f"Created {len(events)} medical events")
+
+    print("Seeding medications...")
+    medications = seed_medications(db, pets)
+    print(f"Created {len(medications)} medications")
+
+    print("Seeding notifications...")
+    notifications = seed_notifications(db, pet_owners)
+    print(f"Created {len(notifications)} notifications")
 
     print("\nDatabase seeding completed!")
     print("\nTest credentials:")

@@ -2,10 +2,10 @@
 Pet owner schemas for request/response validation
 """
 
-from datetime import datetime
+from datetime import datetime, date, time
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class PetOwnerResponse(BaseModel):
@@ -102,3 +102,117 @@ class VetListResponse(BaseModel):
     image_url: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class MedicalEventVetInfo(BaseModel):
+    """Nested vet info inside medical event"""
+    id: UUID
+    name: str
+    specialty: str
+
+    model_config = {"from_attributes": True}
+
+
+class OwnerMedicalEventResponse(BaseModel):
+    """Medical event response for owner endpoints"""
+    id: UUID
+    pet_id: UUID
+    vet_id: UUID | None = None
+    date: date
+    title: str
+    notes: str | None = None
+    event_type: str
+    created_at: datetime
+    vet: MedicalEventVetInfo | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class OwnerMedicalHistoryResponse(BaseModel):
+    """Medical history response for owner endpoints"""
+    items: list[OwnerMedicalEventResponse]
+    total: int
+
+
+class MedicationPetInfo(BaseModel):
+    """Nested pet info inside medication response"""
+    id: UUID
+    name: str
+    type: str
+    image_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class MedicationResponse(BaseModel):
+    """Medication response for owner endpoints"""
+    id: UUID
+    pet_id: UUID
+    name: str
+    dosage: str
+    frequency: str
+    time: time
+    start_date: date
+    end_date: date | None = None
+    notes: str | None = None
+    is_active: bool
+    created_at: datetime
+    pet: MedicationPetInfo | None = None
+
+    model_config = {"from_attributes": True}
+
+
+# --- Owner Reviews ---
+
+class ReviewVetInfo(BaseModel):
+    """Nested vet info inside owner review response"""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    specialty: str
+    image_url: str | None = None
+
+
+class OwnerReviewResponse(BaseModel):
+    """Review response for owner endpoints"""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    vet_id: UUID
+    pet_owner_id: UUID
+    appointment_id: UUID | None = None
+    rating: int
+    comment: str
+    reply: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    vet: ReviewVetInfo | None = None
+
+
+class OwnerReviewCreateRequest(BaseModel):
+    """Request to create a review"""
+    vet_id: UUID
+    appointment_id: UUID | None = None
+    rating: int = Field(..., ge=1, le=5)
+    comment: str = Field(..., min_length=1, max_length=2000)
+
+
+class OwnerReviewUpdateRequest(BaseModel):
+    """Request to update a review"""
+    rating: int | None = Field(None, ge=1, le=5)
+    comment: str | None = Field(None, min_length=1, max_length=2000)
+
+
+# --- Notifications ---
+
+class NotificationResponse(BaseModel):
+    """Notification response for owner endpoints"""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    type: str
+    title: str
+    message: str
+    is_read: bool
+    created_at: datetime

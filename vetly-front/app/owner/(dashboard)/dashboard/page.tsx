@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMyPets, useUpcomingAppointments } from '@/hooks/useOwnerData';
+import { useMyPets, useUpcomingAppointments, useMyMedications } from '@/hooks/useOwnerData';
 
 function formatDateTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -18,7 +18,9 @@ function PetTypeLabel({ type }: { type: string }) {
 export default function OwnerDashboardPage() {
   const { pets, loading: petsLoading } = useMyPets();
   const { appointments, loading: appointmentsLoading } = useUpcomingAppointments();
+  const { medications } = useMyMedications();
 
+  const activeMedicationsCount = medications.filter(m => m.is_active).length;
   const loading = petsLoading || appointmentsLoading;
 
   if (loading) {
@@ -85,7 +87,7 @@ export default function OwnerDashboardPage() {
             </div>
             <div>
               <p className="text-slate-500 text-xs font-bold uppercase">Φάρμακα</p>
-              <h3 className="text-2xl font-bold text-slate-800">0</h3>
+              <h3 className="text-2xl font-bold text-slate-800">{activeMedicationsCount}</h3>
             </div>
           </div>
         </Link>

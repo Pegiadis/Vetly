@@ -13,6 +13,13 @@ from app.schemas.owner import (
     AppointmentCreateRequest,
     AppointmentResponse,
     VetListResponse,
+    OwnerMedicalEventResponse,
+    OwnerMedicalHistoryResponse,
+    MedicationResponse,
+    OwnerReviewResponse,
+    OwnerReviewCreateRequest,
+    OwnerReviewUpdateRequest,
+    NotificationResponse,
 )
 
 
@@ -75,3 +82,108 @@ class OwnerService:
         """Get list of available vets for booking"""
         vets = self.repository.get_all_vets(verified_only)
         return [VetListResponse.model_validate(vet) for vet in vets]
+
+    def get_pet_medical_history(
+        self, owner_id: UUID, pet_id: UUID, page: int = 1, page_size: int = 50
+    ) -> OwnerMedicalHistoryResponse:
+        """Get medical history for an owner's pet"""
+        pet = self.repository.get_pet_by_id(pet_id, owner_id)
+        if not pet:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pet not found or does not belong to you",
+            )
+
+        skip = (page - 1) * page_size
+        events, total = self.repository.get_medical_history_for_pet(
+            pet_id=pet_id, skip=skip, limit=page_size
+        )
+
+        return OwnerMedicalHistoryResponse(
+            items=[OwnerMedicalEventResponse.model_validate(e) for e in events],
+            total=total,
+        )
+
+    def get_my_medications(
+        self, owner_id: UUID, is_active: bool | None = None
+    ) -> list[MedicationResponse]:
+        """Get all medications for an owner's pets"""
+        medications = self.repository.get_medications_for_owner(owner_id, is_active)
+        return [MedicationResponse.model_validate(m) for m in medications]
+
+    # --- Reviews ---
+
+    def get_my_reviews(self, owner_id: UUID) -> list[OwnerReviewResponse]:
+        """Get all reviews by an owner"""
+        reviews = self.repository.get_reviews_by_owner(owner_id)
+        return [OwnerReviewResponse.model_validate(r) for r in reviews]
+
+    def create_review(
+        self, owner_id: UUID, data: OwnerReviewCreateRequest
+    ) -> OwnerReviewResponse:
+        """Create a new review"""
+        vet = self.repository.get_vet_by_id(data.vet_id)
+        if not vet:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Vet not found",
+            )
+
+        review = self.repository.create_review(
+            pet_owner_id=owner_id,
+            vet_id=data.vet_id,
+            rating=data.rating,
+            comment=data.comment,
+            appointment_id=data.appointment_id,
+        )
+        # Re-fetch with vet relation loaded
+        review = self.repository.get_review_by_id(review.id, owner_id)
+        return OwnerReviewResponse.model_validate(review)
+
+    def update_review(
+        self, owner_id: UUID, review_id: UUID, data: OwnerReviewUpdateRequest
+    ) -> OwnerReviewResponse:
+        """Update an existing review"""
+        review = self.repository.get_review_by_id(review_id, owner_id)
+        if not review:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Review not found",
+            )
+
+        updated = self.repository.update_review(review, data.rating, data.comment)
+        # Re-fetch with vet relation
+        updated = self.repository.get_review_by_id(updated.id, owner_id)
+        return OwnerReviewResponse.model_validate(updated)
+
+    def delete_review(self, owner_id: UUID, review_id: UUID) -> None:
+        """Delete a review"""
+        review = self.repository.get_review_by_id(review_id, owner_id)
+        if not review:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Review not found",
+            )
+        self.repository.delete_review(review)
+
+    # --- Notifications ---
+
+    def get_my_notifications(self, owner_id: UUID) -> list[NotificationResponse]:
+        """Get all notifications for an owner"""
+        notifications = self.repository.get_notifications_by_owner(owner_id)
+        return [NotificationResponse.model_validate(n) for n in notifications]
+
+    def mark_notification_read(self, owner_id: UUID, notification_id: UUID) -> NotificationResponse:
+        """Mark a single notification as read"""
+        notification = self.repository.get_notification_by_id(notification_id, owner_id)
+        if not notification:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Notification not found",
+            )
+        updated = self.repository.mark_notification_read(notification)
+        return NotificationResponse.model_validate(updated)
+
+    def mark_all_notifications_read(self, owner_id: UUID) -> int:
+        """Mark all notifications as read, return count updated"""
+        return self.repository.mark_all_notifications_read(owner_id)
