@@ -20,7 +20,11 @@ from app.schemas.owner import (
     OwnerReviewCreateRequest,
     OwnerReviewUpdateRequest,
     NotificationResponse,
+    OwnerProfileUpdateRequest,
+    PetCreateRequest,
+    PetUpdateRequest,
 )
+from app.schemas.owner import PetOwnerResponse
 
 
 class OwnerService:
@@ -187,3 +191,69 @@ class OwnerService:
     def mark_all_notifications_read(self, owner_id: UUID) -> int:
         """Mark all notifications as read, return count updated"""
         return self.repository.mark_all_notifications_read(owner_id)
+
+    # --- Owner Profile ---
+
+    def update_owner_profile(
+        self, owner_id: UUID, data: OwnerProfileUpdateRequest
+    ) -> PetOwnerResponse:
+        """Update the owner's profile"""
+        owner = self.repository.get_owner_by_id(owner_id)
+        if not owner:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Owner not found",
+            )
+        updated = self.repository.update_owner(
+            owner,
+            name=data.name,
+            phone=data.phone,
+            address=data.address,
+        )
+        return PetOwnerResponse.model_validate(updated)
+
+    # --- Pet CRUD ---
+
+    def create_pet(self, owner_id: UUID, data: PetCreateRequest) -> PetResponse:
+        """Create a new pet for the owner"""
+        pet = self.repository.create_pet(
+            pet_owner_id=owner_id,
+            name=data.name,
+            type=data.type,
+            breed=data.breed,
+            age=data.age,
+            weight=data.weight,
+            gender=data.gender,
+            chip_number=data.chip_number,
+        )
+        return PetResponse.model_validate(pet)
+
+    def update_pet(
+        self, owner_id: UUID, pet_id: UUID, data: PetUpdateRequest
+    ) -> PetResponse:
+        """Update a pet belonging to the owner"""
+        pet = self.repository.get_pet_by_id(pet_id, owner_id)
+        if not pet:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pet not found or does not belong to you",
+            )
+        updated = self.repository.update_pet(
+            pet,
+            name=data.name,
+            breed=data.breed,
+            age=data.age,
+            weight=data.weight,
+            chip_number=data.chip_number,
+        )
+        return PetResponse.model_validate(updated)
+
+    def delete_pet(self, owner_id: UUID, pet_id: UUID) -> None:
+        """Delete a pet belonging to the owner"""
+        pet = self.repository.get_pet_by_id(pet_id, owner_id)
+        if not pet:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pet not found or does not belong to you",
+            )
+        self.repository.delete_pet(pet)

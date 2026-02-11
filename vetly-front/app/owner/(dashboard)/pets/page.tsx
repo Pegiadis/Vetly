@@ -2,7 +2,14 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useMyPets, useMyAppointments } from '@/hooks/useOwnerData';
+import {
+  useMyPets,
+  useMyAppointments,
+  createPet,
+  updatePet,
+  deletePet,
+  Pet,
+} from '@/hooks/useOwnerData';
 import type { Appointment } from '@/hooks/useOwnerData';
 
 function getLastVisit(petId: string, appointments: Appointment[]): string | null {
@@ -48,16 +55,106 @@ function GenderLabel({ gender }: { gender: string | null }) {
   return <>{labels[gender] || gender}</>;
 }
 
+const EMPTY_FORM = {
+  name: '',
+  type: 'Dog',
+  breed: '',
+  age: '',
+  weight: '',
+  gender: 'Male',
+  chip_number: '',
+};
+
 export default function PetsPage() {
-  const { pets, loading, error } = useMyPets();
+  const { pets, loading, error, refetch } = useMyPets();
   const { appointments } = useMyAppointments();
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+
+  // Create modal
+  const [showCreate, setShowCreate] = useState(false);
+  const [createForm, setCreateForm] = useState(EMPTY_FORM);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Edit modal
+  const [editingPet, setEditingPet] = useState<Pet | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', breed: '', age: '', weight: '', chip_number: '' });
+
+  // Delete
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const selectedPet = useMemo(() => {
     if (pets.length === 0) return null;
     if (selectedPetId) return pets.find(p => p.id === selectedPetId) || pets[0];
     return pets[0];
   }, [pets, selectedPetId]);
+
+  const handleCreate = async () => {
+    if (!createForm.name || !createForm.breed || !createForm.age || !createForm.weight) return;
+    setSubmitting(true);
+    try {
+      await createPet({
+        name: createForm.name,
+        type: createForm.type,
+        breed: createForm.breed,
+        age: parseInt(createForm.age),
+        weight: parseFloat(createForm.weight),
+        gender: createForm.gender,
+        chip_number: createForm.chip_number || undefined,
+      });
+      setShowCreate(false);
+      setCreateForm(EMPTY_FORM);
+      refetch();
+    } catch {
+      // silent
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEdit = (pet: Pet) => {
+    setEditingPet(pet);
+    setEditForm({
+      name: pet.name,
+      breed: pet.breed || '',
+      age: pet.age != null ? String(pet.age) : '',
+      weight: pet.weight != null ? String(pet.weight) : '',
+      chip_number: pet.chip_number || '',
+    });
+  };
+
+  const handleUpdate = async () => {
+    if (!editingPet) return;
+    setSubmitting(true);
+    try {
+      await updatePet(editingPet.id, {
+        name: editForm.name || undefined,
+        breed: editForm.breed || undefined,
+        age: editForm.age ? parseInt(editForm.age) : undefined,
+        weight: editForm.weight ? parseFloat(editForm.weight) : undefined,
+        chip_number: editForm.chip_number || undefined,
+      });
+      setEditingPet(null);
+      refetch();
+    } catch {
+      // silent
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (petId: string) => {
+    if (!confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το κατοικίδιο;')) return;
+    setDeletingId(petId);
+    try {
+      await deletePet(petId);
+      if (selectedPetId === petId) setSelectedPetId(null);
+      refetch();
+    } catch {
+      // silent
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -86,7 +183,13 @@ export default function PetsPage() {
           <h1 className="text-3xl font-bold text-slate-900">Τα Κατοικίδιά Μου</h1>
           <p className="text-slate-500 mt-1">Διαχειριστείτε τα προφίλ των κατοικιδίων σας.</p>
         </div>
-        <button className="bg-teal-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-teal-700 transition-colors flex items-center gap-2">
+        <button
+          onClick={() => {
+            setCreateForm(EMPTY_FORM);
+            setShowCreate(true);
+          }}
+          className="bg-teal-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-teal-700 transition-colors flex items-center gap-2"
+        >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
           </svg>
@@ -151,11 +254,25 @@ export default function PetsPage() {
                       )}
                     </div>
                   </div>
-                  <button className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm text-white p-2 rounded-xl hover:bg-white/30 transition-colors">
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                  </button>
+                  <div className="absolute top-4 right-4 flex gap-2">
+                    <button
+                      onClick={() => openEdit(selectedPet)}
+                      className="bg-white/20 backdrop-blur-sm text-white p-2 rounded-xl hover:bg-white/30 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDelete(selectedPet.id)}
+                      disabled={deletingId === selectedPet.id}
+                      className="bg-white/20 backdrop-blur-sm text-white p-2 rounded-xl hover:bg-red-500/80 transition-colors disabled:opacity-50"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Pet Info */}
@@ -262,6 +379,216 @@ export default function PetsPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Create Pet Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-slate-900">Νέο Κατοικίδιο</h2>
+              <button
+                onClick={() => setShowCreate(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Όνομα</label>
+                <input
+                  type="text"
+                  value={createForm.name}
+                  onChange={e => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Τύπος</label>
+                  <select
+                    value={createForm.type}
+                    onChange={e => setCreateForm(prev => ({ ...prev, type: e.target.value }))}
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                  >
+                    <option value="Dog">Σκύλος</option>
+                    <option value="Cat">Γάτα</option>
+                    <option value="Other">Άλλο</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Φύλο</label>
+                  <select
+                    value={createForm.gender}
+                    onChange={e => setCreateForm(prev => ({ ...prev, gender: e.target.value }))}
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                  >
+                    <option value="Male">Αρσενικό</option>
+                    <option value="Female">Θηλυκό</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Ράτσα</label>
+                <input
+                  type="text"
+                  value={createForm.breed}
+                  onChange={e => setCreateForm(prev => ({ ...prev, breed: e.target.value }))}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Ηλικία (έτη)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={createForm.age}
+                    onChange={e => setCreateForm(prev => ({ ...prev, age: e.target.value }))}
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Βάρος (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={createForm.weight}
+                    onChange={e => setCreateForm(prev => ({ ...prev, weight: e.target.value }))}
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Microchip (προαιρετικό)</label>
+                <input
+                  type="text"
+                  value={createForm.chip_number}
+                  onChange={e => setCreateForm(prev => ({ ...prev, chip_number: e.target.value }))}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowCreate(false)}
+                className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+              >
+                Ακύρωση
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={submitting || !createForm.name || !createForm.breed || !createForm.age || !createForm.weight}
+                className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Αποθήκευση...' : 'Προσθήκη'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Pet Modal */}
+      {editingPet && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-slate-900">Επεξεργασία: {editingPet.name}</h2>
+              <button
+                onClick={() => setEditingPet(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Όνομα</label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Ράτσα</label>
+                <input
+                  type="text"
+                  value={editForm.breed}
+                  onChange={e => setEditForm(prev => ({ ...prev, breed: e.target.value }))}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Ηλικία (έτη)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={editForm.age}
+                    onChange={e => setEditForm(prev => ({ ...prev, age: e.target.value }))}
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-slate-700 mb-2">Βάρος (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={editForm.weight}
+                    onChange={e => setEditForm(prev => ({ ...prev, weight: e.target.value }))}
+                    className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Microchip</label>
+                <input
+                  type="text"
+                  value={editForm.chip_number}
+                  onChange={e => setEditForm(prev => ({ ...prev, chip_number: e.target.value }))}
+                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setEditingPet(null)}
+                className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+              >
+                Ακύρωση
+              </button>
+              <button
+                onClick={handleUpdate}
+                disabled={submitting}
+                className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

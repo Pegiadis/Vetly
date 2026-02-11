@@ -70,24 +70,24 @@ export function useMyPets() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchPets = async () => {
-      try {
-        setLoading(true);
-        const data = await api.get<Pet[]>('/owner/pets');
-        setPets(data);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch pets');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPets();
+  const fetchPets = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<Pet[]>('/owner/pets');
+      setPets(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch pets');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { pets, loading, error, refetch: () => {} };
+  useEffect(() => {
+    fetchPets();
+  }, [fetchPets]);
+
+  return { pets, loading, error, refetch: fetchPets };
 }
 
 export function useVets() {
@@ -394,4 +394,82 @@ export async function markNotificationRead(notificationId: string): Promise<Owne
 
 export async function markAllNotificationsRead(): Promise<void> {
   return api.post<void>('/owner/notifications/mark-all-read', {});
+}
+
+// --- Owner Profile ---
+
+export interface OwnerProfile {
+  id: string;
+  email: string;
+  name: string;
+  phone: string | null;
+  address: string | null;
+  image_url: string | null;
+  email_verified: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export function useOwnerProfile() {
+  const [profile, setProfile] = useState<OwnerProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<OwnerProfile>('/auth/pet-owner/me');
+      setProfile(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch profile');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  return { profile, loading, error, refetch: fetchProfile };
+}
+
+export async function updateOwnerProfile(data: {
+  name?: string;
+  phone?: string;
+  address?: string;
+}): Promise<OwnerProfile> {
+  return api.put<OwnerProfile>('/owner/profile', data);
+}
+
+// --- Pet CRUD ---
+
+export async function createPet(data: {
+  name: string;
+  type: string;
+  breed: string;
+  age: number;
+  weight: number;
+  gender: string;
+  chip_number?: string;
+}): Promise<Pet> {
+  return api.post<Pet>('/owner/pets', data);
+}
+
+export async function updatePet(
+  petId: string,
+  data: {
+    name?: string;
+    breed?: string;
+    age?: number;
+    weight?: number;
+    chip_number?: string;
+  }
+): Promise<Pet> {
+  return api.put<Pet>(`/owner/pets/${petId}`, data);
+}
+
+export async function deletePet(petId: string): Promise<void> {
+  return api.delete<void>(`/owner/pets/${petId}`);
 }

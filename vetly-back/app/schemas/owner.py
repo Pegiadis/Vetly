@@ -216,3 +216,34 @@ class NotificationResponse(BaseModel):
     message: str
     is_read: bool
     created_at: datetime
+
+
+# --- Owner Profile Update ---
+
+class OwnerProfileUpdateRequest(BaseModel):
+    """Request to update the owner profile"""
+    name: str | None = Field(None, min_length=1, max_length=255)
+    phone: str | None = Field(None, max_length=50)
+    address: str | None = Field(None, max_length=500)
+
+
+# --- Pet CRUD ---
+
+class PetCreateRequest(BaseModel):
+    """Request to create a new pet"""
+    name: str = Field(..., min_length=1, max_length=100)
+    type: str = Field(..., min_length=1, max_length=20)
+    breed: str = Field(..., min_length=1, max_length=100)
+    age: int = Field(..., ge=0, le=50)
+    weight: float = Field(..., gt=0, le=200)
+    gender: str = Field(..., min_length=1, max_length=10)
+    chip_number: str | None = Field(None, max_length=50)
+
+
+class PetUpdateRequest(BaseModel):
+    """Request to update a pet"""
+    name: str | None = Field(None, min_length=1, max_length=100)
+    breed: str | None = Field(None, min_length=1, max_length=100)
+    age: int | None = Field(None, ge=0, le=50)
+    weight: float | None = Field(None, gt=0, le=200)
+    chip_number: str | None = Field(None, max_length=50)

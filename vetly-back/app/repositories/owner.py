@@ -233,3 +233,43 @@ class OwnerRepository:
         result = self.db.execute(stmt)
         self.db.commit()
         return result.rowcount
+
+    # --- Owner Profile ---
+
+    def get_owner_by_id(self, owner_id: UUID) -> PetOwner | None:
+        """Get an owner by ID"""
+        query = select(PetOwner).where(PetOwner.id == owner_id)
+        return self.db.scalar(query)
+
+    def update_owner(self, owner: PetOwner, **kwargs) -> PetOwner:
+        """Update owner fields"""
+        for key, value in kwargs.items():
+            if value is not None:
+                setattr(owner, key, value)
+        self.db.commit()
+        self.db.refresh(owner)
+        return owner
+
+    # --- Pet CRUD ---
+
+    def create_pet(self, pet_owner_id: UUID, **kwargs) -> Pet:
+        """Create a new pet"""
+        pet = Pet(pet_owner_id=pet_owner_id, **kwargs)
+        self.db.add(pet)
+        self.db.commit()
+        self.db.refresh(pet)
+        return pet
+
+    def update_pet(self, pet: Pet, **kwargs) -> Pet:
+        """Update pet fields"""
+        for key, value in kwargs.items():
+            if value is not None:
+                setattr(pet, key, value)
+        self.db.commit()
+        self.db.refresh(pet)
+        return pet
+
+    def delete_pet(self, pet: Pet) -> None:
+        """Delete a pet"""
+        self.db.delete(pet)
+        self.db.commit()

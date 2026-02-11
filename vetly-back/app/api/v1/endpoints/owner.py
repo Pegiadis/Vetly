@@ -11,6 +11,7 @@ from app.db.base import PetOwner
 from app.services.owner import OwnerService
 from app.schemas.owner import (
     PetResponse,
+    PetOwnerResponse,
     AppointmentCreateRequest,
     AppointmentResponse,
     VetListResponse,
@@ -20,6 +21,9 @@ from app.schemas.owner import (
     OwnerReviewCreateRequest,
     OwnerReviewUpdateRequest,
     NotificationResponse,
+    OwnerProfileUpdateRequest,
+    PetCreateRequest,
+    PetUpdateRequest,
 )
 
 router = APIRouter()
@@ -178,3 +182,48 @@ def mark_all_notifications_read(
     """Mark all notifications as read"""
     service = OwnerService(db)
     service.mark_all_notifications_read(current_owner.id)
+
+
+@router.put("/profile", response_model=PetOwnerResponse)
+def update_owner_profile(
+    data: OwnerProfileUpdateRequest,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> PetOwnerResponse:
+    """Update the owner's profile"""
+    service = OwnerService(db)
+    return service.update_owner_profile(current_owner.id, data)
+
+
+@router.post("/pets", response_model=PetResponse, status_code=201)
+def create_pet(
+    data: PetCreateRequest,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> PetResponse:
+    """Create a new pet"""
+    service = OwnerService(db)
+    return service.create_pet(current_owner.id, data)
+
+
+@router.put("/pets/{pet_id}", response_model=PetResponse)
+def update_pet(
+    pet_id: UUID,
+    data: PetUpdateRequest,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> PetResponse:
+    """Update a pet"""
+    service = OwnerService(db)
+    return service.update_pet(current_owner.id, pet_id, data)
+
+
+@router.delete("/pets/{pet_id}", status_code=204)
+def delete_pet(
+    pet_id: UUID,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> None:
+    """Delete a pet"""
+    service = OwnerService(db)
+    service.delete_pet(current_owner.id, pet_id)

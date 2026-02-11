@@ -1,14 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useOwnerProfile, updateOwnerProfile } from '@/hooks/useOwnerData';
 
 export default function SettingsPage() {
+  const { profile, loading, error } = useOwnerProfile();
+
   const [formData, setFormData] = useState({
-    name: 'Κωνσταντίνος Παπαδόπουλος',
-    email: 'kostas.papadopoulos@example.com',
-    phone: '+30 6912345678',
-    address: 'Λεωφ. Βασιλίσσης Σοφίας 120, Αθήνα 11526',
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
   });
+
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const [notifications, setNotifications] = useState({
     appointments: true,
@@ -16,11 +22,23 @@ export default function SettingsPage() {
     marketing: false,
   });
 
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        name: profile.name || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+        address: profile.address || '',
+      });
+    }
+  }, [profile]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
+    setSaveSuccess(false);
   };
 
   const handleNotificationChange = (key: keyof typeof notifications) => {
@@ -29,6 +47,48 @@ export default function SettingsPage() {
       [key]: !prev[key],
     }));
   };
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveSuccess(false);
+    try {
+      await updateOwnerProfile({
+        name: formData.name || undefined,
+        phone: formData.phone || undefined,
+        address: formData.address || undefined,
+      });
+      setSaveSuccess(true);
+    } catch {
+      // silent
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const initials = formData.name
+    .split(' ')
+    .map(w => w.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <p className="text-red-700 font-medium">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -45,7 +105,7 @@ export default function SettingsPage() {
         {/* Avatar */}
         <div className="flex items-center gap-4 mb-8">
           <div className="w-20 h-20 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-600 text-2xl font-bold">
-            ΚΠ
+            {initials || '?'}
           </div>
           <div>
             <button className="px-4 py-2 bg-teal-600 text-white rounded-xl font-bold text-sm hover:bg-teal-700 transition-colors">
@@ -74,8 +134,8 @@ export default function SettingsPage() {
               type="email"
               name="email"
               value={formData.email}
-              onChange={handleChange}
-              className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+              disabled
+              className="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-slate-500 cursor-not-allowed"
             />
           </div>
 
@@ -102,9 +162,18 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <button className="mt-6 px-6 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors">
-          Αποθήκευση Αλλαγών
-        </button>
+        <div className="flex items-center gap-4 mt-6">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-6 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50"
+          >
+            {saving ? 'Αποθήκευση...' : 'Αποθήκευση Αλλαγών'}
+          </button>
+          {saveSuccess && (
+            <span className="text-sm text-green-600 font-medium">Οι αλλαγές αποθηκεύτηκαν!</span>
+          )}
+        </div>
       </div>
 
       {/* Notifications Section */}
