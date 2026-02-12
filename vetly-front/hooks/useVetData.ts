@@ -105,6 +105,58 @@ export async function updateAppointmentStatus(
   return api.patch<VetAppointment>(`/vet/appointments/${appointmentId}/status`, { status, notes });
 }
 
+export interface ExaminationMedication {
+  name: string;
+  dosage: string;
+  frequency: 'daily' | 'weekly' | 'once';
+  time?: string;
+  duration_days?: number;
+  notes?: string;
+}
+
+export interface CompleteExaminationData {
+  diagnosis: string;
+  examination_notes?: string;
+  medications: ExaminationMedication[];
+}
+
+export async function completeExamination(
+  appointmentId: string,
+  data: CompleteExaminationData,
+): Promise<VetAppointment> {
+  return api.post<VetAppointment>(`/vet/appointments/${appointmentId}/complete`, data);
+}
+
+export function useAllAppointments(status?: string) {
+  const [appointments, setAppointments] = useState<VetAppointment[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchAppointments = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+      params.set('page_size', '50');
+      const data = await api.get<AppointmentListResponse>(`/vet/appointments?${params.toString()}`);
+      setAppointments(data.items);
+      setTotal(data.total);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
+    } finally {
+      setLoading(false);
+    }
+  }, [status]);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [fetchAppointments]);
+
+  return { appointments, total, loading, error, refetch: fetchAppointments };
+}
+
 // --- Dashboard Stats ---
 
 export interface DashboardStats {
@@ -504,11 +556,12 @@ export function useWeekAppointments(weekStart: string) {
   const fetchAppointments = useCallback(async () => {
     try {
       setLoading(true);
-      const start = new Date(weekStart);
+      const start = new Date(weekStart + 'T00:00:00');
       const end = new Date(start);
       end.setDate(end.getDate() + 6);
-      const dateFrom = start.toISOString().split('T')[0];
-      const dateTo = end.toISOString().split('T')[0];
+      const dateFrom = weekStart;
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const dateTo = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
       const data = await api.get<AppointmentListResponse>(
         `/vet/appointments?date_from=${dateFrom}&date_to=${dateTo}&page_size=100`
       );
