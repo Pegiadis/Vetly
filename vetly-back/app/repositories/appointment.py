@@ -7,8 +7,9 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.base import Appointment
+from app.db.base import Appointment, MedicalEvent, Medication
 from app.models.appointment import AppointmentStatus
+from app.models.medication import MedicationFrequency
 
 
 class AppointmentRepository:
@@ -140,3 +141,54 @@ class AppointmentRepository:
         self.db.commit()
         self.db.refresh(appointment)
         return appointment
+
+    def create_medical_event(
+        self,
+        pet_id: UUID,
+        vet_id: UUID,
+        event_date: date,
+        title: str,
+        event_type: str,
+        notes: str | None = None,
+    ) -> MedicalEvent:
+        """Create a medical event record"""
+        from uuid import uuid4
+        event = MedicalEvent(
+            id=uuid4(),
+            pet_id=pet_id,
+            vet_id=vet_id,
+            date=event_date,
+            title=title,
+            event_type=event_type,
+            notes=notes,
+        )
+        self.db.add(event)
+        return event
+
+    def create_medication(
+        self,
+        pet_id: UUID,
+        name: str,
+        dosage: str,
+        frequency: MedicationFrequency,
+        med_time: datetime,
+        start_date: date,
+        end_date: date | None = None,
+        notes: str | None = None,
+    ) -> Medication:
+        """Create a medication record"""
+        from uuid import uuid4
+        medication = Medication(
+            id=uuid4(),
+            pet_id=pet_id,
+            name=name,
+            dosage=dosage,
+            frequency=frequency,
+            time=med_time,
+            start_date=start_date,
+            end_date=end_date,
+            notes=notes,
+            is_active=True,
+        )
+        self.db.add(medication)
+        return medication

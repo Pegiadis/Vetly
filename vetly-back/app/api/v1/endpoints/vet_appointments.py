@@ -15,6 +15,7 @@ from app.schemas.appointment import (
     AppointmentDetailResponse,
     AppointmentStatusUpdate,
     AppointmentRejectRequest,
+    CompleteExaminationRequest,
 )
 
 router = APIRouter()
@@ -132,4 +133,20 @@ def reject_appointment(
         appointment_id=appointment_id,
         vet_id=current_vet.id,
         reason=reason,
+    )
+
+
+@router.post("/{appointment_id}/complete", response_model=AppointmentDetailResponse)
+def complete_examination(
+    appointment_id: UUID,
+    data: CompleteExaminationRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> AppointmentDetailResponse:
+    """Complete an examination: record diagnosis, medications, and mark appointment completed"""
+    service = AppointmentService(db)
+    return service.complete_examination(
+        appointment_id=appointment_id,
+        vet_id=current_vet.id,
+        data=data,
     )

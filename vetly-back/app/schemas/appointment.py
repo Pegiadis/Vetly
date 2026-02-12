@@ -3,7 +3,7 @@ Appointment schemas for request/response validation
 """
 
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date, time as TimeType
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.pet import PetResponse, PetOwnerResponse
@@ -70,3 +70,20 @@ class AppointmentStatusUpdate(BaseModel):
 class AppointmentRejectRequest(BaseModel):
     """Appointment rejection request"""
     reason: str | None = None
+
+
+class ExaminationMedicationItem(BaseModel):
+    """A single medication prescribed during examination"""
+    name: str = Field(..., min_length=1, max_length=255)
+    dosage: str = Field(..., min_length=1, max_length=100)
+    frequency: str = Field(..., pattern="^(daily|weekly|once)$")
+    time: TimeType = Field(default_factory=lambda: TimeType(8, 0))
+    duration_days: int | None = Field(None, ge=1, le=365)
+    notes: str | None = Field(None, max_length=500)
+
+
+class CompleteExaminationRequest(BaseModel):
+    """Request to complete an examination and record medical data"""
+    diagnosis: str = Field(..., min_length=1, max_length=255)
+    examination_notes: str | None = Field(None, max_length=2000)
+    medications: list[ExaminationMedicationItem] = Field(default_factory=list)

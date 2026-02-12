@@ -3,18 +3,20 @@ Appointment service - business logic layer
 """
 
 from uuid import UUID
-from datetime import date
+from datetime import date, timedelta
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.repositories.appointment import AppointmentRepository
 from app.models.appointment import AppointmentStatus
+from app.models.medication import MedicationFrequency
 from app.schemas.appointment import (
     AppointmentDetailResponse,
     AppointmentListResponse,
     AppointmentStatusUpdate,
     AppointmentPetResponse,
     AppointmentPetOwnerResponse,
+    CompleteExaminationRequest,
 )
 
 
@@ -170,4 +172,58 @@ class AppointmentService:
         updated = self.repository.update_status(
             appointment, AppointmentStatus.CANCELLED, notes
         )
+        return self._build_detail_response(updated)
+
+    def complete_examination(
+        self,
+        appointment_id: UUID,
+        vet_id: UUID,
+        data: CompleteExaminationRequest,
+    ) -> AppointmentDetailResponse:
+        """Complete an examination: create medical event, medications, mark completed"""
+        appointment = self.repository.get_by_id(appointment_id, vet_id)
+
+        if not appointment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Appointment not found",
+            )
+
+        if appointment.status not in (AppointmentStatus.CONFIRMED, AppointmentStatus.PENDING):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Can only complete confirmed or pending appointments",
+            )
+
+        today = date.today()
+
+        # Create medical event
+        self.repository.create_medical_event(
+            pet_id=appointment.pet_id,
+            vet_id=vet_id,
+            event_date=today,
+            title=data.diagnosis,
+            event_type=appointment.type,
+            notes=data.examination_notes,
+        )
+
+        # Create medications
+        for med in data.medications:
+            end_date = today + timedelta(days=med.duration_days) if med.duration_days else None
+            self.repository.create_medication(
+                pet_id=appointment.pet_id,
+                name=med.name,
+                dosage=med.dosage,
+                frequency=MedicationFrequency(med.frequency),
+                med_time=med.time,
+                start_date=today,
+                end_date=end_date,
+                notes=med.notes,
+            )
+
+        # Mark appointment as completed
+        updated = self.repository.update_status(
+            appointment, AppointmentStatus.COMPLETED, data.examination_notes
+        )
+
         return self._build_detail_response(updated)
