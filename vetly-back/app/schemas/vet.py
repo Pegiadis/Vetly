@@ -84,3 +84,10 @@ class VetHoursUpdateRequest(BaseModel):
 class OnCallToggleRequest(BaseModel):
     """On-call status toggle request"""
     is_on_call: bool
+
+
+class AvailableSlotsResponse(BaseModel):
+    """Response for available time slots"""
+    date: str
+    vet_id: UUID
+    slots: list[str]

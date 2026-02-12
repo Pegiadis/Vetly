@@ -4,10 +4,12 @@ Vet repository - data access layer
 
 from typing import Any
 from uuid import UUID
-from sqlalchemy import select, func
+from datetime import date, datetime, timedelta
+from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session
 
-from app.db.base import Vet
+from app.db.base import Vet, Appointment
+from app.models.appointment import AppointmentStatus
 
 
 class VetRepository:
@@ -81,3 +83,24 @@ class VetRepository:
         self.db.commit()
         self.db.refresh(vet)
         return vet
+
+    def get_booked_slots(self, vet_id: UUID, target_date: date) -> list[Appointment]:
+        """Get all active (pending/confirmed) appointments for a vet on a given date"""
+        day_start = datetime.combine(target_date, datetime.min.time())
+        day_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
+
+        query = (
+            select(Appointment)
+            .where(
+                and_(
+                    Appointment.vet_id == vet_id,
+                    Appointment.scheduled_at >= day_start,
+                    Appointment.scheduled_at < day_end,
+                    Appointment.status.in_([
+                        AppointmentStatus.PENDING,
+                        AppointmentStatus.CONFIRMED,
+                    ]),
+                )
+            )
+        )
+        return list(self.db.scalars(query).all())

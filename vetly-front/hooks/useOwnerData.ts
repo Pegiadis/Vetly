@@ -116,6 +116,39 @@ export function useVets() {
   return { vets, loading, error };
 }
 
+export function useAvailableSlots(vetId: string | null, date: string | null) {
+  const [slots, setSlots] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!vetId || !date) {
+      setSlots([]);
+      return;
+    }
+
+    const fetchSlots = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await api.get<{ date: string; vet_id: string; slots: string[] }>(
+          `/vets/${vetId}/available-slots?date=${date}`
+        );
+        setSlots(data.slots);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch available slots');
+        setSlots([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSlots();
+  }, [vetId, date]);
+
+  return { slots, loading, error };
+}
+
 export function useMyAppointments() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);

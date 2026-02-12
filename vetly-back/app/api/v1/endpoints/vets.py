@@ -3,6 +3,7 @@ Vet API endpoints
 """
 
 from uuid import UUID
+from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -15,6 +16,7 @@ from app.schemas.vet import (
     VetUpdateRequest,
     VetHoursUpdateRequest,
     OnCallToggleRequest,
+    AvailableSlotsResponse,
 )
 
 router = APIRouter()
@@ -83,6 +85,17 @@ def toggle_current_vet_on_call(
     """Toggle the current authenticated vet's on-call status"""
     service = VetService(db)
     return service.toggle_on_call(current_vet, data.is_on_call)
+
+
+@router.get("/{vet_id}/available-slots", response_model=AvailableSlotsResponse)
+def get_available_slots(
+    vet_id: UUID,
+    date: date = Query(..., description="Date to check availability (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+) -> AvailableSlotsResponse:
+    """Get available time slots for a vet on a specific date"""
+    service = VetService(db)
+    return service.get_available_slots(vet_id, date)
 
 
 @router.get("/{vet_id}", response_model=VetResponse)

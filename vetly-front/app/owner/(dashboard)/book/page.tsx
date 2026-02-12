@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useMyPets, useVets, createAppointment, Pet, Vet } from '@/hooks/useOwnerData';
+import { useMyPets, useVets, useAvailableSlots, createAppointment } from '@/hooks/useOwnerData';
 
 const appointmentTypes = [
   { id: 'Checkup', name: 'Γενικός Έλεγχος', icon: '🩺' },
@@ -12,8 +12,6 @@ const appointmentTypes = [
   { id: 'Surgery', name: 'Χειρουργείο', icon: '🏥' },
   { id: 'Grooming', name: 'Περιποίηση', icon: '✂️' },
 ];
-
-const timeSlots = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30'];
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -30,6 +28,13 @@ export default function BookPage() {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const { slots: availableSlots, loading: slotsLoading } = useAvailableSlots(selectedVet, selectedDate);
+
+  // Clear selected time when vet or date changes
+  useEffect(() => {
+    setSelectedTime(null);
+  }, [selectedVet, selectedDate]);
 
   const canProceed = () => {
     switch (step) {
@@ -48,7 +53,7 @@ export default function BookPage() {
     setSubmitError(null);
 
     try {
-      const scheduledAt = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
+      const scheduledAt = `${selectedDate}T${selectedTime}:00`;
 
       await createAppointment({
         vet_id: selectedVet,
@@ -241,21 +246,36 @@ export default function BookPage() {
             {selectedDate && (
               <div>
                 <h3 className="font-bold text-slate-800 mb-4">Επιλέξτε ώρα</h3>
-                <div className="grid grid-cols-4 gap-2">
-                  {timeSlots.map((time) => (
-                    <button
-                      key={time}
-                      onClick={() => setSelectedTime(time)}
-                      className={`p-3 rounded-xl border-2 font-medium text-sm transition-all ${
-                        selectedTime === time
-                          ? 'border-teal-500 bg-teal-50 text-teal-700'
-                          : 'border-slate-100 hover:border-teal-200 text-slate-600'
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  ))}
-                </div>
+                {slotsLoading ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <svg className="animate-spin h-6 w-6 mx-auto mb-2 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Φόρτωση διαθέσιμων ωρών...
+                  </div>
+                ) : availableSlots.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    <p className="font-medium">Δεν υπάρχουν διαθέσιμες ώρες</p>
+                    <p className="text-sm mt-1">Δοκιμάστε διαφορετική ημερομηνία.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {availableSlots.map((time) => (
+                      <button
+                        key={time}
+                        onClick={() => setSelectedTime(time)}
+                        className={`p-3 rounded-xl border-2 font-medium text-sm transition-all ${
+                          selectedTime === time
+                            ? 'border-teal-500 bg-teal-50 text-teal-700'
+                            : 'border-slate-100 hover:border-teal-200 text-slate-600'
+                        }`}
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
