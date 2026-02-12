@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePendingAppointments } from '@/hooks/useVetData';
 
 const navItems = [
   {
@@ -88,6 +89,7 @@ export default function VetSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
+  const { appointments: pendingAppointments } = usePendingAppointments();
 
   const handleLogout = () => {
     logout();
@@ -129,9 +131,9 @@ export default function VetSidebar() {
                 {item.icon}
               </span>
               {item.name}
-              {item.badge && (
+              {item.badge && pendingAppointments.length > 0 && (
                 <span className="ml-auto bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                  3
+                  {pendingAppointments.length}
                 </span>
               )}
             </Link>
