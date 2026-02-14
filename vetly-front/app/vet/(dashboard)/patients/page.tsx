@@ -1,8 +1,25 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePatients, usePatient, usePatientHistory } from '@/hooks/useVetData';
+import {
+  usePatients,
+  usePatient,
+  usePatientHistory,
+  useVetProfile,
+  useVetAvailableSlots,
+  createVetAppointment,
+  type Patient,
+} from '@/hooks/useVetData';
+
+const appointmentTypes = [
+  { id: 'Checkup', name: 'Γενικός Έλεγχος', icon: '🩺' },
+  { id: 'Vaccination', name: 'Εμβολιασμός', icon: '💉' },
+  { id: 'Dental Cleaning', name: 'Οδοντιατρικά', icon: '🦷' },
+  { id: 'Emergency', name: 'Επείγον', icon: '🚨' },
+  { id: 'Surgery', name: 'Χειρουργείο', icon: '🏥' },
+  { id: 'Grooming', name: 'Περιποίηση', icon: '✂️' },
+];
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('el-GR', {
@@ -22,10 +39,214 @@ function PetTypeLabel({ type }: { type: string }) {
   return <>{labels[type] || type}</>;
 }
 
+function BookAppointmentDialog({
+  patient,
+  vetId,
+  onClose,
+}: {
+  patient: Patient;
+  vetId: string;
+  onClose: () => void;
+}) {
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const { slots: availableSlots, loading: slotsLoading } = useVetAvailableSlots(vetId, selectedDate);
+
+  useEffect(() => {
+    setSelectedTime(null);
+  }, [selectedDate]);
+
+  const canSubmit = selectedType && selectedDate && selectedTime && !submitting;
+
+  const handleSubmit = async () => {
+    if (!selectedType || !selectedDate || !selectedTime) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      await createVetAppointment({
+        pet_id: patient.id,
+        scheduled_at: `${selectedDate}T${selectedTime}:00`,
+        type: selectedType,
+        duration_minutes: 30,
+        notes: notes || undefined,
+      });
+      setSuccess(true);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Αποτυχία δημιουργίας ραντεβού');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <div className="text-white">
+              <h2 className="text-lg font-bold">Νέο Ραντεβού</h2>
+              <p className="text-white/80 text-sm">{patient.name} - {patient.breed}</p>
+            </div>
+            <button
+              onClick={onClose}
+              className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {success ? (
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Το ραντεβού δημιουργήθηκε!</h3>
+            <p className="text-slate-500 text-sm mb-6">Το ραντεβού επιβεβαιώθηκε αυτόματα.</p>
+            <button
+              onClick={onClose}
+              className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors"
+            >
+              Κλείσιμο
+            </button>
+          </div>
+        ) : (
+          <div className="p-5 space-y-5">
+            {/* Appointment Type */}
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm mb-3">Τύπος ραντεβού</h3>
+              <div className="grid grid-cols-3 gap-2">
+                {appointmentTypes.map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setSelectedType(type.id)}
+                    className={`p-3 rounded-xl border-2 transition-all text-center ${
+                      selectedType === type.id
+                        ? 'border-indigo-500 bg-indigo-50'
+                        : 'border-slate-100 hover:border-indigo-200'
+                    }`}
+                  >
+                    <span className="text-xl block mb-1">{type.icon}</span>
+                    <p className="font-medium text-slate-800 text-xs">{type.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Date */}
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm mb-3">Ημερομηνία</h3>
+              <input
+                type="date"
+                value={selectedDate || ''}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              />
+            </div>
+
+            {/* Time Slots */}
+            {selectedDate && (
+              <div>
+                <h3 className="font-bold text-slate-800 text-sm mb-3">Ώρα</h3>
+                {slotsLoading ? (
+                  <div className="text-center py-6 text-slate-500">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mx-auto mb-2" />
+                    <span className="text-xs">Φόρτωση διαθέσιμων ωρών...</span>
+                  </div>
+                ) : availableSlots.length === 0 ? (
+                  <div className="text-center py-4 text-slate-500 text-sm">
+                    <p className="font-medium">Δεν υπάρχουν διαθέσιμες ώρες</p>
+                    <p className="text-xs mt-1">Δοκιμάστε διαφορετική ημερομηνία.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {availableSlots.map((time) => (
+                      <button
+                        key={time}
+                        onClick={() => setSelectedTime(time)}
+                        className={`p-2.5 rounded-xl border-2 font-medium text-sm transition-all ${
+                          selectedTime === time
+                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                            : 'border-slate-100 hover:border-indigo-200 text-slate-600'
+                        }`}
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Notes */}
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm mb-3">Σημειώσεις (προαιρετικό)</h3>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Προσθέστε σημειώσεις για το ραντεβού..."
+                rows={2}
+                className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none text-sm"
+              />
+            </div>
+
+            {/* Error */}
+            {submitError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                {submitError}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={onClose}
+                className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+              >
+                Ακύρωση
+              </button>
+              <button
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    Αποστολή...
+                  </>
+                ) : (
+                  'Δημιουργία'
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function VetPatientsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+  const [showBookDialog, setShowBookDialog] = useState(false);
 
   // Debounce search
   const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -38,6 +259,7 @@ export default function VetPatientsPage() {
   const { patients, loading, error } = usePatients(debouncedSearch || undefined);
   const { patient: selectedPatient, loading: patientLoading } = usePatient(selectedPetId);
   const { events: history, loading: historyLoading } = usePatientHistory(selectedPetId);
+  const { profile: vetProfile } = useVetProfile();
 
   if (loading) {
     return (
@@ -258,7 +480,11 @@ export default function VetPatientsPage() {
 
             {/* Footer */}
             <div className="p-5 border-t border-slate-100 bg-slate-50 mt-auto">
-              <button className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2">
+              <button
+                onClick={() => setShowBookDialog(true)}
+                disabled={!selectedPatient}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
@@ -274,6 +500,15 @@ export default function VetPatientsPage() {
         <div
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity"
           onClick={() => setSelectedPetId(null)}
+        />
+      )}
+
+      {/* Book Appointment Dialog */}
+      {showBookDialog && selectedPatient && vetProfile && (
+        <BookAppointmentDialog
+          patient={selectedPatient}
+          vetId={vetProfile.id}
+          onClose={() => setShowBookDialog(false)}
         />
       )}
     </div>

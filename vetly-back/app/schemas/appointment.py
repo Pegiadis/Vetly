@@ -61,6 +61,15 @@ class AppointmentListResponse(BaseModel):
     page_size: int
 
 
+class VetCreateAppointmentRequest(BaseModel):
+    """Request for a vet to create an appointment for a patient"""
+    pet_id: UUID
+    scheduled_at: datetime
+    type: str = Field(..., min_length=1, max_length=100)
+    duration_minutes: int = Field(30, ge=15, le=120)
+    notes: str | None = Field(None, max_length=2000)
+
+
 class AppointmentStatusUpdate(BaseModel):
     """Appointment status update request"""
     status: str = Field(..., pattern="^(confirmed|completed|cancelled)$")

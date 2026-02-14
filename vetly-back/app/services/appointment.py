@@ -17,6 +17,7 @@ from app.schemas.appointment import (
     AppointmentPetResponse,
     AppointmentPetOwnerResponse,
     CompleteExaminationRequest,
+    VetCreateAppointmentRequest,
 )
 
 
@@ -34,6 +35,34 @@ class AppointmentService:
         if appointment.pet_owner:
             response.pet_owner = AppointmentPetOwnerResponse.model_validate(appointment.pet_owner)
         return response
+
+    def create_appointment(
+        self,
+        vet_id: UUID,
+        data: VetCreateAppointmentRequest,
+    ) -> AppointmentDetailResponse:
+        """Create an appointment for a patient (vet-initiated, auto-confirmed)"""
+        pet = self.repository.get_pet_by_id(data.pet_id)
+        if not pet:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pet not found",
+            )
+
+        appointment = self.repository.create_appointment(
+            vet_id=vet_id,
+            pet_owner_id=pet.pet_owner_id,
+            pet_id=data.pet_id,
+            scheduled_at=data.scheduled_at,
+            appointment_type=data.type,
+            duration_minutes=data.duration_minutes,
+            notes=data.notes,
+            status=AppointmentStatus.CONFIRMED,
+        )
+
+        # Re-fetch with relations loaded
+        appointment = self.repository.get_by_id(appointment.id, vet_id)
+        return self._build_detail_response(appointment)
 
     def list_appointments(
         self,

@@ -140,6 +140,7 @@ class OwnerService:
             comment=data.comment,
             appointment_id=data.appointment_id,
         )
+        self.repository.update_vet_rating(data.vet_id)
         # Re-fetch with vet relation loaded
         review = self.repository.get_review_by_id(review.id, owner_id)
         return OwnerReviewResponse.model_validate(review)
@@ -155,7 +156,10 @@ class OwnerService:
                 detail="Review not found",
             )
 
+        vet_id = review.vet_id
         updated = self.repository.update_review(review, data.rating, data.comment)
+        if data.rating is not None:
+            self.repository.update_vet_rating(vet_id)
         # Re-fetch with vet relation
         updated = self.repository.get_review_by_id(updated.id, owner_id)
         return OwnerReviewResponse.model_validate(updated)
@@ -168,7 +172,9 @@ class OwnerService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Review not found",
             )
+        vet_id = review.vet_id
         self.repository.delete_review(review)
+        self.repository.update_vet_rating(vet_id)
 
     # --- Notifications ---
 

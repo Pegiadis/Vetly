@@ -17,7 +17,7 @@ type Step = 1 | 2 | 3 | 4;
 
 export default function BookPage() {
   const { pets, loading: petsLoading } = useMyPets();
-  const { vets, loading: vetsLoading } = useVets();
+  const { vets, loading: vetsLoading, refetch: refetchVets } = useVets();
 
   const [step, setStep] = useState<Step>(1);
   const [selectedPet, setSelectedPet] = useState<string | null>(null);
@@ -35,6 +35,13 @@ export default function BookPage() {
   useEffect(() => {
     setSelectedTime(null);
   }, [selectedVet, selectedDate]);
+
+  // Refetch vets when reaching step 2 to get latest ratings
+  useEffect(() => {
+    if (step === 2 && refetchVets) {
+      refetchVets();
+    }
+  }, [step, refetchVets]);
 
   const canProceed = () => {
     switch (step) {

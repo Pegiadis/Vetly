@@ -16,9 +16,21 @@ from app.schemas.appointment import (
     AppointmentStatusUpdate,
     AppointmentRejectRequest,
     CompleteExaminationRequest,
+    VetCreateAppointmentRequest,
 )
 
 router = APIRouter()
+
+
+@router.post("", response_model=AppointmentDetailResponse, status_code=201)
+def create_appointment(
+    data: VetCreateAppointmentRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> AppointmentDetailResponse:
+    """Create a new appointment for a patient (vet-initiated, auto-confirmed)"""
+    service = AppointmentService(db)
+    return service.create_appointment(vet_id=current_vet.id, data=data)
 
 
 @router.get("", response_model=AppointmentListResponse)

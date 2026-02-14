@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 
 export interface Pet {
@@ -94,26 +94,28 @@ export function useVets() {
   const [vets, setVets] = useState<Vet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasFetchedRef = useRef(false);
 
-  useEffect(() => {
-    const fetchVets = async () => {
-      try {
-        setLoading(true);
-        // Use the public vets endpoint
-        const data = await api.get<VetListResponse>('/vets');
-        setVets(data.items);
-        setError(null);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch vets');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchVets();
+  const fetchVets = useCallback(async () => {
+    try {
+      // Only show loading spinner on initial load, not on refetch
+      if (!hasFetchedRef.current) setLoading(true);
+      const data = await api.get<VetListResponse>(`/vets?_t=${Date.now()}`);
+      setVets(data.items);
+      setError(null);
+      hasFetchedRef.current = true;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch vets');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { vets, loading, error };
+  useEffect(() => {
+    fetchVets();
+  }, [fetchVets]);
+
+  return { vets, loading, error, refetch: fetchVets };
 }
 
 export function useAvailableSlots(vetId: string | null, date: string | null) {

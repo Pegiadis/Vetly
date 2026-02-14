@@ -546,6 +546,53 @@ export async function toggleOnCall(is_on_call: boolean): Promise<VetProfile> {
   return api.patch<VetProfile>('/vets/me/on-call', { is_on_call });
 }
 
+// --- Vet Create Appointment ---
+
+export interface VetCreateAppointmentData {
+  pet_id: string;
+  scheduled_at: string;
+  type: string;
+  duration_minutes?: number;
+  notes?: string;
+}
+
+export async function createVetAppointment(data: VetCreateAppointmentData): Promise<VetAppointment> {
+  return api.post<VetAppointment>('/vet/appointments', data);
+}
+
+export function useVetAvailableSlots(vetId: string | null, date: string | null) {
+  const [slots, setSlots] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!vetId || !date) {
+      setSlots([]);
+      return;
+    }
+
+    const fetchSlots = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await api.get<{ date: string; vet_id: string; slots: string[] }>(
+          `/vets/${vetId}/available-slots?date=${date}`
+        );
+        setSlots(data.slots);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch available slots');
+        setSlots([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSlots();
+  }, [vetId, date]);
+
+  return { slots, loading, error };
+}
+
 // --- Week Appointments (Schedule) ---
 
 export function useWeekAppointments(weekStart: string) {

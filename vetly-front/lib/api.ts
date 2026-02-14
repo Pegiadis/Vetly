@@ -46,7 +46,7 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 }
 
 export const api = {
-  get: <T>(endpoint: string) => fetchApi<T>(endpoint),
+  get: <T>(endpoint: string) => fetchApi<T>(endpoint, { cache: 'no-store' }),
 
   post: <T>(endpoint: string, data: unknown) =>
     fetchApi<T>(endpoint, {

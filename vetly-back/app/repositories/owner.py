@@ -193,6 +193,22 @@ class OwnerRepository:
         self.db.delete(review)
         self.db.commit()
 
+    def update_vet_rating(self, vet_id: UUID) -> None:
+        """Recalculate and update the vet's rating_average and reviews_count"""
+        stats = self.db.execute(
+            select(
+                func.count(Review.id),
+                func.coalesce(func.avg(Review.rating), 0),
+            ).where(Review.vet_id == vet_id)
+        ).one()
+        count, avg_rating = stats
+
+        vet = self.db.get(Vet, vet_id)
+        if vet:
+            vet.reviews_count = count
+            vet.rating_average = round(float(avg_rating), 2)
+            self.db.commit()
+
     # --- Notifications ---
 
     def get_notifications_by_owner(self, owner_id: UUID) -> list[Notification]:

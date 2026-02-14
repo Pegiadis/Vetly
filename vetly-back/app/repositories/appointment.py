@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.base import Appointment, MedicalEvent, Medication
+from app.db.base import Appointment, MedicalEvent, Medication, Pet
 from app.models.appointment import AppointmentStatus
 from app.models.medication import MedicationFrequency
 
@@ -130,6 +130,37 @@ class AppointmentRepository:
         total = self.db.scalar(count_query) or 0
 
         return list(appointments), total
+
+    def get_pet_by_id(self, pet_id: UUID) -> Pet | None:
+        """Get a pet by ID"""
+        return self.db.get(Pet, pet_id)
+
+    def create_appointment(
+        self,
+        vet_id: UUID,
+        pet_owner_id: UUID,
+        pet_id: UUID,
+        scheduled_at: datetime,
+        appointment_type: str,
+        duration_minutes: int = 30,
+        notes: str | None = None,
+        status: AppointmentStatus = AppointmentStatus.CONFIRMED,
+    ) -> Appointment:
+        """Create a new appointment"""
+        appointment = Appointment(
+            vet_id=vet_id,
+            pet_owner_id=pet_owner_id,
+            pet_id=pet_id,
+            scheduled_at=scheduled_at,
+            type=appointment_type,
+            duration_minutes=duration_minutes,
+            notes=notes,
+            status=status,
+        )
+        self.db.add(appointment)
+        self.db.commit()
+        self.db.refresh(appointment)
+        return appointment
 
     def update_status(
         self, appointment: Appointment, status: AppointmentStatus, notes: str | None = None
