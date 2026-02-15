@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useVetReviews, useVetReviewStats, replyToReview } from '@/hooks/useVetData';
+import { getImageUrl } from '@/lib/api';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('el-GR', {
@@ -127,7 +128,7 @@ export default function VetReviewsPage() {
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
                   {review.pet_owner?.image_url ? (
-                    <img src={review.pet_owner.image_url} alt="" className="w-full h-full rounded-full object-cover" />
+                    <img src={getImageUrl(review.pet_owner.image_url)} alt="" className="w-full h-full rounded-full object-cover" />
                   ) : (
                     <span className="text-indigo-600 font-bold text-lg">{review.pet_owner?.name?.charAt(0) || '?'}</span>
                   )}

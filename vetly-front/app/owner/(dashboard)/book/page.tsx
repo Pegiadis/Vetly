@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useMyPets, useVets, useAvailableSlots, createAppointment } from '@/hooks/useOwnerData';
 import CalendarPicker from '@/components/CalendarPicker';
+import { getImageUrl } from '@/lib/api';
 
 const appointmentTypes = [
   { id: 'Checkup', name: 'Γενικός Έλεγχος', icon: '🩺' },
@@ -160,7 +161,7 @@ export default function BookPage() {
                     >
                       <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 bg-slate-100 flex items-center justify-center">
                         {pet.image_url ? (
-                          <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
+                          <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-2xl">{pet.type === 'dog' ? '🐕' : pet.type === 'cat' ? '🐈' : '🐾'}</span>
                         )}
@@ -217,7 +218,7 @@ export default function BookPage() {
                   >
                     <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center">
                       {vet.image_url ? (
-                        <img src={vet.image_url} alt={vet.name} className="w-full h-full object-cover" />
+                        <img src={getImageUrl(vet.image_url)} alt={vet.name} className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-2xl">👨‍⚕️</span>
                       )}

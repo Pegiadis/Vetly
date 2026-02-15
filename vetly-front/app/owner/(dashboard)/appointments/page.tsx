@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useMyAppointments } from '@/hooks/useOwnerData';
+import { getImageUrl } from '@/lib/api';
 import type { Appointment } from '@/hooks/useOwnerData';
 
 type TabType = 'upcoming' | 'past';
@@ -47,7 +48,7 @@ function StatusBadge({ status }: { status: string }) {
 
 function AppointmentCard({ apt, showActions }: { apt: Appointment; showActions: boolean }) {
   const petName = apt.pet?.name || 'Κατοικίδιο';
-  const petImage = apt.pet?.image_url;
+  const petImage = getImageUrl(apt.pet?.image_url);
   const vetName = apt.vet?.name || 'Κτηνίατρος';
   const vetSpecialty = apt.vet?.specialty || '';
   const address = apt.vet?.address;

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useMyMedications, useMyPets, deleteMedication } from '@/hooks/useOwnerData';
+import { getImageUrl } from '@/lib/api';
 
 const frequencyTranslations: Record<string, string> = {
   'daily': 'Καθημερινά',
@@ -156,7 +157,7 @@ export default function MedicationsPage() {
                     expired ? 'bg-red-100' : 'bg-teal-100'
                   }`}>
                     {med.pet?.image_url ? (
-                      <img src={med.pet.image_url} alt={med.pet.name} className="w-full h-full object-cover" />
+                      <img src={getImageUrl(med.pet.image_url)} alt={med.pet.name} className="w-full h-full object-cover" />
                     ) : (
                       <span className={`font-bold ${expired ? 'text-red-700' : 'text-teal-700'}`}>
                         {med.pet?.name?.charAt(0) || '?'}

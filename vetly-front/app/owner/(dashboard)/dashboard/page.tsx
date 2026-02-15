@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMyPets, useUpcomingAppointments, useMyMedications } from '@/hooks/useOwnerData';
+import { getImageUrl } from '@/lib/api';
 
 function formatDateTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -203,7 +204,7 @@ export default function OwnerDashboardPage() {
                   >
                     <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-slate-100 bg-teal-50 flex items-center justify-center flex-shrink-0">
                       {pet.image_url ? (
-                        <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
+                        <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-teal-600 font-bold">{pet.name.charAt(0)}</span>
                       )}

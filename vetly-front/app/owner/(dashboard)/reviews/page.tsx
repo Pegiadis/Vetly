@@ -9,6 +9,7 @@ import {
   deleteReview,
   OwnerReview,
 } from '@/hooks/useOwnerData';
+import { getImageUrl } from '@/lib/api';
 
 export default function ReviewsPage() {
   const { reviews, loading, error, refetch } = useMyReviews();
@@ -162,7 +163,7 @@ export default function ReviewsPage() {
               <div className="flex items-center gap-4 mb-4 pb-4 border-b border-slate-100">
                 <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-teal-100 flex items-center justify-center">
                   {review.vet?.image_url ? (
-                    <img src={review.vet.image_url} alt={review.vet.name} className="w-full h-full object-cover" />
+                    <img src={getImageUrl(review.vet.image_url)} alt={review.vet.name} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-teal-700 font-bold text-lg">
                       {review.vet?.name?.charAt(0) || '?'}
@@ -331,7 +332,7 @@ export default function ReviewsPage() {
             <div className="mb-4 flex items-center gap-3 p-3 bg-slate-50 rounded-xl">
               <div className="w-10 h-10 rounded-lg overflow-hidden bg-teal-100 flex items-center justify-center flex-shrink-0">
                 {editingReview.vet?.image_url ? (
-                  <img src={editingReview.vet.image_url} alt={editingReview.vet.name} className="w-full h-full object-cover" />
+                  <img src={getImageUrl(editingReview.vet.image_url)} alt={editingReview.vet.name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-teal-700 font-bold">{editingReview.vet?.name?.charAt(0) || '?'}</span>
                 )}

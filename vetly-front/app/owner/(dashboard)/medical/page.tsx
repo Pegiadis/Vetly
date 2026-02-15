@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useMyPets, OwnerMedicalEvent } from '@/hooks/useOwnerData';
-import { api } from '@/lib/api';
+import { api, getImageUrl } from '@/lib/api';
 
 const eventTypeColors: Record<string, { bg: string; text: string; icon: string }> = {
   'Vaccination': { bg: 'bg-green-100', text: 'text-green-700', icon: '💉' },
@@ -106,7 +106,7 @@ export default function MedicalPage() {
             >
               <div className="w-6 h-6 rounded-full overflow-hidden bg-teal-100 flex items-center justify-center">
                 {pet.image_url ? (
-                  <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
+                  <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-teal-700 text-xs font-bold">{pet.name.charAt(0)}</span>
                 )}
@@ -158,7 +158,7 @@ export default function MedicalPage() {
                               <span className="flex items-center gap-1 text-xs text-slate-500">
                                 <div className="w-4 h-4 rounded-full overflow-hidden bg-teal-100 flex items-center justify-center">
                                   {pet.image_url ? (
-                                    <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
+                                    <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
                                   ) : (
                                     <span className="text-teal-700 text-[8px] font-bold">{pet.name.charAt(0)}</span>
                                   )}

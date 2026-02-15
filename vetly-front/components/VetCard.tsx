@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Vet } from '@/types/vet';
+import { getImageUrl } from '@/lib/api';
 
 interface VetCardProps {
   vet: Vet;
@@ -14,7 +15,7 @@ export default function VetCard({ vet }: VetCardProps) {
           <div className="flex-shrink-0">
             {vet.image_url ? (
               <img
-                src={vet.image_url}
+                src={getImageUrl(vet.image_url)}
                 alt={vet.name}
                 className="w-16 h-16 rounded-full object-cover"
               />

@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Vet } from '@/types/vet';
+import { getImageUrl } from '@/lib/api';
 
 const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -75,7 +76,7 @@ export default async function VetDetailPage({ params }: PageProps) {
           <div className="flex gap-6 mb-6">
             {vet.image_url ? (
               <img
-                src={vet.image_url}
+                src={getImageUrl(vet.image_url)}
                 alt={vet.name}
                 className="w-24 h-24 rounded-full object-cover"
               />
