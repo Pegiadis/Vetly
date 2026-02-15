@@ -261,7 +261,7 @@ export default function BookPage() {
                             </p>
                           )}
                         </div>
-                        <div className="text-right flex-shrink-0">
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
                           <div className="flex items-center gap-1 text-amber-500">
                             <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
                               <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
@@ -269,6 +269,22 @@ export default function BookPage() {
                             <span className="font-bold text-slate-800 text-sm">{Number(vet.rating_average).toFixed(1)}</span>
                           </div>
                           <p className="text-xs text-slate-400">{vet.reviews_count} αξιολ.</p>
+                          {vet.coordinates_lat && vet.coordinates_lng && (
+                            <a
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${vet.coordinates_lat},${vet.coordinates_lng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Οδηγίες Google Maps"
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors text-xs font-medium"
+                            >
+                              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              Google Maps
+                            </a>
+                          )}
                         </div>
                       </button>
                     ))}

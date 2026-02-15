@@ -60,9 +60,8 @@ export function VetMapPickerInner({ lat, lng, onChange }: VetMapPickerProps) {
   const center: [number, number] = lat && lng ? [lat, lng] : THESSALONIKI_CENTER;
 
   return (
-    <MapContainer center={center} zoom={lat && lng ? 15 : DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }}>
+    <MapContainer center={center} zoom={lat && lng ? 15 : DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }} attributionControl={false}>
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <ClickHandler onClick={onChange} />
@@ -106,9 +105,8 @@ interface VetSearchMapProps {
 
 export function VetSearchMapInner({ vets, selectedVetId, onSelectVet }: VetSearchMapProps) {
   return (
-    <MapContainer center={THESSALONIKI_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }}>
+    <MapContainer center={THESSALONIKI_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }} attributionControl={false}>
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <FlyToSelected selectedId={selectedVetId} markers={vets} />
@@ -134,6 +132,16 @@ export function VetSearchMapInner({ vets, selectedVetId, onSelectVet }: VetSearc
               <span style={{ fontSize: 12 }}>
                 ⭐ {Number(vet.rating_average).toFixed(1)} ({vet.reviews_count})
               </span>
+              <br />
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${vet.lat},${vet.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 12, color: '#3b82f6', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 4 }}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                Οδηγίες Google Maps
+              </a>
             </div>
           </Popup>
         </Marker>
