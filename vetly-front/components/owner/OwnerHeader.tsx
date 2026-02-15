@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { getImageUrl } from '@/lib/api';
 
 export default function OwnerHeader() {
   const { user } = useAuth();
   const ownerName = user?.name || '';
-  const ownerImage: string | undefined = undefined;
+  const ownerImage = getImageUrl(user?.image_url);
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (

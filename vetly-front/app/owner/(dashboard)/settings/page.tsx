@@ -1,10 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useOwnerProfile, updateOwnerProfile } from '@/hooks/useOwnerData';
+import { useState, useEffect, useRef } from 'react';
+import { useOwnerProfile, updateOwnerProfile, uploadOwnerPhoto } from '@/hooks/useOwnerData';
+import { useAuth } from '@/contexts/AuthContext';
+import { getImageUrl } from '@/lib/api';
 
 export default function SettingsPage() {
-  const { profile, loading, error } = useOwnerProfile();
+  const { profile, loading, error, refetch } = useOwnerProfile();
+  const { refreshUser } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await uploadOwnerPhoto(file);
+      refetch();
+      refreshUser();
+    } catch {
+      // silent
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -104,13 +125,28 @@ export default function SettingsPage() {
 
         {/* Avatar */}
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-20 h-20 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-600 text-2xl font-bold">
-            {initials || '?'}
+          <div className="w-20 h-20 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-600 text-2xl font-bold overflow-hidden">
+            {profile?.image_url ? (
+              <img src={getImageUrl(profile.image_url)} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              initials || '?'
+            )}
           </div>
           <div>
-            <button className="px-4 py-2 bg-teal-600 text-white rounded-xl font-bold text-sm hover:bg-teal-700 transition-colors">
-              Αλλαγή Φωτογραφίας
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="px-4 py-2 bg-teal-600 text-white rounded-xl font-bold text-sm hover:bg-teal-700 transition-colors disabled:opacity-50"
+            >
+              {uploading ? 'Μεταφόρτωση...' : 'Αλλαγή Φωτογραφίας'}
             </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
             <p className="text-xs text-slate-500 mt-2">JPG, PNG. Μέγιστο 2MB.</p>
           </div>
         </div>

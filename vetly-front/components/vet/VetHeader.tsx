@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { getImageUrl } from '@/lib/api';
 
 export default function VetHeader() {
   const { user } = useAuth();
   const vetName = user?.name || '';
-  const vetImage: string | undefined = undefined;
+  const vetImage = getImageUrl(user?.image_url);
   const [isOnCall, setIsOnCall] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
 

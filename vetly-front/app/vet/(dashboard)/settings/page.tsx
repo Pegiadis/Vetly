@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useVetProfile, updateVetProfile, updateVetHours, DayHours } from '@/hooks/useVetData';
+import { useVetProfile, updateVetProfile, updateVetHours, uploadVetPhoto, DayHours } from '@/hooks/useVetData';
+import { useAuth } from '@/contexts/AuthContext';
+import { getImageUrl } from '@/lib/api';
 
 const defaultHours: Record<string, DayHours> = {
   monday: { open: '09:00', close: '21:00', closed: false },
@@ -27,7 +29,26 @@ const dayNames: Record<string, string> = {
 const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
 export default function VetSettingsPage() {
-  const { profile, loading, error } = useVetProfile();
+  const { profile, loading, error, refetch } = useVetProfile();
+  const { refreshUser } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      await uploadVetPhoto(file);
+      refetch();
+      refreshUser();
+    } catch {
+      // silent
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -127,15 +148,26 @@ export default function VetSettingsPage() {
           <div className="flex items-center gap-6">
             <div className="w-24 h-24 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden">
               {profile?.image_url ? (
-                <img src={profile.image_url} alt="Profile" className="w-full h-full object-cover" />
+                <img src={getImageUrl(profile.image_url)} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-indigo-600 font-bold text-3xl">{formData.name.charAt(0) || '?'}</span>
               )}
             </div>
             <div>
-              <button className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors">
-                Αλλαγή Φωτογραφίας
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              >
+                {uploading ? 'Μεταφόρτωση...' : 'Αλλαγή Φωτογραφίας'}
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png"
+                className="hidden"
+                onChange={handlePhotoUpload}
+              />
               <p className="text-sm text-slate-500 mt-2">JPG, PNG έως 5MB</p>
             </div>
           </div>
