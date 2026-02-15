@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useMyPets, useVets, useAvailableSlots, createAppointment } from '@/hooks/useOwnerData';
+import { useMyPets, useVets, useAvailableSlots, createAppointment, Vet } from '@/hooks/useOwnerData';
 import CalendarPicker from '@/components/CalendarPicker';
 import { getImageUrl } from '@/lib/api';
+import { VetSearchMap } from '@/components/MapView';
 
 const appointmentTypes = [
   { id: 'Checkup', name: 'Γενικός Έλεγχος', icon: '🩺' },
@@ -100,7 +101,7 @@ export default function BookPage() {
   const selectedTypeData = appointmentTypes.find(t => t.id === selectedType);
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className={`mx-auto ${step === 2 ? 'max-w-6xl' : 'max-w-3xl'} transition-all duration-300`}>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Κλείστε Ραντεβού</h1>
@@ -196,49 +197,99 @@ export default function BookPage() {
           </div>
         )}
 
-        {/* Step 2: Select Vet */}
+        {/* Step 2: Select Vet with Map */}
         {step === 2 && (
           <div>
-            <h3 className="font-bold text-slate-800 mb-4">Επιλέξτε κτηνίατρο</h3>
+            <h3 className="font-bold text-slate-800 mb-1">Επιλέξτε κτηνίατρο</h3>
+            <p className="text-sm text-slate-500 mb-4">Βρείτε κτηνιάτρους στον χάρτη ή επιλέξτε από τη λίστα.</p>
             {vetsLoading ? (
               <div className="text-center py-8 text-slate-500">Φόρτωση κτηνιάτρων...</div>
             ) : vets.length === 0 ? (
               <div className="text-center py-8 text-slate-500">Δεν βρέθηκαν κτηνίατροι.</div>
             ) : (
-              <div className="space-y-3">
-                {vets.map((vet) => (
-                  <button
-                    key={vet.id}
-                    onClick={() => setSelectedVet(vet.id)}
-                    className={`w-full p-4 rounded-xl border-2 transition-all text-left flex items-center gap-4 ${
-                      selectedVet === vet.id
-                        ? 'border-teal-500 bg-teal-50'
-                        : 'border-slate-100 hover:border-teal-200'
-                    }`}
-                  >
-                    <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center">
-                      {vet.image_url ? (
-                        <img src={getImageUrl(vet.image_url)} alt={vet.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-2xl">👨‍⚕️</span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-slate-800">{vet.name}</p>
-                      <p className="text-sm text-slate-500">{vet.specialty}</p>
-                      {vet.city && <p className="text-xs text-slate-400 mt-1">{vet.city}</p>}
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1 text-amber-500">
-                        <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20">
-                          <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                        </svg>
-                        <span className="font-bold text-slate-800">{Number(vet.rating_average).toFixed(1)}</span>
-                      </div>
-                      <p className="text-xs text-slate-400">{vet.reviews_count} αξιολογήσεις</p>
-                    </div>
-                  </button>
-                ))}
+              <div className="flex flex-col lg:flex-row gap-4">
+                {/* Map — takes most of the width */}
+                <div className="lg:flex-1 relative">
+                  <div className="h-[350px] lg:h-[520px] rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
+                    <VetSearchMap
+                      vets={vets
+                        .filter((v: Vet) => v.coordinates_lat && v.coordinates_lng)
+                        .map((v: Vet) => ({
+                          id: v.id,
+                          name: v.name,
+                          specialty: v.specialty,
+                          rating_average: v.rating_average,
+                          reviews_count: v.reviews_count,
+                          address: v.address,
+                          lat: v.coordinates_lat!,
+                          lng: v.coordinates_lng!,
+                        }))}
+                      selectedVetId={selectedVet}
+                      onSelectVet={setSelectedVet}
+                    />
+                  </div>
+                </div>
+
+                {/* Vet list — scrollable column */}
+                <div className="lg:w-80 xl:w-96 flex flex-col">
+                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">{vets.length} κτηνίατροι</p>
+                  <div className="overflow-y-auto max-h-[300px] lg:max-h-[480px] space-y-2 pr-1">
+                    {vets.map((vet) => (
+                      <button
+                        key={vet.id}
+                        onClick={() => setSelectedVet(vet.id)}
+                        className={`w-full p-3 rounded-xl border-2 transition-all text-left flex items-center gap-3 ${
+                          selectedVet === vet.id
+                            ? 'border-teal-500 bg-teal-50 shadow-md'
+                            : 'border-slate-100 hover:border-teal-200'
+                        }`}
+                      >
+                        <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center">
+                          {vet.image_url ? (
+                            <img src={getImageUrl(vet.image_url)} alt={vet.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-lg">👨‍⚕️</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-800 text-sm truncate">{vet.name}</p>
+                          <p className="text-xs text-slate-500">{vet.specialty}</p>
+                          {vet.address && (
+                            <p className="text-xs text-slate-400 truncate mt-0.5 flex items-center gap-1">
+                              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                              <span className="truncate">{vet.address}</span>
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <div className="flex items-center gap-1 text-amber-500">
+                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
+                              <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                            </svg>
+                            <span className="font-bold text-slate-800 text-sm">{Number(vet.rating_average).toFixed(1)}</span>
+                          </div>
+                          <p className="text-xs text-slate-400">{vet.reviews_count} αξιολ.</p>
+                          {vet.coordinates_lat && vet.coordinates_lng && (
+                            <a
+                              href={`https://www.google.com/maps/dir/?api=1&destination=${vet.coordinates_lat},${vet.coordinates_lng}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              title="Οδηγίες Google Maps"
+                              className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors text-xs font-medium"
+                            >
+                              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              Google Maps
+                            </a>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>

@@ -3,6 +3,7 @@ Pet owner schemas for request/response validation
 """
 
 from datetime import datetime, date, time
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field, ConfigDict
@@ -98,9 +99,12 @@ class VetListResponse(BaseModel):
     name: str
     specialty: str
     city: str | None = None
+    address: str | None = None
     rating_average: float = 0
     reviews_count: int = 0
     image_url: str | None = None
+    coordinates_lat: Decimal | None = None
+    coordinates_lng: Decimal | None = None
 
     model_config = {"from_attributes": True}
 
