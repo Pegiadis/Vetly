@@ -498,6 +498,8 @@ export interface VetProfile {
   is_verified: boolean;
   rating_average: number;
   reviews_count: number;
+  coordinates_lat: number | null;
+  coordinates_lng: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -535,6 +537,8 @@ export async function updateVetProfile(data: {
   city?: string;
   description?: string;
   image_url?: string;
+  coordinates_lat?: number | null;
+  coordinates_lng?: number | null;
 }): Promise<VetProfile> {
   return api.put<VetProfile>('/vets/me', data);
 }

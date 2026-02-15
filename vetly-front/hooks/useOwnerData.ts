@@ -20,9 +20,12 @@ export interface Vet {
   name: string;
   specialty: string;
   city: string | null;
+  address: string | null;
   rating_average: number;
   reviews_count: number;
   image_url: string | null;
+  coordinates_lat: number | null;
+  coordinates_lng: number | null;
 }
 
 export interface AppointmentPetInfo {
