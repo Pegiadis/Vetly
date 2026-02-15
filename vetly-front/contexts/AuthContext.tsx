@@ -9,6 +9,7 @@ interface User {
   email: string;
   name: string;
   type: UserType;
+  image_url: string | null;
 }
 
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (token: string, userType: 'vet' | 'pet_owner') => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -88,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: userData.email,
           name: userData.name,
           type,
+          image_url: userData.image_url || null,
         });
       } else {
         // Token is invalid, clear it
@@ -109,6 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await fetchUser(authToken, type);
   };
 
+  const refreshUser = async () => {
+    if (token && userType) {
+      await fetchUser(token, userType);
+    }
+  };
+
   const logout = () => {
     if (userType) {
       localStorage.removeItem(getTokenKey(userType));
@@ -128,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         logout,
+        refreshUser,
         isAuthenticated: !!token,
       }}
     >

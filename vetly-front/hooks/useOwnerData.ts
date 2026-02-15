@@ -11,6 +11,7 @@ export interface Pet {
   gender: string | null;
   chip_number: string | null;
   image_url: string | null;
+  cover_image_url: string | null;
   created_at: string;
 }
 
@@ -480,6 +481,18 @@ export async function updateOwnerProfile(data: {
   address?: string;
 }): Promise<OwnerProfile> {
   return api.put<OwnerProfile>('/owner/profile', data);
+}
+
+export async function uploadOwnerPhoto(file: File): Promise<{ url: string }> {
+  return api.upload<{ url: string }>('/uploads/owner/photo', file);
+}
+
+export async function uploadPetPhoto(petId: string, file: File): Promise<{ url: string }> {
+  return api.upload<{ url: string }>(`/uploads/pet/${petId}/photo`, file);
+}
+
+export async function uploadPetCover(petId: string, file: File): Promise<{ url: string }> {
+  return api.upload<{ url: string }>(`/uploads/pet/${petId}/cover`, file);
 }
 
 // --- Pet CRUD ---

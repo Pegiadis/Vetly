@@ -215,6 +215,7 @@ export interface Patient {
   gender: string;
   chip_number: string | null;
   image_url: string | null;
+  cover_image_url: string | null;
   created_at: string;
   updated_at: string;
   owner?: PatientOwner | null;
@@ -536,6 +537,10 @@ export async function updateVetProfile(data: {
   image_url?: string;
 }): Promise<VetProfile> {
   return api.put<VetProfile>('/vets/me', data);
+}
+
+export async function uploadVetPhoto(file: File): Promise<{ url: string }> {
+  return api.upload<{ url: string }>('/uploads/vet/photo', file);
 }
 
 export async function updateVetHours(hours: Record<string, DayHours>): Promise<VetProfile> {

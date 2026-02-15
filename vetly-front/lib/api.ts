@@ -70,6 +70,32 @@ export const api = {
     fetchApi<T>(endpoint, {
       method: 'DELETE',
     }),
+
+  upload: <T>(endpoint: string, file: File): Promise<T> => {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+      },
+      body: formData,
+    }).then(async (response) => {
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
+        throw new ApiError(response.status, error.detail || 'Upload failed');
+      }
+      return response.json();
+    });
+  },
 };
 
 export { ApiError };
+
+export function getImageUrl(path: string | null | undefined): string | undefined {
+  if (!path) return undefined;
+  const base = API_BASE_URL.replace('/api/v1', '');
+  return `${base}${path}`;
+}
