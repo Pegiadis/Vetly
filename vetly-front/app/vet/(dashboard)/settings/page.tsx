@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useVetProfile, updateVetProfile, updateVetHours, uploadVetPhoto, DayHours } from '@/hooks/useVetData';
 import { useAuth } from '@/contexts/AuthContext';
 import { getImageUrl } from '@/lib/api';
+import { VetMapPicker } from '@/components/MapView';
 
 const defaultHours: Record<string, DayHours> = {
   monday: { open: '09:00', close: '21:00', closed: false },
@@ -59,6 +60,8 @@ export default function VetSettingsPage() {
     city: '',
     description: '',
     licenseNumber: '',
+    coordinates_lat: null as number | null,
+    coordinates_lng: null as number | null,
   });
 
   const [hours, setHours] = useState<Record<string, DayHours>>(defaultHours);
@@ -77,6 +80,8 @@ export default function VetSettingsPage() {
       city: profile.city || '',
       description: profile.description || '',
       licenseNumber: profile.license_number || '',
+      coordinates_lat: profile.coordinates_lat ?? null,
+      coordinates_lng: profile.coordinates_lng ?? null,
     });
     if (profile.hours) {
       const merged: Record<string, DayHours> = {};
@@ -102,6 +107,8 @@ export default function VetSettingsPage() {
         address: formData.address,
         city: formData.city,
         description: formData.description,
+        coordinates_lat: formData.coordinates_lat,
+        coordinates_lng: formData.coordinates_lng,
       });
       await updateVetHours(hours);
       setSaveSuccess(true);
@@ -250,6 +257,24 @@ export default function VetSettingsPage() {
               />
             </div>
           </div>
+        </div>
+
+        {/* Location Picker */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+          <h2 className="text-lg font-bold text-slate-800 mb-2">Τοποθεσία Ιατρείου</h2>
+          <p className="text-sm text-slate-500 mb-4">Κάντε κλικ στον χάρτη για να ορίσετε τη θέση του ιατρείου σας.</p>
+          <div className="h-[300px] rounded-xl overflow-hidden border border-slate-200">
+            <VetMapPicker
+              lat={formData.coordinates_lat}
+              lng={formData.coordinates_lng}
+              onChange={(lat, lng) => setFormData({ ...formData, coordinates_lat: lat, coordinates_lng: lng })}
+            />
+          </div>
+          {formData.coordinates_lat && formData.coordinates_lng && (
+            <p className="text-xs text-slate-400 mt-2">
+              Συντεταγμένες: {Number(formData.coordinates_lat).toFixed(6)}, {Number(formData.coordinates_lng).toFixed(6)}
+            </p>
+          )}
         </div>
 
         {/* Working Hours */}
