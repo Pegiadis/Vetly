@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.repositories.pet import PetRepository
 from app.schemas.pet import (
-    PetResponse,
     PetListResponse,
     PetWithOwnerResponse,
     PetOwnerResponse,
@@ -47,8 +46,15 @@ class PetService:
             vet_id=vet_id, search=search, skip=skip, limit=page_size
         )
 
+        items = []
+        for pet in pets:
+            item = PetWithOwnerResponse.model_validate(pet)
+            if pet.owner:
+                item.owner = PetOwnerResponse.model_validate(pet.owner)
+            items.append(item)
+
         return PetListResponse(
-            items=[PetResponse.model_validate(pet) for pet in pets],
+            items=items,
             total=total,
             page=page,
             page_size=page_size,

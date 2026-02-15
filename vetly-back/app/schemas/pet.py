@@ -43,7 +43,7 @@ class PetWithOwnerResponse(PetResponse):
 
 class PetListResponse(BaseModel):
     """Paginated list of pets"""
-    items: list[PetResponse]
+    items: list[PetWithOwnerResponse]
     total: int
     page: int
     page_size: int
