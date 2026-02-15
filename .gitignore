@@ -50,3 +50,6 @@ vetly-landing-page/.next/
 .obsidian
 *.venv*
 __pycache__/
+
+# Uploads
+vetly-back/uploads/
