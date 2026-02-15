@@ -13,7 +13,7 @@ import {
   Pet,
 } from '@/hooks/useOwnerData';
 import type { Appointment } from '@/hooks/useOwnerData';
-import { getImageUrl } from '@/lib/api';
+import { getImageUrl, ApiError } from '@/lib/api';
 
 function getLastVisit(petId: string, appointments: Appointment[]): string | null {
   const past = appointments
@@ -88,16 +88,18 @@ export default function PetsPage() {
   // Pet photo upload
   const petPhotoRef = useRef<HTMLInputElement>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadError, setUploadError] = useState('');
 
   const handlePetPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !selectedPet) return;
     setUploadingPhoto(true);
+    setUploadError('');
     try {
       await uploadPetPhoto(selectedPet.id, file);
       refetch();
-    } catch {
-      // silent
+    } catch (err) {
+      setUploadError(err instanceof ApiError ? err.message : 'Αποτυχία μεταφόρτωσης φωτογραφίας.');
     } finally {
       setUploadingPhoto(false);
       if (petPhotoRef.current) petPhotoRef.current.value = '';
@@ -112,11 +114,12 @@ export default function PetsPage() {
     const file = e.target.files?.[0];
     if (!file || !selectedPet) return;
     setUploadingCover(true);
+    setUploadError('');
     try {
       await uploadPetCover(selectedPet.id, file);
       refetch();
-    } catch {
-      // silent
+    } catch (err) {
+      setUploadError(err instanceof ApiError ? err.message : 'Αποτυχία μεταφόρτωσης φωτογραφίας.');
     } finally {
       setUploadingCover(false);
       if (coverPhotoRef.current) coverPhotoRef.current.value = '';
@@ -334,6 +337,7 @@ export default function PetsPage() {
                       accept="image/jpeg,image/png"
                       className="hidden"
                       onChange={handlePetPhoto}
+                      onClick={(e) => e.stopPropagation()}
                     />
                   </div>
                   <div className="absolute top-4 right-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
@@ -361,6 +365,17 @@ export default function PetsPage() {
                 <div className="pt-16 p-6">
                   <h2 className="text-2xl font-bold text-slate-900">{selectedPet.name}</h2>
                   <p className="text-slate-500"><PetTypeLabel type={selectedPet.type} /> • {selectedPet.breed || '-'}</p>
+
+                  {uploadError && (
+                    <div className="mt-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center justify-between">
+                      <span>{uploadError}</span>
+                      <button onClick={() => setUploadError('')} className="text-red-400 hover:text-red-600 ml-3">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
                     <div className="bg-slate-50 p-4 rounded-xl">

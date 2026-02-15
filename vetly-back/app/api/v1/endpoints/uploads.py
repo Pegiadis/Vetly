@@ -40,9 +40,9 @@ async def upload_owner_photo(
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
-    """Upload a profile photo for the authenticated pet owner. Max 2MB, JPG/PNG."""
+    """Upload a profile photo for the authenticated pet owner. Max 5MB, JPG/PNG."""
     delete_upload(current_owner.image_url)
-    url = await save_upload(file, prefix="owner", max_size_bytes=2 * 1024 * 1024)
+    url = await save_upload(file, prefix="owner", max_size_bytes=5 * 1024 * 1024)
     current_owner.image_url = url
     db.commit()
     return UploadResponse(url=url)
@@ -55,7 +55,7 @@ async def upload_pet_photo(
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
-    """Upload a photo for a pet. Max 2MB, JPG/PNG. Pet must belong to the owner."""
+    """Upload a photo for a pet. Max 5MB, JPG/PNG. Pet must belong to the owner."""
     pet = db.scalar(
         select(Pet).where(Pet.id == pet_id, Pet.pet_owner_id == current_owner.id)
     )
@@ -65,7 +65,7 @@ async def upload_pet_photo(
             detail="Pet not found",
         )
     delete_upload(pet.image_url)
-    url = await save_upload(file, prefix="pet", max_size_bytes=2 * 1024 * 1024)
+    url = await save_upload(file, prefix="pet", max_size_bytes=5 * 1024 * 1024)
     pet.image_url = url
     db.commit()
     return UploadResponse(url=url)
