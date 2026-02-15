@@ -627,3 +627,47 @@ export function useWeekAppointments(weekStart: string) {
 
   return { appointments, loading, error, refetch: fetchAppointments };
 }
+
+// --- Vet Notifications ---
+
+export interface VetNotification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+export function useVetNotifications() {
+  const [notifications, setNotifications] = useState<VetNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<VetNotification[]>('/vet/notifications');
+      setNotifications(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  return { notifications, loading, error, refetch: fetchNotifications };
+}
+
+export async function markVetNotificationRead(notificationId: string): Promise<VetNotification> {
+  return api.patch<VetNotification>(`/vet/notifications/${notificationId}/read`, {});
+}
+
+export async function markAllVetNotificationsRead(): Promise<void> {
+  return api.post<void>('/vet/notifications/mark-all-read', {});
+}

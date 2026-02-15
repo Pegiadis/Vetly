@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePendingAppointments } from '@/hooks/useVetData';
+import { usePendingAppointments, useVetNotifications } from '@/hooks/useVetData';
 
 const navItems = [
   {
@@ -70,6 +70,16 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    name: 'Ειδοποιήσεις',
+    href: '/vet/notifications',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+      </svg>
+    ),
+    badgeKey: 'notifications' as const,
+  },
 ];
 
 const bottomNavItems = [
@@ -90,6 +100,9 @@ export default function VetSidebar() {
   const router = useRouter();
   const { logout } = useAuth();
   const { appointments: pendingAppointments } = usePendingAppointments();
+  const { notifications } = useVetNotifications();
+
+  const unreadNotifCount = notifications.filter(n => !n.is_read).length;
 
   const handleLogout = () => {
     logout();
@@ -134,6 +147,11 @@ export default function VetSidebar() {
               {item.badge && pendingAppointments.length > 0 && (
                 <span className="ml-auto bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
                   {pendingAppointments.length}
+                </span>
+              )}
+              {item.badgeKey === 'notifications' && unreadNotifCount > 0 && (
+                <span className="ml-auto bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                  {unreadNotifCount}
                 </span>
               )}
             </Link>

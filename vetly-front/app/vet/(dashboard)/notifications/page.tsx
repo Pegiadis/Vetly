@@ -2,20 +2,12 @@
 
 import React, { useMemo } from 'react';
 import {
-  useMyNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
-} from '@/hooks/useOwnerData';
+  useVetNotifications,
+  markVetNotificationRead,
+  markAllVetNotificationsRead,
+} from '@/hooks/useVetData';
 
 const notificationIcons: Record<string, { bg: string; icon: React.ReactNode }> = {
-  medication: {
-    bg: 'bg-amber-100 text-amber-600',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-      </svg>
-    ),
-  },
   appointment: {
     bg: 'bg-green-100 text-green-600',
     icon: (
@@ -24,19 +16,11 @@ const notificationIcons: Record<string, { bg: string; icon: React.ReactNode }> =
       </svg>
     ),
   },
-  reply: {
-    bg: 'bg-indigo-100 text-indigo-600',
+  review: {
+    bg: 'bg-amber-100 text-amber-600',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-      </svg>
-    ),
-  },
-  reminder: {
-    bg: 'bg-blue-100 text-blue-600',
-    icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
       </svg>
     ),
   },
@@ -64,8 +48,8 @@ function formatDate(dateStr: string) {
   return date.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
 }
 
-export default function NotificationsPage() {
-  const { notifications, loading, error, refetch } = useMyNotifications();
+export default function VetNotificationsPage() {
+  const { notifications, loading, error, refetch } = useVetNotifications();
 
   const unreadCount = useMemo(
     () => notifications.filter(n => !n.is_read).length,
@@ -74,7 +58,7 @@ export default function NotificationsPage() {
 
   const handleMarkRead = async (id: string) => {
     try {
-      await markNotificationRead(id);
+      await markVetNotificationRead(id);
       refetch();
     } catch {
       // silent
@@ -83,7 +67,7 @@ export default function NotificationsPage() {
 
   const handleMarkAllRead = async () => {
     try {
-      await markAllNotificationsRead();
+      await markAllVetNotificationsRead();
       refetch();
     } catch {
       // silent
@@ -93,7 +77,7 @@ export default function NotificationsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
       </div>
     );
   }
@@ -123,7 +107,7 @@ export default function NotificationsPage() {
         {unreadCount > 0 && (
           <button
             onClick={handleMarkAllRead}
-            className="text-teal-600 font-bold text-sm hover:text-teal-700 transition-colors"
+            className="text-indigo-600 font-bold text-sm hover:text-indigo-700 transition-colors"
           >
             Σήμανση όλων ως αναγνωσμένα
           </button>
@@ -145,7 +129,7 @@ export default function NotificationsPage() {
                 } ${
                   notification.is_read
                     ? 'border-slate-100 hover:border-slate-200'
-                    : 'border-teal-200 bg-teal-50/30 hover:bg-teal-50/50'
+                    : 'border-indigo-200 bg-indigo-50/30 hover:bg-indigo-50/50'
                 }`}
               >
                 <div className="flex gap-4">
@@ -168,7 +152,7 @@ export default function NotificationsPage() {
                   </div>
 
                   {!notification.is_read && (
-                    <div className="w-2 h-2 bg-teal-500 rounded-full flex-shrink-0 mt-2" />
+                    <div className="w-2 h-2 bg-indigo-500 rounded-full flex-shrink-0 mt-2" />
                   )}
                 </div>
               </div>
