@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useMyMedications } from '@/hooks/useOwnerData';
+import { useMyMedications, useMyPets, deleteMedication } from '@/hooks/useOwnerData';
 
 const frequencyTranslations: Record<string, string> = {
   'daily': 'Καθημερινά',
@@ -9,16 +9,48 @@ const frequencyTranslations: Record<string, string> = {
   'once': 'Εφάπαξ',
 };
 
+function isExpired(endDate: string | null): boolean {
+  if (!endDate) return false;
+  return new Date(endDate) < new Date(new Date().toDateString());
+}
+
+function daysUntilEnd(endDate: string): number {
+  const end = new Date(endDate);
+  const now = new Date(new Date().toDateString());
+  return Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export default function MedicationsPage() {
   const [showActive, setShowActive] = useState(true);
-  const { medications, loading, error } = useMyMedications();
+  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const { medications, loading, error, refetch } = useMyMedications();
+  const { pets } = useMyPets();
 
   const filtered = useMemo(() => {
-    return medications.filter(m => m.is_active === showActive);
-  }, [medications, showActive]);
+    return medications.filter(m => {
+      if (m.is_active !== showActive) return false;
+      if (selectedPetId && m.pet_id !== selectedPetId) return false;
+      return true;
+    });
+  }, [medications, showActive, selectedPetId]);
 
   const activeCount = useMemo(() => medications.filter(m => m.is_active).length, [medications]);
   const inactiveCount = useMemo(() => medications.filter(m => !m.is_active).length, [medications]);
+
+  const handleDelete = async (medicationId: string) => {
+    setDeletingId(medicationId);
+    try {
+      await deleteMedication(medicationId);
+      setConfirmDeleteId(null);
+      refetch();
+    } catch {
+      // silently handle
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -48,45 +80,87 @@ export default function MedicationsPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-2xl p-1 shadow-sm border border-slate-100 mb-6 inline-flex">
-        <button
-          onClick={() => setShowActive(true)}
-          className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${
-            showActive
-              ? 'bg-teal-600 text-white'
-              : 'text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          Ενεργά ({activeCount})
-        </button>
-        <button
-          onClick={() => setShowActive(false)}
-          className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${
-            !showActive
-              ? 'bg-teal-600 text-white'
-              : 'text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          Παλαιότερα ({inactiveCount})
-        </button>
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        {/* Active/Inactive Tabs */}
+        <div className="bg-white rounded-2xl p-1 shadow-sm border border-slate-100 inline-flex">
+          <button
+            onClick={() => setShowActive(true)}
+            className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${
+              showActive
+                ? 'bg-teal-600 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Ενεργά ({activeCount})
+          </button>
+          <button
+            onClick={() => setShowActive(false)}
+            className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${
+              !showActive
+                ? 'bg-teal-600 text-white'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Παλαιότερα ({inactiveCount})
+          </button>
+        </div>
+
+        {/* Pet Filter */}
+        {pets.length > 1 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setSelectedPetId(null)}
+              className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border ${
+                selectedPetId === null
+                  ? 'bg-slate-800 text-white border-slate-800'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              Όλα
+            </button>
+            {pets.map((pet) => (
+              <button
+                key={pet.id}
+                onClick={() => setSelectedPetId(pet.id)}
+                className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border flex items-center gap-2 ${
+                  selectedPetId === pet.id
+                    ? 'bg-teal-600 text-white border-teal-600'
+                    : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300'
+                }`}
+              >
+                <span className="text-base">{pet.type === 'dog' ? '🐕' : pet.type === 'cat' ? '🐈' : '🐾'}</span>
+                {pet.name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Medications List */}
       <div className="space-y-4">
         {filtered.length > 0 ? (
           filtered.map((med) => {
+            const expired = isExpired(med.end_date);
+            const endingSoon = med.end_date && !expired && daysUntilEnd(med.end_date) <= 7;
+
             return (
               <div
                 key={med.id}
-                className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:border-teal-200 transition-all"
+                className={`bg-white rounded-2xl p-6 shadow-sm border transition-all ${
+                  expired ? 'border-red-200 bg-red-50/30' : 'border-slate-100 hover:border-teal-200'
+                }`}
               >
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-teal-100 flex items-center justify-center">
+                  <div className={`w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center ${
+                    expired ? 'bg-red-100' : 'bg-teal-100'
+                  }`}>
                     {med.pet?.image_url ? (
                       <img src={med.pet.image_url} alt={med.pet.name} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-teal-700 font-bold">{med.pet?.name?.charAt(0) || '?'}</span>
+                      <span className={`font-bold ${expired ? 'text-red-700' : 'text-teal-700'}`}>
+                        {med.pet?.name?.charAt(0) || '?'}
+                      </span>
                     )}
                   </div>
 
@@ -96,11 +170,25 @@ export default function MedicationsPage() {
                         <h3 className="font-bold text-slate-900">{med.name}</h3>
                         <p className="text-sm text-slate-500">{med.pet?.name || 'Άγνωστο'}</p>
                       </div>
-                      {med.is_active && (
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
-                          Ενεργό
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {expired ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                            Ολοκληρώθηκε
+                          </span>
+                        ) : endingSoon ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                            Λήγει σε {daysUntilEnd(med.end_date!)} ημ.
+                          </span>
+                        ) : med.is_active ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                            Ενεργό
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-500">
+                            Ανενεργό
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -122,7 +210,7 @@ export default function MedicationsPage() {
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 uppercase font-bold">Λήξη</p>
-                        <p className="text-sm text-slate-800 font-medium">
+                        <p className={`text-sm font-medium ${expired ? 'text-red-600' : 'text-slate-800'}`}>
                           {med.end_date
                             ? new Date(med.end_date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', year: 'numeric' })
                             : 'Συνεχής'}
@@ -137,8 +225,44 @@ export default function MedicationsPage() {
                     )}
 
                     {med.notes && (
-                      <p className="text-sm text-slate-500 italic">{med.notes}</p>
+                      <p className="text-sm text-slate-500 italic mb-3">{med.notes}</p>
                     )}
+
+                    {/* Delete */}
+                    <div className="flex justify-end pt-2 border-t border-slate-100">
+                      {confirmDeleteId === med.id ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-slate-500">Διαγραφή;</span>
+                          <button
+                            onClick={() => handleDelete(med.id)}
+                            disabled={deletingId === med.id}
+                            className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1"
+                          >
+                            {deletingId === med.id ? (
+                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
+                            ) : (
+                              'Ναι'
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 transition-colors"
+                          >
+                            Όχι
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(med.id)}
+                          className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Διαγραφή"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>

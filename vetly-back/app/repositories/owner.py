@@ -136,6 +136,22 @@ class OwnerRepository:
 
         return list(self.db.scalars(query).unique().all())
 
+    def get_medication_by_id(self, medication_id: UUID, owner_id: UUID) -> Medication | None:
+        """Get a medication by ID, ensuring it belongs to one of the owner's pets"""
+        pet_ids = self.get_pet_ids_for_owner(owner_id)
+        if not pet_ids:
+            return None
+        query = select(Medication).where(
+            Medication.id == medication_id,
+            Medication.pet_id.in_(pet_ids),
+        )
+        return self.db.scalar(query)
+
+    def delete_medication(self, medication: Medication) -> None:
+        """Delete a medication"""
+        self.db.delete(medication)
+        self.db.commit()
+
     # --- Reviews ---
 
     def get_reviews_by_owner(self, owner_id: UUID) -> list[Review]:

@@ -320,6 +320,10 @@ export function useMyMedications(isActive?: boolean) {
   return { medications, loading, error, refetch: fetchMedications };
 }
 
+export async function deleteMedication(medicationId: string): Promise<void> {
+  return api.delete<void>(`/owner/medications/${medicationId}`);
+}
+
 // --- Reviews ---
 
 export interface ReviewVetInfo {

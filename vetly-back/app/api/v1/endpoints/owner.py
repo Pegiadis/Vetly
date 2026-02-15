@@ -109,6 +109,17 @@ def get_my_medications(
     return service.get_my_medications(current_owner.id, is_active)
 
 
+@router.delete("/medications/{medication_id}", status_code=204)
+def delete_medication(
+    medication_id: UUID,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> None:
+    """Delete a medication"""
+    service = OwnerService(db)
+    service.delete_medication(current_owner.id, medication_id)
+
+
 @router.get("/reviews", response_model=list[OwnerReviewResponse])
 def get_my_reviews(
     current_owner: PetOwner = Depends(get_current_pet_owner),
