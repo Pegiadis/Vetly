@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 import { useMyPets, useUpcomingAppointments, useMyMedications } from '@/hooks/useOwnerData';
 
 function formatDateTime(dateStr: string): string {
@@ -16,6 +17,7 @@ function PetTypeLabel({ type }: { type: string }) {
 }
 
 export default function OwnerDashboardPage() {
+  const { user } = useAuth();
   const { pets, loading: petsLoading } = useMyPets();
   const { appointments, loading: appointmentsLoading } = useUpcomingAppointments();
   const { medications } = useMyMedications();
@@ -35,7 +37,7 @@ export default function OwnerDashboardPage() {
     <div className="max-w-7xl mx-auto">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Καλώς ήρθατε!</h1>
+        <h1 className="text-3xl font-bold text-slate-900">Καλώς ήρθατε, {user?.name || ''}!</h1>
         <p className="text-slate-500 mt-1">Διαχειριστείτε τα κατοικίδιά σας και τα ραντεβού τους.</p>
       </div>
 

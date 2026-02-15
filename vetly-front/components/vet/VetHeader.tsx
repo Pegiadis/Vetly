@@ -2,13 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface VetHeaderProps {
-  vetName?: string;
-  vetImage?: string;
-}
-
-export default function VetHeader({ vetName = 'Δρ. Γεώργιος Παπαδόπουλος', vetImage }: VetHeaderProps) {
+export default function VetHeader() {
+  const { user } = useAuth();
+  const vetName = user?.name || '';
+  const vetImage: string | undefined = undefined;
   const [isOnCall, setIsOnCall] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
 

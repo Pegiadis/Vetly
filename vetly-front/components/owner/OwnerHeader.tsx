@@ -2,13 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface OwnerHeaderProps {
-  ownerName?: string;
-  ownerImage?: string;
-}
-
-export default function OwnerHeader({ ownerName = 'Κωνσταντίνος Π.', ownerImage }: OwnerHeaderProps) {
+export default function OwnerHeader() {
+  const { user } = useAuth();
+  const ownerName = user?.name || '';
+  const ownerImage: string | undefined = undefined;
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
