@@ -43,6 +43,9 @@ vetly-landing-page/.next/
 *.swo
 *~
 
+# TypeScript
+**/tsconfig.tsbuildinfo
+
 # Misc
 **/*.log
 **/.cache
