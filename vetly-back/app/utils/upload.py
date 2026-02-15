@@ -37,26 +37,28 @@ async def save_upload(file: UploadFile, prefix: str, max_size_bytes: int) -> str
     contents = await file.read()
     if len(contents) > max_size_bytes:
         max_mb = max_size_bytes / (1024 * 1024)
+        actual_mb = len(contents) / (1024 * 1024)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Το αρχείο είναι πολύ μεγάλο. Μέγιστο μέγεθος: {max_mb:.0f}MB.",
+            detail=f"Το αρχείο είναι πολύ μεγάλο ({actual_mb:.1f}MB). Μέγιστο μέγεθος: {max_mb:.0f}MB.",
         )
 
-    ensure_upload_dir()
-    filename = f"{prefix}_{uuid.uuid4().hex}{ext}"
-    filepath = UPLOAD_DIR / filename
+    subdir = UPLOAD_DIR / prefix
+    subdir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}{ext}"
+    filepath = subdir / filename
 
     with open(filepath, "wb") as f:
         f.write(contents)
 
-    return f"/uploads/{filename}"
+    return f"/uploads/{prefix}/{filename}"
 
 
 def delete_upload(url: str | None) -> None:
     """Delete a previously uploaded file by its URL path."""
     if not url or not url.startswith("/uploads/"):
         return
-    filename = url.split("/uploads/")[-1]
-    filepath = UPLOAD_DIR / filename
+    relative = url.split("/uploads/", 1)[-1]
+    filepath = UPLOAD_DIR / relative
     if filepath.exists():
         filepath.unlink()
