@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   usePatients,
@@ -11,6 +11,7 @@ import {
   createVetAppointment,
   type Patient,
 } from '@/hooks/useVetData';
+import CalendarPicker from '@/components/CalendarPicker';
 
 const appointmentTypes = [
   { id: 'Checkup', name: 'Γενικός Έλεγχος', icon: '🩺' },
@@ -57,6 +58,12 @@ function BookAppointmentDialog({
   const [success, setSuccess] = useState(false);
 
   const { slots: availableSlots, loading: slotsLoading } = useVetAvailableSlots(vetId, selectedDate);
+
+  const maxDate = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    return d;
+  }, []);
 
   useEffect(() => {
     setSelectedTime(null);
@@ -150,12 +157,12 @@ function BookAppointmentDialog({
             {/* Date */}
             <div>
               <h3 className="font-bold text-slate-800 text-sm mb-3">Ημερομηνία</h3>
-              <input
-                type="date"
-                value={selectedDate || ''}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              <CalendarPicker
+                value={selectedDate}
+                onChange={setSelectedDate}
+                minDate={new Date()}
+                maxDate={maxDate}
+                accentColor="indigo"
               />
             </div>
 

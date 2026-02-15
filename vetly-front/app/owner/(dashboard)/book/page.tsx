@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useMyPets, useVets, useAvailableSlots, createAppointment } from '@/hooks/useOwnerData';
+import CalendarPicker from '@/components/CalendarPicker';
 
 const appointmentTypes = [
   { id: 'Checkup', name: 'Γενικός Έλεγχος', icon: '🩺' },
@@ -86,6 +87,12 @@ export default function BookPage() {
       setStep((s) => Math.min(4, s + 1) as Step);
     }
   };
+
+  const maxDate = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    return d;
+  }, []);
 
   const selectedPetData = pets.find(p => p.id === selectedPet);
   const selectedVetData = vets.find(v => v.id === selectedVet);
@@ -241,12 +248,12 @@ export default function BookPage() {
           <div className="space-y-6">
             <div>
               <h3 className="font-bold text-slate-800 mb-4">Επιλέξτε ημερομηνία</h3>
-              <input
-                type="date"
-                value={selectedDate || ''}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+              <CalendarPicker
+                value={selectedDate}
+                onChange={setSelectedDate}
+                minDate={new Date()}
+                maxDate={maxDate}
+                accentColor="teal"
               />
             </div>
 
