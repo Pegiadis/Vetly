@@ -78,6 +78,8 @@ export default function SettingsPage() {
         phone: formData.phone || undefined,
         address: formData.address || undefined,
       });
+      refetch();
+      refreshUser();
       setSaveSuccess(true);
     } catch {
       // silent

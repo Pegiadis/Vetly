@@ -111,6 +111,8 @@ export default function VetSettingsPage() {
         coordinates_lng: formData.coordinates_lng,
       });
       await updateVetHours(hours);
+      refetch();
+      refreshUser();
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
