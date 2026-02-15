@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.repositories.appointment import AppointmentRepository
 from app.models.appointment import AppointmentStatus
 from app.models.medication import MedicationFrequency
+from app.services.notification import NotificationService
 from app.schemas.appointment import (
     AppointmentDetailResponse,
     AppointmentListResponse,
@@ -26,6 +27,7 @@ class AppointmentService:
 
     def __init__(self, db: Session):
         self.repository = AppointmentRepository(db)
+        self.notifications = NotificationService(db)
 
     def _build_detail_response(self, appointment) -> AppointmentDetailResponse:
         """Build a detailed appointment response with pet and pet owner info"""
@@ -62,6 +64,17 @@ class AppointmentService:
 
         # Re-fetch with relations loaded
         appointment = self.repository.get_by_id(appointment.id, vet_id)
+
+        # Notify owner
+        date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
+        vet_name = appointment.vet.name if appointment.vet else ""
+        self.notifications.notify_owner(
+            pet.pet_owner_id,
+            type="appointment",
+            title="Νέο ραντεβού",
+            message=f"Ο {vet_name} προγραμμάτισε ραντεβού για {pet.name} στις {date_str}",
+        )
+
         return self._build_detail_response(appointment)
 
     def list_appointments(
@@ -177,6 +190,17 @@ class AppointmentService:
             )
 
         updated = self.repository.update_status(appointment, AppointmentStatus.CONFIRMED)
+
+        # Notify owner
+        pet_name = appointment.pet.name if appointment.pet else ""
+        vet_name = appointment.vet.name if appointment.vet else ""
+        self.notifications.notify_owner(
+            appointment.pet_owner_id,
+            type="appointment",
+            title="Ραντεβού επιβεβαιώθηκε",
+            message=f"Το ραντεβού σας για {pet_name} με {vet_name} επιβεβαιώθηκε",
+        )
+
         return self._build_detail_response(updated)
 
     def reject_appointment(
@@ -201,6 +225,17 @@ class AppointmentService:
         updated = self.repository.update_status(
             appointment, AppointmentStatus.CANCELLED, notes
         )
+
+        # Notify owner
+        pet_name = appointment.pet.name if appointment.pet else ""
+        vet_name = appointment.vet.name if appointment.vet else ""
+        self.notifications.notify_owner(
+            appointment.pet_owner_id,
+            type="appointment",
+            title="Ραντεβού απορρίφθηκε",
+            message=f"Το ραντεβού σας για {pet_name} με {vet_name} απορρίφθηκε",
+        )
+
         return self._build_detail_response(updated)
 
     def complete_examination(
@@ -253,6 +288,15 @@ class AppointmentService:
         # Mark appointment as completed
         updated = self.repository.update_status(
             appointment, AppointmentStatus.COMPLETED, data.examination_notes
+        )
+
+        # Notify owner
+        pet_name = appointment.pet.name if appointment.pet else ""
+        self.notifications.notify_owner(
+            appointment.pet_owner_id,
+            type="appointment",
+            title="Εξέταση ολοκληρώθηκε",
+            message=f"Η εξέταση του {pet_name} ολοκληρώθηκε. Διάγνωση: {data.diagnosis}",
         )
 
         return self._build_detail_response(updated)

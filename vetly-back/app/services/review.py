@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.repositories.review import ReviewRepository
+from app.services.notification import NotificationService
 from app.schemas.review import (
     ReviewDetailResponse,
     ReviewListResponse,
@@ -21,7 +22,9 @@ class ReviewService:
     """Service for Review business logic"""
 
     def __init__(self, db: Session):
+        self.db = db
         self.repository = ReviewRepository(db)
+        self.notifications = NotificationService(db)
 
     def _build_detail_response(self, review) -> ReviewDetailResponse:
         """Build a detailed review response with pet owner info"""
@@ -93,4 +96,16 @@ class ReviewService:
             )
 
         updated = self.repository.add_reply(review, data.reply)
+
+        # Notify owner
+        from app.db.base import Vet
+        vet = self.db.get(Vet, vet_id)
+        vet_name = vet.name if vet else ""
+        self.notifications.notify_owner(
+            review.pet_owner_id,
+            type="reply",
+            title="Απάντηση σε αξιολόγηση",
+            message=f"Ο {vet_name} απάντησε στην αξιολόγησή σας",
+        )
+
         return self._build_detail_response(updated)

@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.repositories.owner import OwnerRepository
+from app.services.notification import NotificationService
 from app.schemas.owner import (
     PetResponse,
     AppointmentCreateRequest,
@@ -33,6 +34,7 @@ class OwnerService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = OwnerRepository(db)
+        self.notifications = NotificationService(db)
 
     def get_my_pets(self, owner_id: UUID) -> list[PetResponse]:
         """Get all pets for the logged-in owner"""
@@ -80,6 +82,17 @@ class OwnerService:
             notes=data.notes,
         )
 
+        # Notify vet
+        owner = self.repository.get_owner_by_id(owner_id)
+        owner_name = owner.name if owner else ""
+        date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
+        self.notifications.notify_vet(
+            data.vet_id,
+            type="appointment",
+            title="Νέο αίτημα ραντεβού",
+            message=f"{owner_name} ζήτησε ραντεβού για {pet.name} στις {date_str}",
+        )
+
         return AppointmentResponse.model_validate(appointment)
 
     def get_vets(self, verified_only: bool = True) -> list[VetListResponse]:
@@ -115,6 +128,16 @@ class OwnerService:
         medications = self.repository.get_medications_for_owner(owner_id, is_active)
         return [MedicationResponse.model_validate(m) for m in medications]
 
+    def delete_medication(self, owner_id: UUID, medication_id: UUID) -> None:
+        """Delete a medication belonging to the owner's pet"""
+        medication = self.repository.get_medication_by_id(medication_id, owner_id)
+        if not medication:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Medication not found",
+            )
+        self.repository.delete_medication(medication)
+
     # --- Reviews ---
 
     def get_my_reviews(self, owner_id: UUID) -> list[OwnerReviewResponse]:
@@ -141,6 +164,15 @@ class OwnerService:
             appointment_id=data.appointment_id,
         )
         self.repository.update_vet_rating(data.vet_id)
+
+        # Notify vet
+        self.notifications.notify_vet(
+            data.vet_id,
+            type="review",
+            title="Νέα αξιολόγηση",
+            message=f"Λάβατε αξιολόγηση {data.rating} αστεριών",
+        )
+
         # Re-fetch with vet relation loaded
         review = self.repository.get_review_by_id(review.id, owner_id)
         return OwnerReviewResponse.model_validate(review)
