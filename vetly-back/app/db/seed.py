@@ -8,7 +8,7 @@ from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.db.base import Vet, PetOwner, Pet, Appointment, Review, MedicalEvent, Medication, Notification
+from app.db.base import Vet, PetOwner, Pet, Appointment, Review, MedicalEvent, Medication, Notification, WeightHistory, BlogPost
 from app.models.pet import PetType, Gender
 from app.models.appointment import AppointmentStatus
 from app.models.medication import MedicationFrequency
@@ -430,6 +430,80 @@ def seed_notifications(db: Session, pet_owners: list[PetOwner]) -> list[Notifica
     return notifications
 
 
+BLOG_POST_DATA = [
+    {
+        "title": "Essential Tips for First-Time Dog Owners",
+        "excerpt": "Bringing home a new dog is exciting! Here are the essential things you need to know.",
+        "content": "# Essential Tips for First-Time Dog Owners\n\nBringing home your first dog is an exciting experience...",
+        "author": "Dr. Sarah Johnson",
+        "category": "Pet Care",
+        "read_time": "5 min read",
+    },
+    {
+        "title": "Understanding Your Cat's Body Language",
+        "excerpt": "Cats communicate through subtle body language. Learn to read the signs.",
+        "content": "# Understanding Your Cat's Body Language\n\nCats are mysterious creatures...",
+        "author": "Dr. Emily Rodriguez",
+        "category": "Pet Behavior",
+        "read_time": "4 min read",
+    },
+    {
+        "title": "The Importance of Regular Veterinary Checkups",
+        "excerpt": "Prevention is better than cure. Here's why regular vet visits matter.",
+        "content": "# The Importance of Regular Veterinary Checkups\n\nRegular veterinary checkups are essential...",
+        "author": "Dr. Michael Chen",
+        "category": "Health",
+        "read_time": "6 min read",
+    },
+]
+
+
+def seed_weight_history(db: Session, pets: list[Pet]) -> list[WeightHistory]:
+    """Seed weight tracking history for pets"""
+    history = []
+    base_date = date.today() - timedelta(days=180)
+
+    for pet in pets[:8]:  # Weight history for first 8 pets
+        base_weight = pet.weight or random.uniform(3, 35)
+        for i in range(7):
+            record = WeightHistory(
+                id=uuid4(),
+                pet_id=pet.id,
+                weight=round(base_weight + (i * random.uniform(-0.2, 0.3)), 1),
+                recorded_at=base_date + timedelta(days=i * 30),
+            )
+            db.add(record)
+            history.append(record)
+
+    db.commit()
+    return history
+
+
+def seed_blog_posts(db: Session, vets: list[Vet]) -> list[BlogPost]:
+    """Seed blog posts"""
+    posts = []
+
+    for i, data in enumerate(BLOG_POST_DATA):
+        vet = vets[i % len(vets)]
+        days_ago = random.randint(10, 90)
+        post = BlogPost(
+            id=uuid4(),
+            title=data["title"],
+            excerpt=data["excerpt"],
+            content=data["content"],
+            author=data["author"],
+            author_id=vet.id,
+            category=data["category"],
+            read_time=data["read_time"],
+            published_at=datetime.now() - timedelta(days=days_ago),
+        )
+        db.add(post)
+        posts.append(post)
+
+    db.commit()
+    return posts
+
+
 def clear_database(db: Session):
     """Clear all data from the database"""
     from sqlalchemy import text
@@ -437,6 +511,7 @@ def clear_database(db: Session):
     # Delete in order respecting foreign key constraints
     db.execute(text("DELETE FROM notifications"))
     db.execute(text("DELETE FROM reviews"))
+    db.execute(text("DELETE FROM blog_posts"))
     db.execute(text("DELETE FROM medical_events"))
     db.execute(text("DELETE FROM weight_history"))
     db.execute(text("DELETE FROM medications"))
@@ -485,6 +560,14 @@ def seed_database(db: Session, clear_first: bool = True):
     print("Seeding notifications...")
     notifications = seed_notifications(db, pet_owners)
     print(f"Created {len(notifications)} notifications")
+
+    print("Seeding weight history...")
+    weight_records = seed_weight_history(db, pets)
+    print(f"Created {len(weight_records)} weight records")
+
+    print("Seeding blog posts...")
+    blog_posts = seed_blog_posts(db, vets)
+    print(f"Created {len(blog_posts)} blog posts")
 
     print("\nDatabase seeding completed!")
     print("\nTest credentials:")
