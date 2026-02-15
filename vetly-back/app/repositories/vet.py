@@ -1,0 +1,106 @@
+"""
+Vet repository - data access layer
+"""
+
+from typing import Any
+from uuid import UUID
+from datetime import date, datetime, timedelta
+from sqlalchemy import select, func, and_
+from sqlalchemy.orm import Session
+
+from app.db.base import Vet, Appointment
+from app.models.appointment import AppointmentStatus
+
+
+class VetRepository:
+    """Repository for Vet database operations"""
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def get_by_email(self, email: str) -> Vet | None:
+        """Get a vet by email"""
+        query = select(Vet).where(Vet.email == email)
+        return self.db.scalar(query)
+
+    def get_all(self, skip: int = 0, limit: int = 10) -> tuple[list[Vet], int]:
+        """Get all vets with pagination"""
+        query = select(Vet).offset(skip).limit(limit)
+        vets = self.db.scalars(query).all()
+
+        total = self.db.scalar(select(func.count(Vet.id)))
+
+        return list(vets), total or 0
+
+    def get_by_id(self, vet_id: UUID) -> Vet | None:
+        """Get a single vet by ID"""
+        query = select(Vet).where(Vet.id == vet_id)
+        return self.db.scalar(query)
+
+    def get_by_city(self, city: str, skip: int = 0, limit: int = 10) -> tuple[list[Vet], int]:
+        """Get vets filtered by city"""
+        query = select(Vet).where(Vet.city.ilike(f"%{city}%")).offset(skip).limit(limit)
+        vets = self.db.scalars(query).all()
+
+        total = self.db.scalar(
+            select(func.count(Vet.id)).where(Vet.city.ilike(f"%{city}%"))
+        )
+
+        return list(vets), total or 0
+
+    def search(self, query_str: str, skip: int = 0, limit: int = 10) -> tuple[list[Vet], int]:
+        """Search vets by name or specialty"""
+        search_filter = (Vet.name.ilike(f"%{query_str}%")) | (
+            Vet.specialty.ilike(f"%{query_str}%")
+        )
+
+        query = select(Vet).where(search_filter).offset(skip).limit(limit)
+        vets = self.db.scalars(query).all()
+
+        total = self.db.scalar(select(func.count(Vet.id)).where(search_filter))
+
+        return list(vets), total or 0
+
+    def update(self, vet: Vet, data: dict[str, Any]) -> Vet:
+        """Update a vet's fields"""
+        for key, value in data.items():
+            if value is not None:
+                setattr(vet, key, value)
+        self.db.commit()
+        self.db.refresh(vet)
+        return vet
+
+    def update_hours(self, vet: Vet, hours: dict) -> Vet:
+        """Update a vet's working hours"""
+        vet.hours = hours
+        self.db.commit()
+        self.db.refresh(vet)
+        return vet
+
+    def toggle_on_call(self, vet: Vet, is_on_call: bool) -> Vet:
+        """Toggle a vet's on-call status"""
+        vet.is_on_call = is_on_call
+        self.db.commit()
+        self.db.refresh(vet)
+        return vet
+
+    def get_booked_slots(self, vet_id: UUID, target_date: date) -> list[Appointment]:
+        """Get all active (pending/confirmed) appointments for a vet on a given date"""
+        day_start = datetime.combine(target_date, datetime.min.time())
+        day_end = datetime.combine(target_date + timedelta(days=1), datetime.min.time())
+
+        query = (
+            select(Appointment)
+            .where(
+                and_(
+                    Appointment.vet_id == vet_id,
+                    Appointment.scheduled_at >= day_start,
+                    Appointment.scheduled_at < day_end,
+                    Appointment.status.in_([
+                        AppointmentStatus.PENDING,
+                        AppointmentStatus.CONFIRMED,
+                    ]),
+                )
+            )
+        )
+        return list(self.db.scalars(query).all())

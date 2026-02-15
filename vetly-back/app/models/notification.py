@@ -18,9 +18,9 @@ class Notification(BaseModel):
     __tablename__ = "notifications"
     
     # Foreign Keys (one of these should be set)
-    user_id = Column(
+    pet_owner_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("pet_owners.id", ondelete="CASCADE"),
         nullable=True,
         index=True
     )
@@ -40,7 +40,7 @@ class Notification(BaseModel):
     is_read = Column(Boolean, default=False, nullable=False, index=True)
     
     # Relationships
-    user = relationship("User", back_populates="notifications")
+    pet_owner = relationship("PetOwner", back_populates="notifications")
     vet = relationship("Vet", back_populates="notifications")
     
     def __repr__(self):

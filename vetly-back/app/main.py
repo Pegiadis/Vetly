@@ -5,24 +5,27 @@ FastAPI application configuration and startup
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.utils.upload import UPLOAD_DIR, ensure_upload_dir
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
-    print("🚀 Starting Vetly API...")
-    print(f"📍 Environment: {settings.ENVIRONMENT}")
-    print(f"🗄️  Database: {settings.DATABASE_URL.split('@')[-1]}")
+    print("Starting Vetly API...")
+    print(f"Environment: {settings.ENVIRONMENT}")
+    print(f"Database: {settings.DATABASE_URL.split('@')[-1]}")
+    ensure_upload_dir()
 
     yield
 
     # Shutdown
-    print("👋 Shutting down Vetly API...")
+    print("Shutting down Vetly API...")
 
 
 app = FastAPI(
@@ -46,6 +49,9 @@ app.add_middleware(
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Serve uploaded files
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 
 @app.get("/")

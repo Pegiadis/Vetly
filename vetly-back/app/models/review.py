@@ -24,9 +24,9 @@ class Review(BaseModel):
         nullable=False,
         index=True
     )
-    user_id = Column(
+    pet_owner_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey("pet_owners.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
@@ -44,7 +44,7 @@ class Review(BaseModel):
     
     # Relationships
     vet = relationship("Vet", back_populates="reviews")
-    user = relationship("User", back_populates="reviews")
+    pet_owner = relationship("PetOwner", back_populates="reviews")
     
     # Constraints
     __table_args__ = (

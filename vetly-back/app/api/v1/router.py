@@ -5,16 +5,31 @@ Combines all endpoint routers
 
 from fastapi import APIRouter
 
+from app.api.v1.endpoints import (
+    vets,
+    auth,
+    vet_patients,
+    vet_appointments,
+    vet_reviews,
+    vet_analytics,
+    vet_notifications,
+    owner,
+    uploads,
+)
+
 # Create the main API router
 api_router = APIRouter()
 
-# TODO: Include endpoint routers here as they're created
-# Example:
-# from app.api.v1.endpoints import auth, users, pets, vets
-# api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
-# api_router.include_router(users.router, prefix="/users", tags=["Users"])
-# api_router.include_router(pets.router, prefix="/pets", tags=["Pets"])
-# api_router.include_router(vets.router, prefix="/vets", tags=["Vets"])
+# Include endpoint routers
+api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+api_router.include_router(vets.router, prefix="/vets", tags=["Vets"])
+api_router.include_router(vet_patients.router, prefix="/vet/patients", tags=["Vet Patients"])
+api_router.include_router(vet_appointments.router, prefix="/vet/appointments", tags=["Vet Appointments"])
+api_router.include_router(vet_reviews.router, prefix="/vet/reviews", tags=["Vet Reviews"])
+api_router.include_router(vet_analytics.router, prefix="/vet", tags=["Vet Analytics"])
+api_router.include_router(vet_notifications.router, prefix="/vet/notifications", tags=["Vet Notifications"])
+api_router.include_router(owner.router, prefix="/owner", tags=["Pet Owner"])
+api_router.include_router(uploads.router, prefix="/uploads", tags=["Uploads"])
 
 @api_router.get("/")
 async def root():
