@@ -34,6 +34,7 @@ class PetResponse(BaseModel):
     gender: str | None = None
     chip_number: str | None = None
     image_url: str | None = None
+    cover_image_url: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

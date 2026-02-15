@@ -12,6 +12,7 @@ import {
   type Patient,
 } from '@/hooks/useVetData';
 import CalendarPicker from '@/components/CalendarPicker';
+import { getImageUrl } from '@/lib/api';
 
 const appointmentTypes = [
   { id: 'Checkup', name: 'Γενικός Έλεγχος', icon: '🩺' },
@@ -340,7 +341,7 @@ export default function VetPatientsPage() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-slate-100 border-2 border-white shadow-sm flex items-center justify-center flex-shrink-0">
                         {patient.image_url ? (
-                          <img src={patient.image_url} alt={patient.name} className="w-full h-full rounded-full object-cover" />
+                          <img src={getImageUrl(patient.image_url)} alt={patient.name} className="w-full h-full rounded-full object-cover" />
                         ) : (
                           <span className="text-slate-500 font-bold">{patient.name.charAt(0)}</span>
                         )}
@@ -383,22 +384,32 @@ export default function VetPatientsPage() {
         {selectedPetId && (
           <div className="min-h-screen flex flex-col">
             {/* Header */}
-            <div className="h-40 relative bg-gradient-to-br from-indigo-500 to-indigo-600">
+            <div
+              className="h-40 relative bg-slate-100"
+              style={selectedPatient?.cover_image_url ? {
+                backgroundImage: `url(${getImageUrl(selectedPatient.cover_image_url)})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              } : undefined}
+            >
+              {selectedPatient?.cover_image_url && (
+                <div className="absolute inset-0 bg-black/20" />
+              )}
               <button
                 onClick={() => setSelectedPetId(null)}
-                className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors"
+                className={`absolute top-4 left-4 z-10 backdrop-blur-md p-2 rounded-full transition-colors ${selectedPatient?.cover_image_url ? 'bg-white/20 text-white hover:bg-white/40' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
-              <div className="absolute bottom-4 left-4 text-white">
+              <div className={`absolute bottom-4 left-4 z-10 ${selectedPatient?.cover_image_url ? 'text-white' : 'text-slate-800'}`}>
                 {patientLoading ? (
-                  <div className="animate-pulse h-8 w-32 bg-white/20 rounded" />
+                  <div className="animate-pulse h-8 w-32 bg-slate-200 rounded" />
                 ) : (
                   <>
                     <h2 className="text-2xl font-bold">{selectedPatient?.name || ''}</h2>
-                    <p className="text-white/90 text-sm">{selectedPatient?.breed || ''}</p>
+                    <p className={`text-sm ${selectedPatient?.cover_image_url ? 'text-white/90' : 'text-slate-500'}`}>{selectedPatient?.breed || ''}</p>
                   </>
                 )}
               </div>

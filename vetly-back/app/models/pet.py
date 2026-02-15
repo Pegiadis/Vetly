@@ -50,6 +50,7 @@ class Pet(BaseModel):
     # Identification
     chip_number = Column(String(50), unique=True, nullable=True, index=True)
     image_url = Column(String(500), nullable=True)
+    cover_image_url = Column(String(500), nullable=True)
     
     # Relationships
     owner = relationship("PetOwner", back_populates="pets")

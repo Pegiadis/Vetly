@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
   useMyPets,
@@ -8,9 +8,12 @@ import {
   createPet,
   updatePet,
   deletePet,
+  uploadPetPhoto,
+  uploadPetCover,
   Pet,
 } from '@/hooks/useOwnerData';
 import type { Appointment } from '@/hooks/useOwnerData';
+import { getImageUrl } from '@/lib/api';
 
 function getLastVisit(petId: string, appointments: Appointment[]): string | null {
   const past = appointments
@@ -81,6 +84,44 @@ export default function PetsPage() {
 
   // Delete
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Pet photo upload
+  const petPhotoRef = useRef<HTMLInputElement>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+  const handlePetPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedPet) return;
+    setUploadingPhoto(true);
+    try {
+      await uploadPetPhoto(selectedPet.id, file);
+      refetch();
+    } catch {
+      // silent
+    } finally {
+      setUploadingPhoto(false);
+      if (petPhotoRef.current) petPhotoRef.current.value = '';
+    }
+  };
+
+  // Cover photo upload
+  const coverPhotoRef = useRef<HTMLInputElement>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  const handleCoverPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedPet) return;
+    setUploadingCover(true);
+    try {
+      await uploadPetCover(selectedPet.id, file);
+      refetch();
+    } catch {
+      // silent
+    } finally {
+      setUploadingCover(false);
+      if (coverPhotoRef.current) coverPhotoRef.current.value = '';
+    }
+  };
 
   const selectedPet = useMemo(() => {
     if (pets.length === 0) return null;
@@ -224,7 +265,7 @@ export default function PetsPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-slate-100 bg-teal-50 flex items-center justify-center flex-shrink-0">
                     {pet.image_url ? (
-                      <img src={pet.image_url} alt={pet.name} className="w-full h-full object-cover" />
+                      <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-teal-600 font-bold text-xl">{pet.name.charAt(0)}</span>
                     )}
@@ -244,20 +285,61 @@ export default function PetsPage() {
             <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
                 {/* Pet Header */}
-                <div className="relative h-48 bg-gradient-to-br from-teal-500 to-teal-600">
+                <div
+                  className="relative h-48 bg-slate-100 group/cover cursor-pointer"
+                  style={selectedPet.cover_image_url ? {
+                    backgroundImage: `url(${getImageUrl(selectedPet.cover_image_url)})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  } : undefined}
+                  onClick={() => coverPhotoRef.current?.click()}
+                >
+                  <div className={`absolute inset-0 transition-colors flex items-center justify-center ${selectedPet.cover_image_url ? 'bg-black/0 group-hover/cover:bg-black/30' : ''}`}>
+                    <div className={`transition-opacity flex items-center gap-2 px-4 py-2 rounded-xl ${selectedPet.cover_image_url ? 'opacity-0 group-hover/cover:opacity-100 text-white bg-black/40' : 'text-slate-400'}`}>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span className="text-sm font-bold">{uploadingCover ? 'Μεταφόρτωση...' : selectedPet.cover_image_url ? 'Αλλαγή Εξωφύλλου' : 'Προσθήκη Εξωφύλλου'}</span>
+                    </div>
+                  </div>
+                  <input
+                    ref={coverPhotoRef}
+                    type="file"
+                    accept="image/jpeg,image/png"
+                    className="hidden"
+                    onChange={handleCoverPhoto}
+                    onClick={(e) => e.stopPropagation()}
+                  />
                   <div className="absolute -bottom-12 left-6">
-                    <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-teal-100 flex items-center justify-center">
+                    <div
+                      className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-white shadow-lg bg-teal-100 flex items-center justify-center cursor-pointer relative group"
+                      onClick={(e) => { e.stopPropagation(); petPhotoRef.current?.click(); }}
+                    >
                       {selectedPet.image_url ? (
-                        <img src={selectedPet.image_url} alt={selectedPet.name} className="w-full h-full object-cover" />
+                        <img src={getImageUrl(selectedPet.image_url)} alt={selectedPet.name} className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-teal-600 font-bold text-3xl">{selectedPet.name.charAt(0)}</span>
                       )}
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                      </div>
                     </div>
+                    <input
+                      ref={petPhotoRef}
+                      type="file"
+                      accept="image/jpeg,image/png"
+                      className="hidden"
+                      onChange={handlePetPhoto}
+                    />
                   </div>
-                  <div className="absolute top-4 right-4 flex gap-2">
+                  <div className="absolute top-4 right-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => openEdit(selectedPet)}
-                      className="bg-white/20 backdrop-blur-sm text-white p-2 rounded-xl hover:bg-white/30 transition-colors"
+                      className={`backdrop-blur-sm p-2 rounded-xl transition-colors ${selectedPet.cover_image_url ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -266,7 +348,7 @@ export default function PetsPage() {
                     <button
                       onClick={() => handleDelete(selectedPet.id)}
                       disabled={deletingId === selectedPet.id}
-                      className="bg-white/20 backdrop-blur-sm text-white p-2 rounded-xl hover:bg-red-500/80 transition-colors disabled:opacity-50"
+                      className={`backdrop-blur-sm p-2 rounded-xl transition-colors disabled:opacity-50 ${selectedPet.cover_image_url ? 'bg-white/20 text-white hover:bg-red-500/80' : 'bg-slate-200 text-slate-600 hover:bg-red-500 hover:text-white'}`}
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

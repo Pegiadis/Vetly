@@ -32,6 +32,7 @@ class PetResponse(BaseModel):
     gender: str
     chip_number: str | None = None
     image_url: str | None = None
+    cover_image_url: str | None = None
     created_at: datetime
     updated_at: datetime
 
