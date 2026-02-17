@@ -5,9 +5,11 @@ import Link from 'next/link';
 import {
   useMyPets,
   useMyAppointments,
+  useDeletedPets,
   createPet,
   updatePet,
   deletePet,
+  restorePet,
   uploadPetPhoto,
   uploadPetCover,
   Pet,
@@ -58,6 +60,11 @@ function GenderLabel({ gender }: { gender: string | null }) {
   return <>{labels[gender] || gender}</>;
 }
 
+const CHIP_REGEX = /^\d{15}$/;
+function isChipValid(value: string): boolean {
+  return value === '' || CHIP_REGEX.test(value);
+}
+
 const EMPTY_FORM = {
   name: '',
   type: 'Dog',
@@ -71,19 +78,28 @@ const EMPTY_FORM = {
 export default function PetsPage() {
   const { pets, loading, error, refetch } = useMyPets();
   const { appointments } = useMyAppointments();
+  const { pets: deletedPets, loading: deletedLoading, refetch: refetchDeleted } = useDeletedPets();
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
 
   // Create modal
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
   // Edit modal
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [editForm, setEditForm] = useState({ name: '', breed: '', age: '', weight: '', chip_number: '' });
 
-  // Delete
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Delete confirmation dialog
+  const [deleteDialog, setDeleteDialog] = useState<{
+    petId: string;
+    petName: string;
+    confirmText: string;
+    isDeleting: boolean;
+  } | null>(null);
 
   // Pet photo upload
   const petPhotoRef = useRef<HTMLInputElement>(null);
@@ -135,6 +151,7 @@ export default function PetsPage() {
   const handleCreate = async () => {
     if (!createForm.name || !createForm.breed || !createForm.age || !createForm.weight) return;
     setSubmitting(true);
+    setFormError('');
     try {
       await createPet({
         name: createForm.name,
@@ -148,8 +165,8 @@ export default function PetsPage() {
       setShowCreate(false);
       setCreateForm(EMPTY_FORM);
       refetch();
-    } catch {
-      // silent
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : 'Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.');
     } finally {
       setSubmitting(false);
     }
@@ -169,6 +186,7 @@ export default function PetsPage() {
   const handleUpdate = async () => {
     if (!editingPet) return;
     setSubmitting(true);
+    setFormError('');
     try {
       await updatePet(editingPet.id, {
         name: editForm.name || undefined,
@@ -179,24 +197,42 @@ export default function PetsPage() {
       });
       setEditingPet(null);
       refetch();
-    } catch {
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : 'Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.');
       // silent
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDelete = async (petId: string) => {
-    if (!confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το κατοικίδιο;')) return;
-    setDeletingId(petId);
+  const handleDelete = (petId: string, petName: string) => {
+    setDeleteDialog({ petId, petName, confirmText: '', isDeleting: false });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteDialog || deleteDialog.confirmText !== deleteDialog.petName) return;
+    setDeleteDialog(prev => prev ? { ...prev, isDeleting: true } : null);
     try {
-      await deletePet(petId);
-      if (selectedPetId === petId) setSelectedPetId(null);
+      await deletePet(deleteDialog.petId);
+      if (selectedPetId === deleteDialog.petId) setSelectedPetId(null);
+      setDeleteDialog(null);
       refetch();
+      refetchDeleted();
+    } catch {
+      setDeleteDialog(prev => prev ? { ...prev, isDeleting: false } : null);
+    }
+  };
+
+  const handleRestore = async (petId: string) => {
+    setRestoringId(petId);
+    try {
+      await restorePet(petId);
+      refetch();
+      refetchDeleted();
     } catch {
       // silent
     } finally {
-      setDeletingId(null);
+      setRestoringId(null);
     }
   };
 
@@ -227,19 +263,74 @@ export default function PetsPage() {
           <h1 className="text-3xl font-bold text-slate-900">Τα Κατοικίδιά Μου</h1>
           <p className="text-slate-500 mt-1">Διαχειριστείτε τα προφίλ των κατοικιδίων σας.</p>
         </div>
-        <button
-          onClick={() => {
-            setCreateForm(EMPTY_FORM);
-            setShowCreate(true);
-          }}
-          className="bg-teal-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-teal-700 transition-colors flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Προσθήκη
-        </button>
+        <div className="flex items-center gap-3">
+          {deletedPets.length > 0 && (
+            <button
+              onClick={() => setShowDeleted(!showDeleted)}
+              className={`px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-2 ${
+                showDeleted
+                  ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Διαγραμμένα ({deletedPets.length})
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setCreateForm(EMPTY_FORM);
+              setShowCreate(true);
+            }}
+            className="bg-teal-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-teal-700 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Προσθήκη
+          </button>
+        </div>
       </div>
+
+      {/* Deleted Pets */}
+      {showDeleted && (
+        <div className="mb-8 bg-red-50 border border-red-200 rounded-2xl p-6">
+          <h2 className="text-lg font-bold text-red-800 mb-1">Διαγραμμένα Κατοικίδια</h2>
+          <p className="text-red-600 text-sm mb-4">Τα κατοικίδια διαγράφονται οριστικά μετά από 30 ημέρες.</p>
+          {deletedLoading ? (
+            <div className="text-center py-4 text-red-400">Φόρτωση...</div>
+          ) : deletedPets.length === 0 ? (
+            <p className="text-red-400 text-sm">Δεν υπάρχουν διαγραμμένα κατοικίδια.</p>
+          ) : (
+            <div className="space-y-3">
+              {deletedPets.map(pet => (
+                <div key={pet.id} className="bg-white rounded-xl p-4 flex items-center justify-between border border-red-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-600 font-bold">
+                      {pet.name.charAt(0)}
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-900">{pet.name}</p>
+                      <p className="text-xs text-slate-500">
+                        Διαγράφηκε {pet.deleted_at ? new Date(pet.deleted_at).toLocaleDateString('el-GR', { day: 'numeric', month: 'long', year: 'numeric' }) : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleRestore(pet.id)}
+                    disabled={restoringId === pet.id}
+                    className="px-4 py-2 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 text-sm"
+                  >
+                    {restoringId === pet.id ? 'Επαναφορά...' : 'Επαναφορά'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {pets.length === 0 ? (
         <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-100 text-center">
@@ -350,8 +441,8 @@ export default function PetsPage() {
                       </svg>
                     </button>
                     <button
-                      onClick={() => handleDelete(selectedPet.id)}
-                      disabled={deletingId === selectedPet.id}
+                      onClick={() => handleDelete(selectedPet.id, selectedPet.name)}
+                      disabled={deleteDialog?.isDeleting && deleteDialog.petId === selectedPet.id}
                       className={`backdrop-blur-sm p-2 rounded-xl transition-colors disabled:opacity-50 ${selectedPet.cover_image_url ? 'bg-white/20 text-white hover:bg-red-500/80' : 'bg-slate-200 text-slate-600 hover:bg-red-500 hover:text-white'}`}
                     >
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -486,7 +577,7 @@ export default function PetsPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-slate-900">Νέο Κατοικίδιο</h2>
               <button
-                onClick={() => setShowCreate(false)}
+                onClick={() => { setShowCreate(false); setFormError(''); }}
                 className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -568,26 +659,47 @@ export default function PetsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Microchip (προαιρετικό)</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Microchip <span className="font-normal text-slate-400">(προαιρετικό, 15 ψηφία)</span></label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={15}
                   value={createForm.chip_number}
                   onChange={e => setCreateForm(prev => ({ ...prev, chip_number: e.target.value }))}
-                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="15 ψηφία"
+                  className={`w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    createForm.chip_number && !isChipValid(createForm.chip_number)
+                      ? 'border-red-400 bg-red-50'
+                      : 'border-slate-200'
+                  }`}
                 />
+                {createForm.chip_number && !isChipValid(createForm.chip_number) && (
+                  <p className="text-red-500 text-xs mt-1">Ο αριθμός microchip πρέπει να αποτελείται από ακριβώς 15 ψηφία.</p>
+                )}
               </div>
             </div>
 
+            {formError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center justify-between mt-4">
+                <span>{formError}</span>
+                <button onClick={() => setFormError('')} className="text-red-400 hover:text-red-600 ml-3">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowCreate(false)}
+                onClick={() => { setShowCreate(false); setFormError(''); }}
                 className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
               >
                 Ακύρωση
               </button>
               <button
                 onClick={handleCreate}
-                disabled={submitting || !createForm.name || !createForm.breed || !createForm.age || !createForm.weight}
+                disabled={submitting || !createForm.name || !createForm.breed || !createForm.age || !createForm.weight || !isChipValid(createForm.chip_number)}
                 className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Αποθήκευση...' : 'Προσθήκη'}
@@ -604,7 +716,7 @@ export default function PetsPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-slate-900">Επεξεργασία: {editingPet.name}</h2>
               <button
-                onClick={() => setEditingPet(null)}
+                onClick={() => { setEditingPet(null); setFormError(''); }}
                 className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -660,29 +772,106 @@ export default function PetsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Microchip</label>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Microchip <span className="font-normal text-slate-400">(15 ψηφία)</span></label>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength={15}
                   value={editForm.chip_number}
                   onChange={e => setEditForm(prev => ({ ...prev, chip_number: e.target.value }))}
-                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  placeholder="15 ψηφία"
+                  className={`w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 ${
+                    editForm.chip_number && !isChipValid(editForm.chip_number)
+                      ? 'border-red-400 bg-red-50'
+                      : 'border-slate-200'
+                  }`}
                 />
+                {editForm.chip_number && !isChipValid(editForm.chip_number) && (
+                  <p className="text-red-500 text-xs mt-1">Ο αριθμός microchip πρέπει να αποτελείται από ακριβώς 15 ψηφία.</p>
+                )}
               </div>
             </div>
 
+            {formError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center justify-between mt-4">
+                <span>{formError}</span>
+                <button onClick={() => setFormError('')} className="text-red-400 hover:text-red-600 ml-3">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setEditingPet(null)}
+                onClick={() => { setEditingPet(null); setFormError(''); }}
                 className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
               >
                 Ακύρωση
               </button>
               <button
                 onClick={handleUpdate}
-                disabled={submitting}
+                disabled={submitting || !isChipValid(editForm.chip_number)}
                 className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {deleteDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-slate-900">Διαγραφή Κατοικιδίου</h2>
+              <button
+                onClick={() => setDeleteDialog(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5">
+              <p className="text-red-700 text-sm font-medium">
+                Αυτή η ενέργεια είναι μη αναστρέψιμη. Όλα τα δεδομένα του κατοικιδίου
+                (ιατρικό ιστορικό, ραντεβού, φάρμακα) θα διαγραφούν οριστικά μετά από 30 ημέρες.
+              </p>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-sm font-bold text-slate-700 mb-2">
+                Πληκτρολογήστε <span className="text-red-600">{deleteDialog.petName}</span> για επιβεβαίωση
+              </label>
+              <input
+                type="text"
+                value={deleteDialog.confirmText}
+                onChange={e => setDeleteDialog(prev => prev ? { ...prev, confirmText: e.target.value } : null)}
+                className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-400"
+                placeholder={deleteDialog.petName}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteDialog(null)}
+                className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+              >
+                Ακύρωση
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleteDialog.confirmText !== deleteDialog.petName || deleteDialog.isDeleting}
+                className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {deleteDialog.isDeleting ? 'Διαγραφή...' : 'Διαγραφή'}
               </button>
             </div>
           </div>
