@@ -265,18 +265,6 @@ export default function OwnerDashboardPage() {
                 </div>
                 <span className="font-medium text-sm">Ιατρικό Ιστορικό</span>
               </Link>
-
-              <Link
-                href="/"
-                className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-100 transition-colors text-slate-700"
-              >
-                <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-                <span className="font-medium text-sm">Βρείτε Κτηνίατρο</span>
-              </Link>
             </div>
           </div>
         </div>
