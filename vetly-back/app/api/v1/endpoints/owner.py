@@ -13,6 +13,7 @@ from app.schemas.owner import (
     PetResponse,
     PetOwnerResponse,
     AppointmentCreateRequest,
+    AppointmentRescheduleRequest,
     AppointmentResponse,
     VetListResponse,
     OwnerMedicalHistoryResponse,
@@ -68,6 +69,29 @@ def create_appointment(
     """Create a new appointment for a pet"""
     service = OwnerService(db)
     return service.create_appointment(current_owner.id, data)
+
+
+@router.post("/appointments/{appointment_id}/cancel", response_model=AppointmentResponse)
+def cancel_appointment(
+    appointment_id: UUID,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> AppointmentResponse:
+    """Cancel an appointment"""
+    service = OwnerService(db)
+    return service.cancel_appointment(current_owner.id, appointment_id)
+
+
+@router.patch("/appointments/{appointment_id}/reschedule", response_model=AppointmentResponse)
+def reschedule_appointment(
+    appointment_id: UUID,
+    data: AppointmentRescheduleRequest,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> AppointmentResponse:
+    """Reschedule an appointment to a new date/time"""
+    service = OwnerService(db)
+    return service.reschedule_appointment(current_owner.id, appointment_id, data)
 
 
 @router.get("/vets", response_model=list[VetListResponse])
@@ -238,3 +262,24 @@ def delete_pet(
     """Delete a pet"""
     service = OwnerService(db)
     service.delete_pet(current_owner.id, pet_id)
+
+
+@router.get("/pets/deleted", response_model=list[PetResponse])
+def get_deleted_pets(
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> list[PetResponse]:
+    """Get all soft-deleted pets"""
+    service = OwnerService(db)
+    return service.get_deleted_pets(current_owner.id)
+
+
+@router.post("/pets/{pet_id}/restore", response_model=PetResponse)
+def restore_pet(
+    pet_id: UUID,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> PetResponse:
+    """Restore a soft-deleted pet"""
+    service = OwnerService(db)
+    return service.restore_pet(current_owner.id, pet_id)

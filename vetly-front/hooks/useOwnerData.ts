@@ -12,6 +12,7 @@ export interface Pet {
   chip_number: string | null;
   image_url: string | null;
   cover_image_url: string | null;
+  deleted_at: string | null;
   created_at: string;
 }
 
@@ -43,6 +44,8 @@ export interface AppointmentVetInfo {
   address: string | null;
   city: string | null;
   image_url: string | null;
+  coordinates_lat: number | null;
+  coordinates_lng: number | null;
 }
 
 export interface Appointment {
@@ -126,33 +129,42 @@ export function useAvailableSlots(vetId: string | null, date: string | null) {
   const [slots, setSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const vetIdRef = useRef(vetId);
+  const dateRef = useRef(date);
+  vetIdRef.current = vetId;
+  dateRef.current = date;
+
+  const fetchSlots = useCallback(async () => {
+    const v = vetIdRef.current;
+    const d = dateRef.current;
+    if (!v || !d) {
+      setSlots([]);
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await api.get<{ date: string; vet_id: string; slots: string[] }>(
+        `/vets/${v}/available-slots?date=${d}`
+      );
+      setSlots(data.slots);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch available slots');
+      setSlots([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!vetId || !date) {
       setSlots([]);
       return;
     }
-
-    const fetchSlots = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await api.get<{ date: string; vet_id: string; slots: string[] }>(
-          `/vets/${vetId}/available-slots?date=${date}`
-        );
-        setSlots(data.slots);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch available slots');
-        setSlots([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchSlots();
-  }, [vetId, date]);
+  }, [vetId, date, fetchSlots]);
 
-  return { slots, loading, error };
+  return { slots, loading, error, refetch: fetchSlots };
 }
 
 export function useMyAppointments() {
@@ -216,6 +228,14 @@ export interface CreateAppointmentRequest {
 
 export async function createAppointment(data: CreateAppointmentRequest): Promise<Appointment> {
   return api.post<Appointment>('/owner/appointments', data);
+}
+
+export async function cancelAppointment(appointmentId: string): Promise<Appointment> {
+  return api.post<Appointment>(`/owner/appointments/${appointmentId}/cancel`);
+}
+
+export async function rescheduleAppointment(appointmentId: string, scheduled_at: string): Promise<Appointment> {
+  return api.patch<Appointment>(`/owner/appointments/${appointmentId}/reschedule`, { scheduled_at });
 }
 
 // --- Medical History ---
@@ -527,4 +547,28 @@ export async function updatePet(
 
 export async function deletePet(petId: string): Promise<void> {
   return api.delete<void>(`/owner/pets/${petId}`);
+}
+
+export function useDeletedPets() {
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetch = useCallback(async () => {
+    try {
+      const data = await api.get<Pet[]>('/owner/pets/deleted');
+      setPets(data);
+    } catch {
+      setPets([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetch(); }, [fetch]);
+
+  return { pets, loading, refetch: fetch };
+}
+
+export async function restorePet(petId: string): Promise<Pet> {
+  return api.post<Pet>(`/owner/pets/${petId}/restore`, {});
 }

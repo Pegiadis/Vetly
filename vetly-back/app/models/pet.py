@@ -3,7 +3,7 @@ Pet model
 """
 
 import enum
-from sqlalchemy import Column, String, Integer, Float, Enum, ForeignKey
+from sqlalchemy import Column, String, Integer, Float, Enum, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -51,6 +51,9 @@ class Pet(BaseModel):
     chip_number = Column(String(50), unique=True, nullable=True, index=True)
     image_url = Column(String(500), nullable=True)
     cover_image_url = Column(String(500), nullable=True)
+
+    # Soft delete
+    deleted_at = Column(DateTime, nullable=True, index=True)
     
     # Relationships
     owner = relationship("PetOwner", back_populates="pets")

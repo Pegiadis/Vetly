@@ -9,9 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.repositories.owner import OwnerRepository
 from app.services.notification import NotificationService
+from app.models.appointment import AppointmentStatus
 from app.schemas.owner import (
     PetResponse,
     AppointmentCreateRequest,
+    AppointmentRescheduleRequest,
     AppointmentResponse,
     VetListResponse,
     OwnerMedicalEventResponse,
@@ -71,6 +73,15 @@ class OwnerService:
                 detail="Pet not found or does not belong to you",
             )
 
+        # Check for conflicting appointments
+        if self.repository.has_conflicting_appointment(
+            data.vet_id, data.scheduled_at, data.duration_minutes
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Η ώρα αυτή μόλις κρατήθηκε από κάποιον άλλο. Παρακαλώ επιλέξτε άλλη ώρα.",
+            )
+
         # Create the appointment
         appointment = self.repository.create_appointment(
             pet_owner_id=owner_id,
@@ -94,6 +105,66 @@ class OwnerService:
         )
 
         return AppointmentResponse.model_validate(appointment)
+
+    def cancel_appointment(self, owner_id: UUID, appointment_id: UUID) -> AppointmentResponse:
+        """Cancel an appointment owned by the owner"""
+        appointment = self.repository.get_appointment_by_id(appointment_id, owner_id)
+        if not appointment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Appointment not found",
+            )
+        if appointment.status not in (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Μόνο ενεργά ραντεβού μπορούν να ακυρωθούν.",
+            )
+
+        cancelled = self.repository.cancel_appointment(appointment)
+
+        owner = self.repository.get_owner_by_id(owner_id)
+        owner_name = owner.name if owner else ""
+        pet_name = appointment.pet.name if appointment.pet else ""
+        date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
+        self.notifications.notify_vet(
+            appointment.vet_id,
+            type="appointment",
+            title="Ακύρωση ραντεβού",
+            message=f"Ο ιδιοκτήτης {owner_name} ακύρωσε το ραντεβού για {pet_name} στις {date_str}",
+        )
+
+        return AppointmentResponse.model_validate(cancelled)
+
+    def reschedule_appointment(
+        self, owner_id: UUID, appointment_id: UUID, data: AppointmentRescheduleRequest
+    ) -> AppointmentResponse:
+        """Reschedule an appointment to a new date/time"""
+        appointment = self.repository.get_appointment_by_id(appointment_id, owner_id)
+        if not appointment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Appointment not found",
+            )
+        if appointment.status not in (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Μόνο ενεργά ραντεβού μπορούν να αναπρογραμματιστούν.",
+            )
+
+        rescheduled = self.repository.reschedule_appointment(appointment, data.scheduled_at)
+
+        owner = self.repository.get_owner_by_id(owner_id)
+        owner_name = owner.name if owner else ""
+        pet_name = appointment.pet.name if appointment.pet else ""
+        new_date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
+        self.notifications.notify_vet(
+            appointment.vet_id,
+            type="appointment",
+            title="Αναπρογραμματισμός ραντεβού",
+            message=f"Ο ιδιοκτήτης {owner_name} αναπρογραμμάτισε το ραντεβού για {pet_name} στις {new_date_str}",
+        )
+
+        return AppointmentResponse.model_validate(rescheduled)
 
     def get_vets(self, verified_only: bool = True) -> list[VetListResponse]:
         """Get list of available vets for booking"""
@@ -254,6 +325,13 @@ class OwnerService:
 
     def create_pet(self, owner_id: UUID, data: PetCreateRequest) -> PetResponse:
         """Create a new pet for the owner"""
+        if data.chip_number:
+            existing = self.repository.get_pet_by_chip_number(data.chip_number)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Ο αριθμός microchip χρησιμοποιείται ήδη από άλλο κατοικίδιο.",
+                )
         pet = self.repository.create_pet(
             pet_owner_id=owner_id,
             name=data.name,
@@ -276,6 +354,13 @@ class OwnerService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Pet not found or does not belong to you",
             )
+        if data.chip_number:
+            existing = self.repository.get_pet_by_chip_number(data.chip_number, exclude_pet_id=pet_id)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Ο αριθμός microchip χρησιμοποιείται ήδη από άλλο κατοικίδιο.",
+                )
         updated = self.repository.update_pet(
             pet,
             name=data.name,
@@ -287,7 +372,11 @@ class OwnerService:
         return PetResponse.model_validate(updated)
 
     def delete_pet(self, owner_id: UUID, pet_id: UUID) -> None:
-        """Delete a pet belonging to the owner"""
+        """
+        Soft-delete a pet belonging to the owner.
+        The pet and its child records are retained for 30 days.
+        Cleanup: DELETE FROM pets WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '30 days'
+        """
         pet = self.repository.get_pet_by_id(pet_id, owner_id)
         if not pet:
             raise HTTPException(
@@ -295,3 +384,19 @@ class OwnerService:
                 detail="Pet not found or does not belong to you",
             )
         self.repository.delete_pet(pet)
+
+    def get_deleted_pets(self, owner_id: UUID) -> list[PetResponse]:
+        """Get all soft-deleted pets for the owner"""
+        pets = self.repository.get_deleted_pets_by_owner_id(owner_id)
+        return [PetResponse.model_validate(p) for p in pets]
+
+    def restore_pet(self, owner_id: UUID, pet_id: UUID) -> PetResponse:
+        """Restore a soft-deleted pet"""
+        pet = self.repository.get_deleted_pet_by_id(pet_id, owner_id)
+        if not pet:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Pet not found or does not belong to you",
+            )
+        restored = self.repository.restore_pet(pet)
+        return PetResponse.model_validate(restored)

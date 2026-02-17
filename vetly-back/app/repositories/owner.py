@@ -3,9 +3,9 @@ Repository for pet owner related database operations
 """
 
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.base import Pet, Appointment, Vet, PetOwner, MedicalEvent, Medication, Review, Notification
@@ -19,13 +19,20 @@ class OwnerRepository:
         self.db = db
 
     def get_pets_by_owner_id(self, owner_id: UUID) -> list[Pet]:
-        """Get all pets for a pet owner"""
-        query = select(Pet).where(Pet.pet_owner_id == owner_id).order_by(Pet.name)
+        """Get all non-deleted pets for a pet owner"""
+        query = select(Pet).where(
+            Pet.pet_owner_id == owner_id,
+            Pet.deleted_at == None,
+        ).order_by(Pet.name)
         return list(self.db.scalars(query).all())
 
     def get_pet_by_id(self, pet_id: UUID, owner_id: UUID) -> Pet | None:
-        """Get a specific pet by ID, ensuring it belongs to the owner"""
-        query = select(Pet).where(Pet.id == pet_id, Pet.pet_owner_id == owner_id)
+        """Get a specific non-deleted pet by ID, ensuring it belongs to the owner"""
+        query = select(Pet).where(
+            Pet.id == pet_id,
+            Pet.pet_owner_id == owner_id,
+            Pet.deleted_at == None,
+        )
         return self.db.scalar(query)
 
     def get_appointments_by_owner_id(self, owner_id: UUID) -> list[Appointment]:
@@ -52,6 +59,61 @@ class OwnerRepository:
             .order_by(Appointment.scheduled_at)
         )
         return list(self.db.scalars(query).unique().all())
+
+    def get_appointment_by_id(self, appointment_id: UUID, owner_id: UUID) -> Appointment | None:
+        """Get a specific appointment ensuring it belongs to the owner"""
+        query = (
+            select(Appointment)
+            .options(joinedload(Appointment.pet), joinedload(Appointment.vet))
+            .where(
+                Appointment.id == appointment_id,
+                Appointment.pet_owner_id == owner_id,
+            )
+        )
+        return self.db.scalar(query)
+
+    def cancel_appointment(self, appointment: Appointment) -> Appointment:
+        """Cancel an appointment"""
+        appointment.status = AppointmentStatus.CANCELLED
+        self.db.commit()
+        self.db.refresh(appointment)
+        return appointment
+
+    def reschedule_appointment(self, appointment: Appointment, new_scheduled_at: datetime) -> Appointment:
+        """Reschedule an appointment to a new time, reset to pending"""
+        appointment.scheduled_at = new_scheduled_at
+        appointment.status = AppointmentStatus.PENDING
+        self.db.commit()
+        self.db.refresh(appointment)
+        return appointment
+
+    def has_conflicting_appointment(
+        self, vet_id: UUID, scheduled_at: datetime, duration_minutes: int
+    ) -> bool:
+        """Check if a vet already has an active appointment overlapping the given slot"""
+        slot_start = scheduled_at
+        slot_end = scheduled_at + timedelta(minutes=duration_minutes)
+        day_start = scheduled_at.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+
+        query = (
+            select(Appointment)
+            .where(
+                and_(
+                    Appointment.vet_id == vet_id,
+                    Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
+                    Appointment.scheduled_at >= day_start,
+                    Appointment.scheduled_at < day_end,
+                )
+            )
+        )
+        existing = self.db.scalars(query).all()
+        for apt in existing:
+            apt_start = apt.scheduled_at
+            apt_end = apt_start + timedelta(minutes=apt.duration_minutes)
+            if slot_start < apt_end and slot_end > apt_start:
+                return True
+        return False
 
     def create_appointment(
         self,
@@ -92,8 +154,11 @@ class OwnerRepository:
         return list(self.db.scalars(query).all())
 
     def get_pet_ids_for_owner(self, owner_id: UUID) -> list[UUID]:
-        """Get all pet IDs belonging to an owner"""
-        query = select(Pet.id).where(Pet.pet_owner_id == owner_id)
+        """Get all non-deleted pet IDs belonging to an owner"""
+        query = select(Pet.id).where(
+            Pet.pet_owner_id == owner_id,
+            Pet.deleted_at == None,
+        )
         return list(self.db.scalars(query).all())
 
     def get_medical_history_for_pet(
@@ -301,7 +366,38 @@ class OwnerRepository:
         self.db.refresh(pet)
         return pet
 
+    def get_pet_by_chip_number(self, chip_number: str, exclude_pet_id: UUID | None = None) -> Pet | None:
+        """Look up a non-deleted pet by chip number, optionally excluding a specific pet"""
+        query = select(Pet).where(Pet.chip_number == chip_number, Pet.deleted_at == None)
+        if exclude_pet_id is not None:
+            query = query.where(Pet.id != exclude_pet_id)
+        return self.db.scalar(query)
+
+    def get_deleted_pets_by_owner_id(self, owner_id: UUID) -> list[Pet]:
+        """Get all soft-deleted pets for a pet owner"""
+        query = select(Pet).where(
+            Pet.pet_owner_id == owner_id,
+            Pet.deleted_at != None,
+        ).order_by(Pet.deleted_at.desc())
+        return list(self.db.scalars(query).all())
+
+    def get_deleted_pet_by_id(self, pet_id: UUID, owner_id: UUID) -> Pet | None:
+        """Get a specific soft-deleted pet by ID, ensuring it belongs to the owner"""
+        query = select(Pet).where(
+            Pet.id == pet_id,
+            Pet.pet_owner_id == owner_id,
+            Pet.deleted_at != None,
+        )
+        return self.db.scalar(query)
+
     def delete_pet(self, pet: Pet) -> None:
-        """Delete a pet"""
-        self.db.delete(pet)
+        """Soft-delete a pet by setting deleted_at timestamp"""
+        pet.deleted_at = datetime.utcnow()
         self.db.commit()
+
+    def restore_pet(self, pet: Pet) -> Pet:
+        """Restore a soft-deleted pet"""
+        pet.deleted_at = None
+        self.db.commit()
+        self.db.refresh(pet)
+        return pet

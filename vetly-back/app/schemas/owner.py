@@ -51,6 +51,11 @@ class AppointmentCreateRequest(BaseModel):
     notes: str | None = Field(None, max_length=1000)
 
 
+class AppointmentRescheduleRequest(BaseModel):
+    """Request to reschedule an appointment"""
+    scheduled_at: datetime
+
+
 class AppointmentPetInfo(BaseModel):
     """Nested pet info inside appointment response"""
     id: UUID
@@ -70,6 +75,8 @@ class AppointmentVetInfo(BaseModel):
     address: str | None = None
     city: str | None = None
     image_url: str | None = None
+    coordinates_lat: float | None = None
+    coordinates_lng: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -242,7 +249,7 @@ class PetCreateRequest(BaseModel):
     age: int = Field(..., ge=0, le=50)
     weight: float = Field(..., gt=0, le=200)
     gender: str = Field(..., min_length=1, max_length=10)
-    chip_number: str | None = Field(None, max_length=50)
+    chip_number: str | None = Field(None, pattern=r'^\d{15}$')
 
 
 class PetUpdateRequest(BaseModel):
@@ -251,4 +258,4 @@ class PetUpdateRequest(BaseModel):
     breed: str | None = Field(None, min_length=1, max_length=100)
     age: int | None = Field(None, ge=0, le=50)
     weight: float | None = Field(None, gt=0, le=200)
-    chip_number: str | None = Field(None, max_length=50)
+    chip_number: str | None = Field(None, pattern=r'^\d{15}$')
