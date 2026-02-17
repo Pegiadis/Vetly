@@ -6,6 +6,7 @@ import {
   useAllAppointments,
   approveAppointment,
   rejectAppointment,
+  updateAppointmentStatus,
   completeExamination,
   VetAppointment,
   ExaminationMedication,
@@ -230,18 +231,6 @@ function ExaminationDialog({
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-slate-500 mb-1 block">Συχνότητα</label>
-                        <select
-                          value={med.frequency}
-                          onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800 bg-white"
-                        >
-                          <option value="daily">Καθημερινά</option>
-                          <option value="weekly">Εβδομαδιαία</option>
-                          <option value="once">Εφάπαξ</option>
-                        </select>
-                      </div>
-                      <div>
                         <label className="text-xs text-slate-500 mb-1 block">Διάρκεια (ημέρες)</label>
                         <input
                           type="number"
@@ -311,10 +300,100 @@ function ExaminationDialog({
   );
 }
 
+function VetCancelDialog({
+  appointment,
+  onClose,
+  onSuccess,
+}: {
+  appointment: VetAppointment;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const petName = appointment.pet?.name || 'Ασθενής';
+  const ownerName = appointment.pet_owner?.name || '';
+
+  const handleCancel = async () => {
+    try {
+      setSubmitting(true);
+      setError(null);
+      await updateAppointmentStatus(appointment.id, 'cancelled');
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Αποτυχία ακύρωσης');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="p-6">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 text-center mb-2">Ακύρωση Ραντεβού</h3>
+            <p className="text-sm text-slate-500 text-center mb-4">
+              Είστε σίγουροι ότι θέλετε να ακυρώσετε αυτό το ραντεβού;
+            </p>
+
+            <div className="bg-slate-50 rounded-xl p-4 mb-4 space-y-1 text-sm">
+              <p className="text-slate-700"><span className="font-bold">Ασθενής:</span> {petName}</p>
+              {ownerName && <p className="text-slate-700"><span className="font-bold">Ιδιοκτήτης:</span> {ownerName}</p>}
+              <p className="text-slate-700"><span className="font-bold">Ημερομηνία:</span> {formatDate(appointment.scheduled_at)}, {formatTime(appointment.scheduled_at)}</p>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm font-medium mb-4">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+              >
+                Πίσω
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={submitting}
+                className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Ακύρωση...
+                  </span>
+                ) : (
+                  'Ακύρωση Ραντεβού'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function VetAppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const { appointments, loading, error, refetch } = useAllAppointments(statusFilter || undefined);
   const [examAppointment, setExamAppointment] = useState<VetAppointment | null>(null);
+  const [cancelDialog, setCancelDialog] = useState<VetAppointment | null>(null);
 
   const sortedAppointments = useMemo(() => {
     return [...appointments].sort((a, b) =>
@@ -342,6 +421,11 @@ export default function VetAppointmentsPage() {
 
   const handleExamSuccess = () => {
     setExamAppointment(null);
+    refetch();
+  };
+
+  const handleCancelSuccess = () => {
+    setCancelDialog(null);
     refetch();
   };
 
@@ -463,6 +547,14 @@ export default function VetAppointmentsPage() {
                           </button>
                         </>
                       )}
+                      {apt.status === 'confirmed' && (
+                        <button
+                          onClick={() => setCancelDialog(apt)}
+                          className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                        >
+                          Ακύρωση
+                        </button>
+                      )}
                       {(apt.status === 'confirmed' || apt.status === 'pending') && (
                         <button
                           onClick={() => setExamAppointment(apt)}
@@ -486,6 +578,15 @@ export default function VetAppointmentsPage() {
           appointment={examAppointment}
           onClose={() => setExamAppointment(null)}
           onSuccess={handleExamSuccess}
+        />
+      )}
+
+      {/* Cancel Dialog */}
+      {cancelDialog && (
+        <VetCancelDialog
+          appointment={cancelDialog}
+          onClose={() => setCancelDialog(null)}
+          onSuccess={handleCancelSuccess}
         />
       )}
     </div>
