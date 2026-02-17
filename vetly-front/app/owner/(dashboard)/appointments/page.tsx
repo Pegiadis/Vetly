@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useMyAppointments } from '@/hooks/useOwnerData';
-import { getImageUrl } from '@/lib/api';
+import { useMyAppointments, cancelAppointment, rescheduleAppointment } from '@/hooks/useOwnerData';
+import { getImageUrl, ApiError } from '@/lib/api';
 import type { Appointment } from '@/hooks/useOwnerData';
 
 type TabType = 'upcoming' | 'past';
@@ -26,6 +26,12 @@ function formatTime(dateStr: string): string {
   });
 }
 
+function toDatetimeLocal(dateStr: string): string {
+  const d = new Date(dateStr);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     confirmed: 'bg-green-100 text-green-700',
@@ -46,7 +52,220 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function AppointmentCard({ apt, showActions }: { apt: Appointment; showActions: boolean }) {
+function CancelDialog({
+  appointment,
+  onClose,
+  onSuccess,
+}: {
+  appointment: Appointment;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const petName = appointment.pet?.name || 'Κατοικίδιο';
+  const vetName = appointment.vet?.name || 'Κτηνίατρος';
+
+  const handleCancel = async () => {
+    try {
+      setSubmitting(true);
+      setError(null);
+      await cancelAppointment(appointment.id);
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Αποτυχία ακύρωσης');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="p-6">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 text-center mb-2">Ακύρωση Ραντεβού</h3>
+            <p className="text-sm text-slate-500 text-center mb-4">
+              Είστε σίγουροι ότι θέλετε να ακυρώσετε αυτό το ραντεβού;
+            </p>
+
+            <div className="bg-slate-50 rounded-xl p-4 mb-4 space-y-1 text-sm">
+              <p className="text-slate-700"><span className="font-bold">Κατοικίδιο:</span> {petName}</p>
+              <p className="text-slate-700"><span className="font-bold">Κτηνίατρος:</span> {vetName}</p>
+              <p className="text-slate-700"><span className="font-bold">Ημερομηνία:</span> {formatDate(appointment.scheduled_at)}, {formatTime(appointment.scheduled_at)}</p>
+            </div>
+
+            <p className="text-xs text-red-500 text-center mb-4">Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.</p>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm font-medium mb-4">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+              >
+                Πίσω
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={submitting}
+                className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Ακύρωση...
+                  </span>
+                ) : (
+                  'Ακύρωση Ραντεβού'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function RescheduleDialog({
+  appointment,
+  onClose,
+  onSuccess,
+}: {
+  appointment: Appointment;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [newDate, setNewDate] = useState(toDatetimeLocal(appointment.scheduled_at));
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const petName = appointment.pet?.name || 'Κατοικίδιο';
+  const vetName = appointment.vet?.name || 'Κτηνίατρος';
+
+  const isValid = newDate && new Date(newDate) > new Date();
+
+  const handleReschedule = async () => {
+    if (!isValid) return;
+    try {
+      setSubmitting(true);
+      setError(null);
+      await rescheduleAppointment(appointment.id, new Date(newDate).toISOString());
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Αποτυχία αναπρογραμματισμού');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const now = new Date();
+  const minDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}T${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="p-6">
+            <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 text-center mb-2">Αναπρογραμματισμός</h3>
+            <p className="text-sm text-slate-500 text-center mb-4">
+              Επιλέξτε νέα ημερομηνία και ώρα για το ραντεβού.
+            </p>
+
+            <div className="bg-slate-50 rounded-xl p-4 mb-4 space-y-1 text-sm">
+              <p className="text-slate-700"><span className="font-bold">Κατοικίδιο:</span> {petName}</p>
+              <p className="text-slate-700"><span className="font-bold">Κτηνίατρος:</span> {vetName}</p>
+              <p className="text-slate-700"><span className="font-bold">Τρέχον:</span> {formatDate(appointment.scheduled_at)}, {formatTime(appointment.scheduled_at)}</p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-bold text-slate-700 mb-2">Νέα ημερομηνία & ώρα</label>
+              <input
+                type="datetime-local"
+                value={newDate}
+                min={minDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 outline-none text-slate-800"
+              />
+              {newDate && new Date(newDate) <= new Date() && (
+                <p className="text-xs text-red-500 mt-1">Η ημερομηνία πρέπει να είναι στο μέλλον.</p>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-400 text-center mb-4">Ο κτηνίατρος θα πρέπει να επιβεβαιώσει το νέο ραντεβού.</p>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm font-medium mb-4">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+              >
+                Πίσω
+              </button>
+              <button
+                onClick={handleReschedule}
+                disabled={submitting || !isValid}
+                className="flex-1 px-4 py-3 rounded-xl bg-teal-600 text-white font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Αποθήκευση...
+                  </span>
+                ) : (
+                  'Αναπρογραμματισμός'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AppointmentCard({
+  apt,
+  showActions,
+  onCancel,
+  onReschedule,
+}: {
+  apt: Appointment;
+  showActions: boolean;
+  onCancel: (apt: Appointment) => void;
+  onReschedule: (apt: Appointment) => void;
+}) {
   const petName = apt.pet?.name || 'Κατοικίδιο';
   const petImage = getImageUrl(apt.pet?.image_url);
   const vetName = apt.vet?.name || 'Κτηνίατρος';
@@ -91,13 +310,23 @@ function AppointmentCard({ apt, showActions }: { apt: Appointment; showActions: 
         <div className="flex items-center gap-2 ml-auto">
           {showActions && (
             <>
-              <button className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <button
+                onClick={() => onReschedule(apt)}
+                className="px-4 py-2 bg-teal-50 text-teal-700 rounded-xl font-bold text-sm hover:bg-teal-100 transition-colors flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Αναπρογραμματισμός
+              </button>
+              <button
+                onClick={() => onCancel(apt)}
+                className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-              </button>
-              <button className="px-4 py-2 bg-teal-50 text-teal-700 rounded-xl font-bold text-sm hover:bg-teal-100 transition-colors">
-                Λεπτομέρειες
+                Ακύρωση
               </button>
             </>
           )}
@@ -116,12 +345,23 @@ function AppointmentCard({ apt, showActions }: { apt: Appointment; showActions: 
       </div>
 
       {address && (
-        <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 text-sm text-slate-500">
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          {address}
+        <div className="mt-4 pt-4 border-t border-slate-100 text-sm text-slate-500">
+          <a
+            href={
+              apt.vet?.coordinates_lat && apt.vet?.coordinates_lng
+                ? `https://www.google.com/maps/dir/?api=1&destination=${apt.vet.coordinates_lat},${apt.vet.coordinates_lng}`
+                : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address + (apt.vet?.city ? `, ${apt.vet.city}` : ''))}`
+            }
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 hover:text-teal-600 transition-colors cursor-pointer"
+          >
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            {address}{apt.vet?.city ? `, ${apt.vet.city}` : ''}
+          </a>
         </div>
       )}
     </div>
@@ -130,12 +370,24 @@ function AppointmentCard({ apt, showActions }: { apt: Appointment; showActions: 
 
 export default function AppointmentsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
-  const { appointments, loading, error } = useMyAppointments();
+  const { appointments, loading, error, refetch } = useMyAppointments();
+  const [cancelDialog, setCancelDialog] = useState<Appointment | null>(null);
+  const [rescheduleDialog, setRescheduleDialog] = useState<Appointment | null>(null);
 
   const upcomingAppointments = appointments.filter(a => a.status === 'confirmed' || a.status === 'pending');
   const pastAppointments = appointments.filter(a => a.status === 'completed' || a.status === 'cancelled');
 
   const displayedAppointments = activeTab === 'upcoming' ? upcomingAppointments : pastAppointments;
+
+  const handleCancelSuccess = () => {
+    setCancelDialog(null);
+    refetch();
+  };
+
+  const handleRescheduleSuccess = () => {
+    setRescheduleDialog(null);
+    refetch();
+  };
 
   if (loading) {
     return (
@@ -203,7 +455,13 @@ export default function AppointmentsPage() {
       <div className="space-y-4">
         {displayedAppointments.length > 0 ? (
           displayedAppointments.map((apt) => (
-            <AppointmentCard key={apt.id} apt={apt} showActions={activeTab === 'upcoming'} />
+            <AppointmentCard
+              key={apt.id}
+              apt={apt}
+              showActions={activeTab === 'upcoming'}
+              onCancel={setCancelDialog}
+              onReschedule={setRescheduleDialog}
+            />
           ))
         ) : (
           <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-100 text-center">
@@ -232,6 +490,24 @@ export default function AppointmentsPage() {
           </div>
         )}
       </div>
+
+      {/* Cancel Dialog */}
+      {cancelDialog && (
+        <CancelDialog
+          appointment={cancelDialog}
+          onClose={() => setCancelDialog(null)}
+          onSuccess={handleCancelSuccess}
+        />
+      )}
+
+      {/* Reschedule Dialog */}
+      {rescheduleDialog && (
+        <RescheduleDialog
+          appointment={rescheduleDialog}
+          onClose={() => setRescheduleDialog(null)}
+          onSuccess={handleRescheduleSuccess}
+        />
+      )}
     </div>
   );
 }
