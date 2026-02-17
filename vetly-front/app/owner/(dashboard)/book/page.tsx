@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useMyPets, useVets, useAvailableSlots, createAppointment, Vet } from '@/hooks/useOwnerData';
+import { ApiError } from '@/lib/api';
 import CalendarPicker from '@/components/CalendarPicker';
 import { getImageUrl } from '@/lib/api';
 import { VetSearchMap } from '@/components/MapView';
@@ -32,7 +33,7 @@ export default function BookPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const { slots: availableSlots, loading: slotsLoading } = useAvailableSlots(selectedVet, selectedDate);
+  const { slots: availableSlots, loading: slotsLoading, refetch: refetchSlots } = useAvailableSlots(selectedVet, selectedDate);
 
   // Clear selected time when vet or date changes
   useEffect(() => {
@@ -76,7 +77,13 @@ export default function BookPage() {
 
       setStep(4);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to create appointment');
+      if (err instanceof ApiError && err.status === 409) {
+        setSubmitError(err.message);
+        setSelectedTime(null);
+        refetchSlots();
+      } else {
+        setSubmitError(err instanceof Error ? err.message : 'Failed to create appointment');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -144,7 +151,7 @@ export default function BookPage() {
               ) : pets.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-slate-500 mb-4">Δεν έχετε καταχωρημένα κατοικίδια.</p>
-                  <Link href="/owner/pets/add" className="text-teal-600 font-medium hover:underline">
+                  <Link href="/owner/pets" className="text-teal-600 font-medium hover:underline">
                     Προσθέστε κατοικίδιο
                   </Link>
                 </div>
