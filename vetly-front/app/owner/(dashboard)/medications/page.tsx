@@ -1,14 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useMyMedications, useMyPets, deleteMedication } from '@/hooks/useOwnerData';
+import { useMyMedications, useMyPets } from '@/hooks/useOwnerData';
 import { getImageUrl } from '@/lib/api';
-
-const frequencyTranslations: Record<string, string> = {
-  'daily': 'Καθημερινά',
-  'weekly': 'Εβδομαδιαία',
-  'once': 'Εφάπαξ',
-};
 
 function isExpired(endDate: string | null): boolean {
   if (!endDate) return false;
@@ -24,9 +18,7 @@ function daysUntilEnd(endDate: string): number {
 export default function MedicationsPage() {
   const [showActive, setShowActive] = useState(true);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const { medications, loading, error, refetch } = useMyMedications();
+  const { medications, loading, error } = useMyMedications();
   const { pets } = useMyPets();
 
   const filtered = useMemo(() => {
@@ -39,19 +31,6 @@ export default function MedicationsPage() {
 
   const activeCount = useMemo(() => medications.filter(m => m.is_active).length, [medications]);
   const inactiveCount = useMemo(() => medications.filter(m => !m.is_active).length, [medications]);
-
-  const handleDelete = async (medicationId: string) => {
-    setDeletingId(medicationId);
-    try {
-      await deleteMedication(medicationId);
-      setConfirmDeleteId(null);
-      refetch();
-    } catch {
-      // silently handle
-    } finally {
-      setDeletingId(null);
-    }
-  };
 
   if (loading) {
     return (
@@ -192,16 +171,10 @@ export default function MedicationsPage() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                       <div>
                         <p className="text-xs text-slate-500 uppercase font-bold">Δοσολογία</p>
                         <p className="text-sm text-slate-800 font-medium">{med.dosage}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 uppercase font-bold">Συχνότητα</p>
-                        <p className="text-sm text-slate-800 font-medium">
-                          {frequencyTranslations[med.frequency] || med.frequency}
-                        </p>
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 uppercase font-bold">Έναρξη</p>
@@ -219,51 +192,9 @@ export default function MedicationsPage() {
                       </div>
                     </div>
 
-                    {med.time && (
-                      <div className="text-xs text-slate-500 mb-2">
-                        Ώρα λήψης: <span className="font-medium text-slate-700">{med.time}</span>
-                      </div>
-                    )}
-
                     {med.notes && (
-                      <p className="text-sm text-slate-500 italic mb-3">{med.notes}</p>
+                      <p className="text-sm text-slate-500 italic">{med.notes}</p>
                     )}
-
-                    {/* Delete */}
-                    <div className="flex justify-end pt-2 border-t border-slate-100">
-                      {confirmDeleteId === med.id ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-slate-500">Διαγραφή;</span>
-                          <button
-                            onClick={() => handleDelete(med.id)}
-                            disabled={deletingId === med.id}
-                            className="px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors flex items-center gap-1"
-                          >
-                            {deletingId === med.id ? (
-                              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white" />
-                            ) : (
-                              'Ναι'
-                            )}
-                          </button>
-                          <button
-                            onClick={() => setConfirmDeleteId(null)}
-                            className="px-3 py-1.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200 transition-colors"
-                          >
-                            Όχι
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          onClick={() => setConfirmDeleteId(med.id)}
-                          className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                          title="Διαγραφή"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      )}
-                    </div>
                   </div>
                 </div>
               </div>
