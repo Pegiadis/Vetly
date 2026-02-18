@@ -3,26 +3,32 @@ Vet notification API endpoints
 """
 
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_vet
 from app.db.base import Vet
 from app.repositories.notification import NotificationRepository
-from app.schemas.owner import NotificationResponse
+from app.schemas.owner import NotificationPaginatedResponse, NotificationResponse
 
 router = APIRouter()
 
 
-@router.get("", response_model=list[NotificationResponse])
+@router.get("", response_model=NotificationPaginatedResponse)
 def get_vet_notifications(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(10, ge=1, le=50, description="Items per page"),
     current_vet: Vet = Depends(get_current_vet),
     db: Session = Depends(get_db),
-) -> list[NotificationResponse]:
-    """Get all notifications for the logged-in vet"""
+) -> NotificationPaginatedResponse:
+    """Get notifications for the logged-in vet with pagination"""
     repo = NotificationRepository(db)
-    notifications = repo.get_by_vet(current_vet.id)
-    return [NotificationResponse.model_validate(n) for n in notifications]
+    skip = (page - 1) * page_size
+    notifications, total = repo.get_by_vet(current_vet.id, skip=skip, limit=page_size)
+    return NotificationPaginatedResponse(
+        items=[NotificationResponse.model_validate(n) for n in notifications],
+        total=total, page=page, page_size=page_size,
+    )
 
 
 @router.patch("/{notification_id}/read", response_model=NotificationResponse)

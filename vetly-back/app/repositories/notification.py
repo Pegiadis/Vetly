@@ -4,7 +4,7 @@ Repository for notification database operations
 
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.db.base import Notification
@@ -38,14 +38,19 @@ class NotificationRepository:
 
     # --- Vet notification queries ---
 
-    def get_by_vet(self, vet_id: UUID) -> list[Notification]:
-        """Get all notifications for a vet, newest first"""
+    def get_by_vet(self, vet_id: UUID, skip: int = 0, limit: int = 10) -> tuple[list[Notification], int]:
+        """Get notifications for a vet with pagination, newest first"""
+        where = Notification.vet_id == vet_id
         query = (
             select(Notification)
-            .where(Notification.vet_id == vet_id)
+            .where(where)
             .order_by(Notification.created_at.desc())
+            .offset(skip)
+            .limit(limit)
         )
-        return list(self.db.scalars(query).all())
+        items = list(self.db.scalars(query).all())
+        total = self.db.scalar(select(func.count(Notification.id)).where(where)) or 0
+        return items, total
 
     def get_by_id_for_vet(self, notification_id: UUID, vet_id: UUID) -> Notification | None:
         """Get a specific notification ensuring it belongs to the vet"""
