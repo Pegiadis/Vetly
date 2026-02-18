@@ -1,6 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 
+interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 export interface Pet {
   id: string;
   name: string;
@@ -72,29 +79,31 @@ interface VetListResponse {
   total_pages: number;
 }
 
-export function useMyPets() {
+export function useMyPets(page = 1, pageSize = 6) {
   const [pets, setPets] = useState<Pet[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchPets = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get<Pet[]>('/owner/pets');
-      setPets(data);
+      const data = await api.get<PaginatedResponse<Pet>>(`/owner/pets?page=${page}&page_size=${pageSize}`);
+      setPets(data.items);
+      setTotal(data.total);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch pets');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => {
     fetchPets();
   }, [fetchPets]);
 
-  return { pets, loading, error, refetch: fetchPets };
+  return { pets, total, totalPages: Math.ceil(total / pageSize), loading, error, refetch: fetchPets };
 }
 
 export function useVets() {
@@ -167,29 +176,45 @@ export function useAvailableSlots(vetId: string | null, date: string | null) {
   return { slots, loading, error, refetch: fetchSlots };
 }
 
-export function useMyAppointments() {
+export interface AppointmentFilters {
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  petName?: string;
+}
+
+export function useMyAppointments(page = 1, pageSize = 10, filters: AppointmentFilters = {}) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAppointments = async () => {
+  const fetchAppointments = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get<Appointment[]>('/owner/appointments');
-      setAppointments(data);
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('page_size', String(pageSize));
+      if (filters.status) params.set('status', filters.status);
+      if (filters.dateFrom) params.set('date_from', filters.dateFrom);
+      if (filters.dateTo) params.set('date_to', filters.dateTo);
+      if (filters.petName) params.set('pet_name', filters.petName);
+      const data = await api.get<PaginatedResponse<Appointment>>(`/owner/appointments?${params.toString()}`);
+      setAppointments(data.items);
+      setTotal(data.total);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, pageSize, filters.status, filters.dateFrom, filters.dateTo, filters.petName]);
 
   useEffect(() => {
     fetchAppointments();
-  }, []);
+  }, [fetchAppointments]);
 
-  return { appointments, loading, error, refetch: fetchAppointments };
+  return { appointments, total, totalPages: Math.ceil(total / pageSize), loading, error, refetch: fetchAppointments };
 }
 
 export function useUpcomingAppointments() {
@@ -231,7 +256,7 @@ export async function createAppointment(data: CreateAppointmentRequest): Promise
 }
 
 export async function cancelAppointment(appointmentId: string): Promise<Appointment> {
-  return api.post<Appointment>(`/owner/appointments/${appointmentId}/cancel`);
+  return api.post<Appointment>(`/owner/appointments/${appointmentId}/cancel`, {});
 }
 
 export async function rescheduleAppointment(appointmentId: string, scheduled_at: string): Promise<Appointment> {
@@ -258,12 +283,7 @@ export interface OwnerMedicalEvent {
   vet: MedicalEventVetInfo | null;
 }
 
-interface MedicalHistoryResponse {
-  items: OwnerMedicalEvent[];
-  total: number;
-}
-
-export function usePetMedicalHistory(petId: string | null) {
+export function usePetMedicalHistory(petId: string | null, page = 1, pageSize = 10, eventType?: string) {
   const [events, setEvents] = useState<OwnerMedicalEvent[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -273,7 +293,11 @@ export function usePetMedicalHistory(petId: string | null) {
     if (!petId) return;
     try {
       setLoading(true);
-      const data = await api.get<MedicalHistoryResponse>(`/owner/pets/${petId}/medical-history`);
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('page_size', String(pageSize));
+      if (eventType) params.set('event_type', eventType);
+      const data = await api.get<PaginatedResponse<OwnerMedicalEvent>>(`/owner/pets/${petId}/medical-history?${params.toString()}`);
       setEvents(data.items);
       setTotal(data.total);
       setError(null);
@@ -282,14 +306,14 @@ export function usePetMedicalHistory(petId: string | null) {
     } finally {
       setLoading(false);
     }
-  }, [petId]);
+  }, [petId, page, pageSize, eventType]);
 
   useEffect(() => {
     if (petId) fetchHistory();
     else { setEvents([]); setTotal(0); }
   }, [petId, fetchHistory]);
 
-  return { events, total, loading, error, refetch: fetchHistory };
+  return { events, total, totalPages: Math.ceil(total / pageSize), loading, error, refetch: fetchHistory };
 }
 
 // --- Medications ---
@@ -316,8 +340,9 @@ export interface OwnerMedication {
   pet: MedicationPetInfo | null;
 }
 
-export function useMyMedications(isActive?: boolean) {
+export function useMyMedications(isActive?: boolean, page = 1, pageSize = 10) {
   const [medications, setMedications] = useState<OwnerMedication[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -325,23 +350,25 @@ export function useMyMedications(isActive?: boolean) {
     try {
       setLoading(true);
       const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('page_size', String(pageSize));
       if (isActive !== undefined) params.set('is_active', String(isActive));
-      const query = params.toString() ? `?${params.toString()}` : '';
-      const data = await api.get<OwnerMedication[]>(`/owner/medications${query}`);
-      setMedications(data);
+      const data = await api.get<PaginatedResponse<OwnerMedication>>(`/owner/medications?${params.toString()}`);
+      setMedications(data.items);
+      setTotal(data.total);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch medications');
     } finally {
       setLoading(false);
     }
-  }, [isActive]);
+  }, [isActive, page, pageSize]);
 
   useEffect(() => {
     fetchMedications();
   }, [fetchMedications]);
 
-  return { medications, loading, error, refetch: fetchMedications };
+  return { medications, total, totalPages: Math.ceil(total / pageSize), loading, error, refetch: fetchMedications };
 }
 
 export async function deleteMedication(medicationId: string): Promise<void> {
@@ -370,29 +397,31 @@ export interface OwnerReview {
   vet: ReviewVetInfo | null;
 }
 
-export function useMyReviews() {
+export function useMyReviews(page = 1, pageSize = 10) {
   const [reviews, setReviews] = useState<OwnerReview[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchReviews = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get<OwnerReview[]>('/owner/reviews');
-      setReviews(data);
+      const data = await api.get<PaginatedResponse<OwnerReview>>(`/owner/reviews?page=${page}&page_size=${pageSize}`);
+      setReviews(data.items);
+      setTotal(data.total);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch reviews');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => {
     fetchReviews();
   }, [fetchReviews]);
 
-  return { reviews, loading, error, refetch: fetchReviews };
+  return { reviews, total, totalPages: Math.ceil(total / pageSize), loading, error, refetch: fetchReviews };
 }
 
 export async function createReview(data: {
@@ -426,29 +455,31 @@ export interface OwnerNotification {
   created_at: string;
 }
 
-export function useMyNotifications() {
+export function useMyNotifications(page = 1, pageSize = 10) {
   const [notifications, setNotifications] = useState<OwnerNotification[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get<OwnerNotification[]>('/owner/notifications');
-      setNotifications(data);
+      const data = await api.get<PaginatedResponse<OwnerNotification>>(`/owner/notifications?page=${page}&page_size=${pageSize}`);
+      setNotifications(data.items);
+      setTotal(data.total);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  return { notifications, loading, error, refetch: fetchNotifications };
+  return { notifications, total, totalPages: Math.ceil(total / pageSize), loading, error, refetch: fetchNotifications };
 }
 
 export async function markNotificationRead(notificationId: string): Promise<OwnerNotification> {
