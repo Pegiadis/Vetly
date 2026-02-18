@@ -3,6 +3,7 @@ Pet owner API endpoints
 """
 
 from uuid import UUID
+from datetime import date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -10,44 +11,59 @@ from app.core.deps import get_db, get_current_pet_owner
 from app.db.base import PetOwner
 from app.services.owner import OwnerService
 from app.schemas.owner import (
-    PetResponse,
+    PetPaginatedResponse,
     PetOwnerResponse,
     AppointmentCreateRequest,
     AppointmentRescheduleRequest,
     AppointmentResponse,
+    AppointmentPaginatedResponse,
     VetListResponse,
     OwnerMedicalHistoryResponse,
-    MedicationResponse,
+    MedicationPaginatedResponse,
     OwnerReviewResponse,
+    OwnerReviewPaginatedResponse,
     OwnerReviewCreateRequest,
     OwnerReviewUpdateRequest,
+    NotificationPaginatedResponse,
     NotificationResponse,
     OwnerProfileUpdateRequest,
     PetCreateRequest,
     PetUpdateRequest,
+    PetResponse,
 )
 
 router = APIRouter()
 
 
-@router.get("/pets", response_model=list[PetResponse])
+@router.get("/pets", response_model=PetPaginatedResponse)
 def get_my_pets(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(6, ge=1, le=50),
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
-) -> list[PetResponse]:
-    """Get all pets for the logged-in pet owner"""
+) -> PetPaginatedResponse:
+    """Get pets for the logged-in pet owner with pagination"""
     service = OwnerService(db)
-    return service.get_my_pets(current_owner.id)
+    return service.get_my_pets(current_owner.id, page=page, page_size=page_size)
 
 
-@router.get("/appointments", response_model=list[AppointmentResponse])
+@router.get("/appointments", response_model=AppointmentPaginatedResponse)
 def get_my_appointments(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    status: str | None = Query(None, description="Filter: upcoming or past"),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    pet_name: str | None = Query(None),
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
-) -> list[AppointmentResponse]:
-    """Get all appointments for the logged-in pet owner"""
+) -> AppointmentPaginatedResponse:
+    """Get appointments for the logged-in pet owner with pagination and filters"""
     service = OwnerService(db)
-    return service.get_my_appointments(current_owner.id)
+    return service.get_my_appointments(
+        current_owner.id, page=page, page_size=page_size,
+        status_filter=status, date_from=date_from, date_to=date_to, pet_name=pet_name,
+    )
 
 
 @router.get("/appointments/upcoming", response_model=list[AppointmentResponse])
@@ -107,8 +123,9 @@ def get_available_vets(
 @router.get("/pets/{pet_id}/medical-history", response_model=OwnerMedicalHistoryResponse)
 def get_pet_medical_history(
     pet_id: UUID,
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    event_type: str | None = Query(None),
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> OwnerMedicalHistoryResponse:
@@ -119,18 +136,21 @@ def get_pet_medical_history(
         pet_id=pet_id,
         page=page,
         page_size=page_size,
+        event_type=event_type,
     )
 
 
-@router.get("/medications", response_model=list[MedicationResponse])
+@router.get("/medications", response_model=MedicationPaginatedResponse)
 def get_my_medications(
-    is_active: bool | None = Query(None, description="Filter by active status"),
+    is_active: bool | None = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
-) -> list[MedicationResponse]:
-    """Get all medications for the owner's pets"""
+) -> MedicationPaginatedResponse:
+    """Get medications for the owner's pets with pagination"""
     service = OwnerService(db)
-    return service.get_my_medications(current_owner.id, is_active)
+    return service.get_my_medications(current_owner.id, is_active, page=page, page_size=page_size)
 
 
 @router.delete("/medications/{medication_id}", status_code=204)
@@ -144,14 +164,16 @@ def delete_medication(
     service.delete_medication(current_owner.id, medication_id)
 
 
-@router.get("/reviews", response_model=list[OwnerReviewResponse])
+@router.get("/reviews", response_model=OwnerReviewPaginatedResponse)
 def get_my_reviews(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
-) -> list[OwnerReviewResponse]:
-    """Get all reviews by the logged-in owner"""
+) -> OwnerReviewPaginatedResponse:
+    """Get reviews by the logged-in owner with pagination"""
     service = OwnerService(db)
-    return service.get_my_reviews(current_owner.id)
+    return service.get_my_reviews(current_owner.id, page=page, page_size=page_size)
 
 
 @router.post("/reviews", response_model=OwnerReviewResponse, status_code=201)
@@ -188,14 +210,16 @@ def delete_review(
     service.delete_review(current_owner.id, review_id)
 
 
-@router.get("/notifications", response_model=list[NotificationResponse])
+@router.get("/notifications", response_model=NotificationPaginatedResponse)
 def get_my_notifications(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
-) -> list[NotificationResponse]:
-    """Get all notifications for the logged-in owner"""
+) -> NotificationPaginatedResponse:
+    """Get notifications for the logged-in owner with pagination"""
     service = OwnerService(db)
-    return service.get_my_notifications(current_owner.id)
+    return service.get_my_notifications(current_owner.id, page=page, page_size=page_size)
 
 
 @router.patch("/notifications/{notification_id}/read", response_model=NotificationResponse)

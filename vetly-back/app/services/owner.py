@@ -3,6 +3,7 @@ Service for pet owner related business logic
 """
 
 from uuid import UUID
+from datetime import date
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -12,22 +13,27 @@ from app.services.notification import NotificationService
 from app.models.appointment import AppointmentStatus
 from app.schemas.owner import (
     PetResponse,
+    PetPaginatedResponse,
     AppointmentCreateRequest,
     AppointmentRescheduleRequest,
     AppointmentResponse,
+    AppointmentPaginatedResponse,
     VetListResponse,
     OwnerMedicalEventResponse,
     OwnerMedicalHistoryResponse,
     MedicationResponse,
+    MedicationPaginatedResponse,
     OwnerReviewResponse,
+    OwnerReviewPaginatedResponse,
     OwnerReviewCreateRequest,
     OwnerReviewUpdateRequest,
     NotificationResponse,
+    NotificationPaginatedResponse,
     OwnerProfileUpdateRequest,
     PetCreateRequest,
     PetUpdateRequest,
+    PetOwnerResponse,
 )
-from app.schemas.owner import PetOwnerResponse
 
 
 class OwnerService:
@@ -38,15 +44,30 @@ class OwnerService:
         self.repository = OwnerRepository(db)
         self.notifications = NotificationService(db)
 
-    def get_my_pets(self, owner_id: UUID) -> list[PetResponse]:
-        """Get all pets for the logged-in owner"""
-        pets = self.repository.get_pets_by_owner_id(owner_id)
-        return [PetResponse.model_validate(pet) for pet in pets]
+    def get_my_pets(self, owner_id: UUID, page: int = 1, page_size: int = 6) -> PetPaginatedResponse:
+        """Get pets for the logged-in owner with pagination"""
+        skip = (page - 1) * page_size
+        pets, total = self.repository.get_pets_by_owner_id(owner_id, skip=skip, limit=page_size)
+        return PetPaginatedResponse(
+            items=[PetResponse.model_validate(pet) for pet in pets],
+            total=total, page=page, page_size=page_size,
+        )
 
-    def get_my_appointments(self, owner_id: UUID) -> list[AppointmentResponse]:
-        """Get all appointments for the logged-in owner"""
-        appointments = self.repository.get_appointments_by_owner_id(owner_id)
-        return [AppointmentResponse.model_validate(apt) for apt in appointments]
+    def get_my_appointments(
+        self, owner_id: UUID, page: int = 1, page_size: int = 10,
+        status_filter: str | None = None, date_from: date | None = None,
+        date_to: date | None = None, pet_name: str | None = None,
+    ) -> AppointmentPaginatedResponse:
+        """Get appointments for the logged-in owner with pagination and filters"""
+        skip = (page - 1) * page_size
+        appointments, total = self.repository.get_appointments_by_owner_id(
+            owner_id, skip=skip, limit=page_size,
+            status=status_filter, date_from=date_from, date_to=date_to, pet_name=pet_name,
+        )
+        return AppointmentPaginatedResponse(
+            items=[AppointmentResponse.model_validate(apt) for apt in appointments],
+            total=total, page=page, page_size=page_size,
+        )
 
     def get_upcoming_appointments(self, owner_id: UUID) -> list[AppointmentResponse]:
         """Get upcoming appointments for the logged-in owner"""
@@ -172,7 +193,8 @@ class OwnerService:
         return [VetListResponse.model_validate(vet) for vet in vets]
 
     def get_pet_medical_history(
-        self, owner_id: UUID, pet_id: UUID, page: int = 1, page_size: int = 50
+        self, owner_id: UUID, pet_id: UUID, page: int = 1, page_size: int = 10,
+        event_type: str | None = None,
     ) -> OwnerMedicalHistoryResponse:
         """Get medical history for an owner's pet"""
         pet = self.repository.get_pet_by_id(pet_id, owner_id)
@@ -184,20 +206,26 @@ class OwnerService:
 
         skip = (page - 1) * page_size
         events, total = self.repository.get_medical_history_for_pet(
-            pet_id=pet_id, skip=skip, limit=page_size
+            pet_id=pet_id, skip=skip, limit=page_size, event_type=event_type,
         )
 
         return OwnerMedicalHistoryResponse(
             items=[OwnerMedicalEventResponse.model_validate(e) for e in events],
-            total=total,
+            total=total, page=page, page_size=page_size,
         )
 
     def get_my_medications(
-        self, owner_id: UUID, is_active: bool | None = None
-    ) -> list[MedicationResponse]:
-        """Get all medications for an owner's pets"""
-        medications = self.repository.get_medications_for_owner(owner_id, is_active)
-        return [MedicationResponse.model_validate(m) for m in medications]
+        self, owner_id: UUID, is_active: bool | None = None, page: int = 1, page_size: int = 10,
+    ) -> MedicationPaginatedResponse:
+        """Get medications for an owner's pets with pagination"""
+        skip = (page - 1) * page_size
+        medications, total = self.repository.get_medications_for_owner(
+            owner_id, is_active, skip=skip, limit=page_size,
+        )
+        return MedicationPaginatedResponse(
+            items=[MedicationResponse.model_validate(m) for m in medications],
+            total=total, page=page, page_size=page_size,
+        )
 
     def delete_medication(self, owner_id: UUID, medication_id: UUID) -> None:
         """Delete a medication belonging to the owner's pet"""
@@ -211,10 +239,14 @@ class OwnerService:
 
     # --- Reviews ---
 
-    def get_my_reviews(self, owner_id: UUID) -> list[OwnerReviewResponse]:
-        """Get all reviews by an owner"""
-        reviews = self.repository.get_reviews_by_owner(owner_id)
-        return [OwnerReviewResponse.model_validate(r) for r in reviews]
+    def get_my_reviews(self, owner_id: UUID, page: int = 1, page_size: int = 10) -> OwnerReviewPaginatedResponse:
+        """Get reviews by an owner with pagination"""
+        skip = (page - 1) * page_size
+        reviews, total = self.repository.get_reviews_by_owner(owner_id, skip=skip, limit=page_size)
+        return OwnerReviewPaginatedResponse(
+            items=[OwnerReviewResponse.model_validate(r) for r in reviews],
+            total=total, page=page, page_size=page_size,
+        )
 
     def create_review(
         self, owner_id: UUID, data: OwnerReviewCreateRequest
@@ -281,10 +313,14 @@ class OwnerService:
 
     # --- Notifications ---
 
-    def get_my_notifications(self, owner_id: UUID) -> list[NotificationResponse]:
-        """Get all notifications for an owner"""
-        notifications = self.repository.get_notifications_by_owner(owner_id)
-        return [NotificationResponse.model_validate(n) for n in notifications]
+    def get_my_notifications(self, owner_id: UUID, page: int = 1, page_size: int = 10) -> NotificationPaginatedResponse:
+        """Get notifications for an owner with pagination"""
+        skip = (page - 1) * page_size
+        notifications, total = self.repository.get_notifications_by_owner(owner_id, skip=skip, limit=page_size)
+        return NotificationPaginatedResponse(
+            items=[NotificationResponse.model_validate(n) for n in notifications],
+            total=total, page=page, page_size=page_size,
+        )
 
     def mark_notification_read(self, owner_id: UUID, notification_id: UUID) -> NotificationResponse:
         """Mark a single notification as read"""

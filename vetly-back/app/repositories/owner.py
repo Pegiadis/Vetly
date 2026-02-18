@@ -3,7 +3,7 @@ Repository for pet owner related database operations
 """
 
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session, joinedload
@@ -18,13 +18,17 @@ class OwnerRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_pets_by_owner_id(self, owner_id: UUID) -> list[Pet]:
-        """Get all non-deleted pets for a pet owner"""
-        query = select(Pet).where(
-            Pet.pet_owner_id == owner_id,
-            Pet.deleted_at == None,
-        ).order_by(Pet.name)
-        return list(self.db.scalars(query).all())
+    def get_pets_by_owner_id(
+        self, owner_id: UUID, skip: int = 0, limit: int | None = None
+    ) -> tuple[list[Pet], int]:
+        """Get non-deleted pets for a pet owner with pagination"""
+        base = and_(Pet.pet_owner_id == owner_id, Pet.deleted_at == None)
+        query = select(Pet).where(base).order_by(Pet.name)
+        if limit is not None:
+            query = query.offset(skip).limit(limit)
+        pets = list(self.db.scalars(query).all())
+        total = self.db.scalar(select(func.count(Pet.id)).where(base)) or 0
+        return pets, total
 
     def get_pet_by_id(self, pet_id: UUID, owner_id: UUID) -> Pet | None:
         """Get a specific non-deleted pet by ID, ensuring it belongs to the owner"""
@@ -35,15 +39,46 @@ class OwnerRepository:
         )
         return self.db.scalar(query)
 
-    def get_appointments_by_owner_id(self, owner_id: UUID) -> list[Appointment]:
-        """Get all appointments for a pet owner with pet and vet details"""
+    def get_appointments_by_owner_id(
+        self,
+        owner_id: UUID,
+        skip: int = 0,
+        limit: int = 10,
+        status: str | None = None,
+        date_from: date | None = None,
+        date_to: date | None = None,
+        pet_name: str | None = None,
+    ) -> tuple[list[Appointment], int]:
+        """Get appointments for a pet owner with pagination and filters"""
+        conditions = [Appointment.pet_owner_id == owner_id]
+
+        if status == "upcoming":
+            conditions.append(Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]))
+        elif status == "past":
+            conditions.append(Appointment.status.in_([AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED]))
+
+        if date_from:
+            conditions.append(Appointment.scheduled_at >= datetime.combine(date_from, datetime.min.time()))
+        if date_to:
+            conditions.append(Appointment.scheduled_at < datetime.combine(date_to + timedelta(days=1), datetime.min.time()))
+        if pet_name:
+            conditions.append(Appointment.pet.has(Pet.name.ilike(f"%{pet_name}%")))
+
+        where = and_(*conditions)
+
         query = (
             select(Appointment)
             .options(joinedload(Appointment.pet), joinedload(Appointment.vet))
-            .where(Appointment.pet_owner_id == owner_id)
+            .where(where)
             .order_by(Appointment.scheduled_at.desc())
+            .offset(skip)
+            .limit(limit)
         )
-        return list(self.db.scalars(query).unique().all())
+        items = list(self.db.scalars(query).unique().all())
+
+        count_query = select(func.count(Appointment.id)).where(where)
+        total = self.db.scalar(count_query) or 0
+        return items, total
 
     def get_upcoming_appointments(self, owner_id: UUID) -> list[Appointment]:
         """Get upcoming appointments for a pet owner with pet and vet details"""
@@ -162,44 +197,50 @@ class OwnerRepository:
         return list(self.db.scalars(query).all())
 
     def get_medical_history_for_pet(
-        self, pet_id: UUID, skip: int = 0, limit: int = 50
+        self, pet_id: UUID, skip: int = 0, limit: int = 10, event_type: str | None = None
     ) -> tuple[list[MedicalEvent], int]:
         """Get medical history for a pet with vet details"""
+        conditions = [MedicalEvent.pet_id == pet_id]
+        if event_type:
+            conditions.append(MedicalEvent.event_type == event_type)
+        where = and_(*conditions)
+
         query = (
             select(MedicalEvent)
             .options(joinedload(MedicalEvent.vet))
-            .where(MedicalEvent.pet_id == pet_id)
+            .where(where)
             .order_by(MedicalEvent.date.desc())
             .offset(skip)
             .limit(limit)
         )
         events = self.db.scalars(query).unique().all()
-
-        count_query = select(func.count(MedicalEvent.id)).where(
-            MedicalEvent.pet_id == pet_id
-        )
-        total = self.db.scalar(count_query) or 0
-
+        total = self.db.scalar(select(func.count(MedicalEvent.id)).where(where)) or 0
         return list(events), total
 
     def get_medications_for_owner(
-        self, owner_id: UUID, is_active: bool | None = None
-    ) -> list[Medication]:
-        """Get all medications for an owner's pets"""
+        self, owner_id: UUID, is_active: bool | None = None, skip: int = 0, limit: int = 10
+    ) -> tuple[list[Medication], int]:
+        """Get medications for an owner's pets with pagination"""
         pet_ids = self.get_pet_ids_for_owner(owner_id)
         if not pet_ids:
-            return []
+            return [], 0
+
+        conditions = [Medication.pet_id.in_(pet_ids)]
+        if is_active is not None:
+            conditions.append(Medication.is_active == is_active)
+        where = and_(*conditions)
 
         query = (
             select(Medication)
             .options(joinedload(Medication.pet))
-            .where(Medication.pet_id.in_(pet_ids))
+            .where(where)
+            .order_by(Medication.is_active.desc(), Medication.name)
+            .offset(skip)
+            .limit(limit)
         )
-        if is_active is not None:
-            query = query.where(Medication.is_active == is_active)
-        query = query.order_by(Medication.is_active.desc(), Medication.name)
-
-        return list(self.db.scalars(query).unique().all())
+        items = list(self.db.scalars(query).unique().all())
+        total = self.db.scalar(select(func.count(Medication.id)).where(where)) or 0
+        return items, total
 
     def get_medication_by_id(self, medication_id: UUID, owner_id: UUID) -> Medication | None:
         """Get a medication by ID, ensuring it belongs to one of the owner's pets"""
@@ -219,15 +260,22 @@ class OwnerRepository:
 
     # --- Reviews ---
 
-    def get_reviews_by_owner(self, owner_id: UUID) -> list[Review]:
-        """Get all reviews by an owner with vet details"""
+    def get_reviews_by_owner(
+        self, owner_id: UUID, skip: int = 0, limit: int = 10
+    ) -> tuple[list[Review], int]:
+        """Get reviews by an owner with pagination"""
+        where = Review.pet_owner_id == owner_id
         query = (
             select(Review)
             .options(joinedload(Review.vet))
-            .where(Review.pet_owner_id == owner_id)
+            .where(where)
             .order_by(Review.created_at.desc())
+            .offset(skip)
+            .limit(limit)
         )
-        return list(self.db.scalars(query).unique().all())
+        items = list(self.db.scalars(query).unique().all())
+        total = self.db.scalar(select(func.count(Review.id)).where(where)) or 0
+        return items, total
 
     def get_review_by_id(self, review_id: UUID, owner_id: UUID) -> Review | None:
         """Get a specific review by ID, ensuring it belongs to the owner"""
@@ -292,14 +340,21 @@ class OwnerRepository:
 
     # --- Notifications ---
 
-    def get_notifications_by_owner(self, owner_id: UUID) -> list[Notification]:
-        """Get all notifications for an owner, newest first"""
+    def get_notifications_by_owner(
+        self, owner_id: UUID, skip: int = 0, limit: int = 10
+    ) -> tuple[list[Notification], int]:
+        """Get notifications for an owner with pagination"""
+        where = Notification.pet_owner_id == owner_id
         query = (
             select(Notification)
-            .where(Notification.pet_owner_id == owner_id)
+            .where(where)
             .order_by(Notification.created_at.desc())
+            .offset(skip)
+            .limit(limit)
         )
-        return list(self.db.scalars(query).all())
+        items = list(self.db.scalars(query).all())
+        total = self.db.scalar(select(func.count(Notification.id)).where(where)) or 0
+        return items, total
 
     def get_notification_by_id(self, notification_id: UUID, owner_id: UUID) -> Notification | None:
         """Get a specific notification ensuring it belongs to the owner"""

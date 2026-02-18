@@ -41,6 +41,14 @@ class PetResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PetPaginatedResponse(BaseModel):
+    """Paginated list of pets"""
+    items: list[PetResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 class AppointmentCreateRequest(BaseModel):
     """Request to create a new appointment"""
     vet_id: UUID
@@ -100,6 +108,14 @@ class AppointmentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class AppointmentPaginatedResponse(BaseModel):
+    """Paginated list of appointments"""
+    items: list[AppointmentResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 class VetListResponse(BaseModel):
     """Vet info for listing in owner booking"""
     id: UUID
@@ -144,6 +160,8 @@ class OwnerMedicalHistoryResponse(BaseModel):
     """Medical history response for owner endpoints"""
     items: list[OwnerMedicalEventResponse]
     total: int
+    page: int
+    page_size: int
 
 
 class MedicationPetInfo(BaseModel):
@@ -174,6 +192,14 @@ class MedicationResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MedicationPaginatedResponse(BaseModel):
+    """Paginated list of medications"""
+    items: list[MedicationResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 # --- Owner Reviews ---
 
 class ReviewVetInfo(BaseModel):
@@ -202,6 +228,14 @@ class OwnerReviewResponse(BaseModel):
     vet: ReviewVetInfo | None = None
 
 
+class OwnerReviewPaginatedResponse(BaseModel):
+    """Paginated list of reviews"""
+    items: list[OwnerReviewResponse]
+    total: int
+    page: int
+    page_size: int
+
+
 class OwnerReviewCreateRequest(BaseModel):
     """Request to create a review"""
     vet_id: UUID
@@ -228,6 +262,14 @@ class NotificationResponse(BaseModel):
     message: str
     is_read: bool
     created_at: datetime
+
+
+class NotificationPaginatedResponse(BaseModel):
+    """Paginated list of notifications"""
+    items: list[NotificationResponse]
+    total: int
+    page: int
+    page_size: int
 
 
 # --- Owner Profile Update ---
