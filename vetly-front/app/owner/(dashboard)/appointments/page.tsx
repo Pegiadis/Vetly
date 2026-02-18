@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useMyAppointments, cancelAppointment, rescheduleAppointment } from '@/hooks/useOwnerData';
+import type { Appointment, AppointmentFilters } from '@/hooks/useOwnerData';
 import { getImageUrl, ApiError } from '@/lib/api';
-import type { Appointment } from '@/hooks/useOwnerData';
+import Pagination from '@/components/Pagination';
+import DatePicker from '@/components/DatePicker';
 
 type TabType = 'upcoming' | 'past';
 
@@ -370,14 +372,26 @@ function AppointmentCard({
 
 export default function AppointmentsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('upcoming');
-  const { appointments, loading, error, refetch } = useMyAppointments();
+  const [page, setPage] = useState(1);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [petName, setPetName] = useState('');
+
+  const filters = useMemo<AppointmentFilters>(() => ({
+    status: activeTab,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    petName: petName || undefined,
+  }), [activeTab, dateFrom, dateTo, petName]);
+
+  const { appointments, total, totalPages, loading, error, refetch } = useMyAppointments(page, 10, filters);
   const [cancelDialog, setCancelDialog] = useState<Appointment | null>(null);
   const [rescheduleDialog, setRescheduleDialog] = useState<Appointment | null>(null);
 
-  const upcomingAppointments = appointments.filter(a => a.status === 'confirmed' || a.status === 'pending');
-  const pastAppointments = appointments.filter(a => a.status === 'completed' || a.status === 'cancelled');
-
-  const displayedAppointments = activeTab === 'upcoming' ? upcomingAppointments : pastAppointments;
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    setPage(1);
+  };
 
   const handleCancelSuccess = () => {
     setCancelDialog(null);
@@ -389,24 +403,14 @@ export default function AppointmentsPage() {
     refetch();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
-      </div>
-    );
-  }
+  const clearFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setPetName('');
+    setPage(1);
+  };
 
-  if (error) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-          <p className="text-red-700 font-medium">{error}</p>
-          <p className="text-red-500 text-sm mt-1">Παρακαλώ δοκιμάστε ξανά αργότερα.</p>
-        </div>
-      </div>
-    );
-  }
+  const hasFilters = dateFrom || dateTo || petName;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -428,68 +432,135 @@ export default function AppointmentsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-2xl p-1 shadow-sm border border-slate-100 mb-6 inline-flex">
+      <div className="bg-white rounded-2xl p-1 shadow-sm border border-slate-100 mb-4 inline-flex">
         <button
-          onClick={() => setActiveTab('upcoming')}
+          onClick={() => handleTabChange('upcoming')}
           className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${
             activeTab === 'upcoming'
               ? 'bg-teal-600 text-white'
               : 'text-slate-600 hover:bg-slate-50'
           }`}
         >
-          Επερχόμενα ({upcomingAppointments.length})
+          Επερχόμενα
         </button>
         <button
-          onClick={() => setActiveTab('past')}
+          onClick={() => handleTabChange('past')}
           className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${
             activeTab === 'past'
               ? 'bg-teal-600 text-white'
               : 'text-slate-600 hover:bg-slate-50'
           }`}
         >
-          Ιστορικό ({pastAppointments.length})
+          Ιστορικό
         </button>
       </div>
 
-      {/* Appointments List */}
-      <div className="space-y-4">
-        {displayedAppointments.length > 0 ? (
-          displayedAppointments.map((apt) => (
-            <AppointmentCard
-              key={apt.id}
-              apt={apt}
-              showActions={activeTab === 'upcoming'}
-              onCancel={setCancelDialog}
-              onReschedule={setRescheduleDialog}
-            />
-          ))
-        ) : (
-          <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-100 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">
-              {activeTab === 'upcoming' ? 'Κανένα επερχόμενο ραντεβού' : 'Κανένα παλαιότερο ραντεβού'}
-            </h3>
-            <p className="text-slate-500 mb-6">
-              {activeTab === 'upcoming' ? 'Κλείστε ένα ραντεβού για το κατοικίδιό σας.' : 'Δεν υπάρχει ιστορικό ραντεβού.'}
-            </p>
-            {activeTab === 'upcoming' && (
-              <Link
-                href="/owner/book"
-                className="inline-flex items-center gap-2 bg-teal-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-teal-700 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Κλείστε Ραντεβού
-              </Link>
-            )}
-          </div>
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        {/* Date From */}
+        <DatePicker
+          value={dateFrom}
+          onChange={(v) => { setDateFrom(v); setPage(1); }}
+          placeholder="Από"
+        />
+
+        <span className="text-slate-300 text-xs font-bold select-none">—</span>
+
+        {/* Date To */}
+        <DatePicker
+          value={dateTo}
+          onChange={(v) => { setDateTo(v); setPage(1); }}
+          placeholder="Έως"
+        />
+
+        {/* Pet Search */}
+        <div className="flex items-center bg-white rounded-xl border border-slate-200 px-3 py-2 gap-2">
+          <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={petName}
+            onChange={(e) => { setPetName(e.target.value); setPage(1); }}
+            placeholder="Κατοικίδιο..."
+            className="text-sm text-slate-700 bg-transparent focus:outline-none w-32"
+          />
+        </div>
+
+        {/* Clear All Filters */}
+        {hasFilters && (
+          <button
+            onClick={clearFilters}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Καθαρισμός
+          </button>
         )}
+
+        {/* Result Count */}
+        <span className="text-xs text-slate-400 ml-auto font-medium">{total} αποτελέσματα</span>
       </div>
+
+      {/* Loading */}
+      {loading && (
+        <div className="flex items-center justify-center min-h-[200px]">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+        </div>
+      )}
+
+      {/* Error */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center mb-6">
+          <p className="text-red-700 font-medium">{error}</p>
+          <p className="text-red-500 text-sm mt-1">Παρακαλώ δοκιμάστε ξανά αργότερα.</p>
+        </div>
+      )}
+
+      {/* Appointments List */}
+      {!loading && !error && (
+        <div className="space-y-4">
+          {appointments.length > 0 ? (
+            appointments.map((apt) => (
+              <AppointmentCard
+                key={apt.id}
+                apt={apt}
+                showActions={activeTab === 'upcoming'}
+                onCancel={setCancelDialog}
+                onReschedule={setRescheduleDialog}
+              />
+            ))
+          ) : (
+            <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-100 text-center">
+              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-slate-800 mb-2">
+                {activeTab === 'upcoming' ? 'Κανένα επερχόμενο ραντεβού' : 'Κανένα παλαιότερο ραντεβού'}
+              </h3>
+              <p className="text-slate-500 mb-6">
+                {activeTab === 'upcoming' ? 'Κλείστε ένα ραντεβού για το κατοικίδιό σας.' : 'Δεν υπάρχει ιστορικό ραντεβού.'}
+              </p>
+              {activeTab === 'upcoming' && !hasFilters && (
+                <Link
+                  href="/owner/book"
+                  className="inline-flex items-center gap-2 bg-teal-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-teal-700 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  Κλείστε Ραντεβού
+                </Link>
+              )}
+            </div>
+          )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+        </div>
+      )}
 
       {/* Cancel Dialog */}
       {cancelDialog && (
