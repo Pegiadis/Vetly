@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   useMyNotifications,
   markNotificationRead,
   markAllNotificationsRead,
 } from '@/hooks/useOwnerData';
+import Pagination from '@/components/Pagination';
 
 const notificationIcons: Record<string, { bg: string; icon: React.ReactNode }> = {
   medication: {
@@ -65,7 +66,8 @@ function formatDate(dateStr: string) {
 }
 
 export default function NotificationsPage() {
-  const { notifications, loading, error, refetch } = useMyNotifications();
+  const [page, setPage] = useState(1);
+  const { notifications, totalPages, loading, error, refetch } = useMyNotifications(page, 10);
 
   const unreadCount = useMemo(
     () => notifications.filter(n => !n.is_read).length,
@@ -185,6 +187,7 @@ export default function NotificationsPage() {
             <p className="text-slate-500">Δεν έχετε νέες ειδοποιήσεις.</p>
           </div>
         )}
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
     </div>
   );

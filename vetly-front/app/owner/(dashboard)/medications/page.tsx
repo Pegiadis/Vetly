@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useMyMedications, useMyPets } from '@/hooks/useOwnerData';
 import { getImageUrl } from '@/lib/api';
+import Pagination from '@/components/Pagination';
 
 function isExpired(endDate: string | null): boolean {
   if (!endDate) return false;
@@ -18,19 +19,24 @@ function daysUntilEnd(endDate: string): number {
 export default function MedicationsPage() {
   const [showActive, setShowActive] = useState(true);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
-  const { medications, loading, error } = useMyMedications();
-  const { pets } = useMyPets();
+  const [page, setPage] = useState(1);
+  const { medications, total, totalPages, loading, error } = useMyMedications(showActive, page, 10);
+  const { pets } = useMyPets(1, 50);
 
   const filtered = useMemo(() => {
-    return medications.filter(m => {
-      if (m.is_active !== showActive) return false;
-      if (selectedPetId && m.pet_id !== selectedPetId) return false;
-      return true;
-    });
-  }, [medications, showActive, selectedPetId]);
+    if (!selectedPetId) return medications;
+    return medications.filter(m => m.pet_id === selectedPetId);
+  }, [medications, selectedPetId]);
 
-  const activeCount = useMemo(() => medications.filter(m => m.is_active).length, [medications]);
-  const inactiveCount = useMemo(() => medications.filter(m => !m.is_active).length, [medications]);
+  const handleTabChange = (active: boolean) => {
+    setShowActive(active);
+    setPage(1);
+  };
+
+  const handlePetChange = (petId: string | null) => {
+    setSelectedPetId(petId);
+    setPage(1);
+  };
 
   if (loading) {
     return (
@@ -65,24 +71,24 @@ export default function MedicationsPage() {
         {/* Active/Inactive Tabs */}
         <div className="bg-white rounded-2xl p-1 shadow-sm border border-slate-100 inline-flex">
           <button
-            onClick={() => setShowActive(true)}
+            onClick={() => handleTabChange(true)}
             className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${
               showActive
                 ? 'bg-teal-600 text-white'
                 : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
-            Ενεργά ({activeCount})
+            Ενεργά
           </button>
           <button
-            onClick={() => setShowActive(false)}
+            onClick={() => handleTabChange(false)}
             className={`px-6 py-2 rounded-xl font-bold text-sm transition-all ${
               !showActive
                 ? 'bg-teal-600 text-white'
                 : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
-            Παλαιότερα ({inactiveCount})
+            Παλαιότερα
           </button>
         </div>
 
@@ -90,7 +96,7 @@ export default function MedicationsPage() {
         {pets.length > 1 && (
           <div className="flex items-center gap-2 flex-wrap">
             <button
-              onClick={() => setSelectedPetId(null)}
+              onClick={() => handlePetChange(null)}
               className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border ${
                 selectedPetId === null
                   ? 'bg-slate-800 text-white border-slate-800'
@@ -102,7 +108,7 @@ export default function MedicationsPage() {
             {pets.map((pet) => (
               <button
                 key={pet.id}
-                onClick={() => setSelectedPetId(pet.id)}
+                onClick={() => handlePetChange(pet.id)}
                 className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border flex items-center gap-2 ${
                   selectedPetId === pet.id
                     ? 'bg-teal-600 text-white border-teal-600'
@@ -215,6 +221,7 @@ export default function MedicationsPage() {
             </p>
           </div>
         )}
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
     </div>
   );

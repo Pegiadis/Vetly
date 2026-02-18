@@ -16,6 +16,7 @@ import {
 } from '@/hooks/useOwnerData';
 import type { Appointment } from '@/hooks/useOwnerData';
 import { getImageUrl, ApiError } from '@/lib/api';
+import Pagination from '@/components/Pagination';
 
 function getLastVisit(petId: string, appointments: Appointment[]): string | null {
   const past = appointments
@@ -76,8 +77,9 @@ const EMPTY_FORM = {
 };
 
 export default function PetsPage() {
-  const { pets, loading, error, refetch } = useMyPets();
-  const { appointments } = useMyAppointments();
+  const [page, setPage] = useState(1);
+  const { pets, totalPages, loading, error, refetch } = useMyPets(page, 6);
+  const { appointments } = useMyAppointments(1, 100);
   const { pets: deletedPets, loading: deletedLoading, refetch: refetchDeleted } = useDeletedPets();
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [showDeleted, setShowDeleted] = useState(false);
@@ -372,6 +374,7 @@ export default function PetsPage() {
                 </div>
               </button>
             ))}
+            <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
           </div>
 
           {/* Pet Details */}

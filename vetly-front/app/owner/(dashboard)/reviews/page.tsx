@@ -10,9 +10,11 @@ import {
   OwnerReview,
 } from '@/hooks/useOwnerData';
 import { getImageUrl } from '@/lib/api';
+import Pagination from '@/components/Pagination';
 
 export default function ReviewsPage() {
-  const { reviews, loading, error, refetch } = useMyReviews();
+  const [page, setPage] = useState(1);
+  const { reviews, totalPages, loading, error, refetch } = useMyReviews(page, 10);
   const { vets } = useVets();
 
   // Create form state
@@ -242,6 +244,7 @@ export default function ReviewsPage() {
             <p className="text-slate-500 mb-6">Δεν έχετε αφήσει αξιολογήσεις ακόμα.</p>
           </div>
         )}
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
 
       {/* Create Review Modal */}
