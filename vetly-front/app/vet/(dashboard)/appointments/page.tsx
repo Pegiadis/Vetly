@@ -8,7 +8,10 @@ import {
   rejectAppointment,
   updateAppointmentStatus,
   VetAppointment,
+  VetAppointmentFilters,
 } from '@/hooks/useVetData';
+import DatePicker from '@/components/DatePicker';
+import Pagination from '@/components/Pagination';
 
 function formatTime(dateString: string): string {
   const date = new Date(dateString);
@@ -122,14 +125,26 @@ function VetCancelDialog({
 
 export default function VetAppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const { appointments, loading, error, refetch } = useAllAppointments(statusFilter || undefined);
+  const [page, setPage] = useState(1);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [cancelDialog, setCancelDialog] = useState<VetAppointment | null>(null);
 
-  const sortedAppointments = useMemo(() => {
-    return [...appointments].sort((a, b) =>
-      new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()
-    );
-  }, [appointments]);
+  const filters = useMemo<VetAppointmentFilters>(() => ({
+    status: statusFilter || undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+  }), [statusFilter, dateFrom, dateTo]);
+
+  const { appointments, total, totalPages, loading, error, refetch } = useAllAppointments(page, 10, filters);
+
+  const hasDateFilters = dateFrom || dateTo;
+
+  const clearDateFilters = () => {
+    setDateFrom('');
+    setDateTo('');
+    setPage(1);
+  };
 
   const handleApprove = async (id: string) => {
     try {
@@ -176,11 +191,11 @@ export default function VetAppointmentsPage() {
       </div>
 
       {/* Status Filter Tabs */}
-      <div className="flex gap-2 mb-6 flex-wrap">
+      <div className="flex gap-2 mb-4 flex-wrap">
         {statusFilters.map((f) => (
           <button
             key={f.value}
-            onClick={() => setStatusFilter(f.value)}
+            onClick={() => { setStatusFilter(f.value); setPage(1); }}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
               statusFilter === f.value
                 ? 'bg-indigo-600 text-white'
@@ -190,6 +205,32 @@ export default function VetAppointmentsPage() {
             {f.label}
           </button>
         ))}
+      </div>
+
+      {/* Date Filters */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <DatePicker
+          value={dateFrom}
+          onChange={(v) => { setDateFrom(v); setPage(1); }}
+          placeholder="Από"
+        />
+        <DatePicker
+          value={dateTo}
+          onChange={(v) => { setDateTo(v); setPage(1); }}
+          placeholder="Έως"
+        />
+        {hasDateFilters && (
+          <button
+            onClick={clearDateFilters}
+            className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-bold text-red-500 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Καθαρισμός
+          </button>
+        )}
+        <span className="text-xs text-slate-400 ml-auto font-medium">{total} αποτελέσματα</span>
       </div>
 
       {/* Content */}
@@ -204,7 +245,7 @@ export default function VetAppointmentsPage() {
           </div>
         ) : error ? (
           <div className="text-center py-12 text-red-500">{error}</div>
-        ) : sortedAppointments.length === 0 ? (
+        ) : appointments.length === 0 ? (
           <div className="text-center py-12 text-slate-500">
             <svg className="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -214,7 +255,7 @@ export default function VetAppointmentsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {sortedAppointments.map((apt) => {
+            {appointments.map((apt) => {
               const cfg = statusConfig[apt.status] || statusConfig.confirmed;
               return (
                 <div
@@ -288,6 +329,8 @@ export default function VetAppointmentsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
       {/* Cancel Dialog */}
       {cancelDialog && (

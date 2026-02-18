@@ -127,7 +127,13 @@ export async function completeExamination(
   return api.post<VetAppointment>(`/vet/appointments/${appointmentId}/complete`, data);
 }
 
-export function useAllAppointments(status?: string) {
+export interface VetAppointmentFilters {
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export function useAllAppointments(page = 1, pageSize = 10, filters: VetAppointmentFilters = {}) {
   const [appointments, setAppointments] = useState<VetAppointment[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -137,8 +143,11 @@ export function useAllAppointments(status?: string) {
     try {
       setLoading(true);
       const params = new URLSearchParams();
-      if (status) params.set('status', status);
-      params.set('page_size', '50');
+      params.set('page', String(page));
+      params.set('page_size', String(pageSize));
+      if (filters.status) params.set('status', filters.status);
+      if (filters.dateFrom) params.set('date_from', filters.dateFrom);
+      if (filters.dateTo) params.set('date_to', filters.dateTo);
       const data = await api.get<AppointmentListResponse>(`/vet/appointments?${params.toString()}`);
       setAppointments(data.items);
       setTotal(data.total);
@@ -148,13 +157,15 @@ export function useAllAppointments(status?: string) {
     } finally {
       setLoading(false);
     }
-  }, [status]);
+  }, [page, pageSize, filters.status, filters.dateFrom, filters.dateTo]);
 
   useEffect(() => {
     fetchAppointments();
   }, [fetchAppointments]);
 
-  return { appointments, total, loading, error, refetch: fetchAppointments };
+  const totalPages = Math.ceil(total / pageSize);
+
+  return { appointments, total, totalPages, loading, error, refetch: fetchAppointments };
 }
 
 // --- Dashboard Stats ---
@@ -368,7 +379,7 @@ export interface ReviewStats {
   rating_distribution: { rating: number; count: number; percentage: number }[];
 }
 
-export function useVetReviews() {
+export function useVetReviews(page = 1, pageSize = 10) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -377,7 +388,10 @@ export function useVetReviews() {
   const fetchReviews = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get<ReviewListResponse>('/vet/reviews?page_size=50');
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('page_size', String(pageSize));
+      const data = await api.get<ReviewListResponse>(`/vet/reviews?${params.toString()}`);
       setReviews(data.items);
       setTotal(data.total);
       setError(null);
@@ -386,13 +400,15 @@ export function useVetReviews() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => {
     fetchReviews();
   }, [fetchReviews]);
 
-  return { reviews, total, loading, error, refetch: fetchReviews };
+  const totalPages = Math.ceil(total / pageSize);
+
+  return { reviews, total, totalPages, loading, error, refetch: fetchReviews };
 }
 
 export function useVetReviewStats() {
@@ -648,29 +664,43 @@ export interface VetNotification {
   created_at: string;
 }
 
-export function useVetNotifications() {
+interface VetNotificationListResponse {
+  items: VetNotification[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export function useVetNotifications(page = 1, pageSize = 10) {
   const [notifications, setNotifications] = useState<VetNotification[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await api.get<VetNotification[]>('/vet/notifications');
-      setNotifications(data);
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('page_size', String(pageSize));
+      const data = await api.get<VetNotificationListResponse>(`/vet/notifications?${params.toString()}`);
+      setNotifications(data.items);
+      setTotal(data.total);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [page, pageSize]);
 
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  return { notifications, loading, error, refetch: fetchNotifications };
+  const totalPages = Math.ceil(total / pageSize);
+
+  return { notifications, total, totalPages, loading, error, refetch: fetchNotifications };
 }
 
 export async function markVetNotificationRead(notificationId: string): Promise<VetNotification> {
