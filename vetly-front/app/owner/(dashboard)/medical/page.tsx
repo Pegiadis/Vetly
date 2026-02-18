@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useMyPets, OwnerMedicalEvent } from '@/hooks/useOwnerData';
+import { useMyPets, usePetMedicalHistory, OwnerMedicalEvent } from '@/hooks/useOwnerData';
 import { api, getImageUrl } from '@/lib/api';
+import Pagination from '@/components/Pagination';
 
 const eventTypeColors: Record<string, { bg: string; text: string; icon: string }> = {
   'Vaccination': { bg: 'bg-green-100', text: 'text-green-700', icon: '💉' },
@@ -26,44 +27,79 @@ const eventTypeTranslations: Record<string, string> = {
   'Medication': 'Φαρμακευτική',
 };
 
+const EVENT_TYPE_OPTIONS = [
+  { value: '', label: 'Όλα' },
+  { value: 'Vaccination', label: 'Εμβολιασμός' },
+  { value: 'Checkup', label: 'Εξέταση' },
+  { value: 'Surgery', label: 'Χειρουργείο' },
+  { value: 'Dental', label: 'Οδοντιατρικά' },
+  { value: 'Emergency', label: 'Επείγον' },
+  { value: 'Lab Test', label: 'Εργαστηριακά' },
+  { value: 'X-Ray', label: 'Ακτινογραφία' },
+  { value: 'Medication', label: 'Φαρμακευτική αγωγή' },
+];
+
 export default function MedicalPage() {
-  const { pets, loading: petsLoading } = useMyPets();
+  const { pets, loading: petsLoading } = useMyPets(1, 50);
   const [selectedPetId, setSelectedPetId] = useState<string>('all');
-  const [events, setEvents] = useState<OwnerMedicalEvent[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [eventTypeFilter, setEventTypeFilter] = useState('');
+  const [page, setPage] = useState(1);
+
+  // For single pet: use the hook with pagination
+  const singlePetId = selectedPetId !== 'all' ? selectedPetId : null;
+  const { events: singlePetEvents, totalPages: singlePetTotalPages, loading: singlePetLoading } = usePetMedicalHistory(
+    singlePetId, page, 10, eventTypeFilter || undefined
+  );
+
+  // For "all pets": fetch from all pets combined
+  const [allEvents, setAllEvents] = useState<OwnerMedicalEvent[]>([]);
+  const [allTotal, setAllTotal] = useState(0);
+  const [allLoading, setAllLoading] = useState(false);
 
   useEffect(() => {
-    if (petsLoading || pets.length === 0) return;
+    if (selectedPetId !== 'all' || petsLoading || pets.length === 0) return;
 
-    const fetchEvents = async () => {
-      setLoading(true);
+    const fetchAll = async () => {
+      setAllLoading(true);
       try {
-        if (selectedPetId === 'all') {
-          const results = await Promise.all(
-            pets.map(pet =>
-              api.get<{ items: OwnerMedicalEvent[]; total: number }>(`/owner/pets/${pet.id}/medical-history`)
-            )
-          );
-          const combined = results.flatMap(r => r.items);
-          combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          setEvents(combined);
-        } else {
-          const data = await api.get<{ items: OwnerMedicalEvent[]; total: number }>(`/owner/pets/${selectedPetId}/medical-history`);
-          setEvents(data.items);
-        }
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('page_size', '10');
+        if (eventTypeFilter) params.set('event_type', eventTypeFilter);
+        const results = await Promise.all(
+          pets.map(pet =>
+            api.get<{ items: OwnerMedicalEvent[]; total: number }>(`/owner/pets/${pet.id}/medical-history?${params.toString()}`)
+          )
+        );
+        const combined = results.flatMap(r => r.items);
+        combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const totalAll = results.reduce((sum, r) => sum + r.total, 0);
+        setAllEvents(combined);
+        setAllTotal(totalAll);
       } catch {
-        setEvents([]);
+        setAllEvents([]);
+        setAllTotal(0);
       } finally {
-        setLoading(false);
+        setAllLoading(false);
       }
     };
 
-    fetchEvents();
-  }, [selectedPetId, pets, petsLoading]);
+    fetchAll();
+  }, [selectedPetId, pets, petsLoading, page, eventTypeFilter]);
 
-  const sortedEvents = useMemo(() => {
-    return [...events].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [events]);
+  const events = selectedPetId === 'all' ? allEvents : singlePetEvents;
+  const totalPages = selectedPetId === 'all' ? Math.ceil(allTotal / 10) || 1 : singlePetTotalPages;
+  const loading = selectedPetId === 'all' ? allLoading : singlePetLoading;
+
+  const handlePetChange = (petId: string) => {
+    setSelectedPetId(petId);
+    setPage(1);
+  };
+
+  const handleEventTypeChange = (type: string) => {
+    setEventTypeFilter(type);
+    setPage(1);
+  };
 
   if (petsLoading) {
     return (
@@ -81,39 +117,69 @@ export default function MedicalPage() {
         <p className="text-slate-500 mt-1">Δείτε το πλήρες ιατρικό ιστορικό των κατοικιδίων σας.</p>
       </div>
 
-      {/* Pet Filter */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-6">
-        <div className="flex items-center gap-3 overflow-x-auto pb-2">
+      {/* Filters */}
+      <div className="space-y-3 mb-6">
+        {/* Pet Filter */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <button
-            onClick={() => setSelectedPetId('all')}
+            onClick={() => handlePetChange('all')}
             className={`px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${
               selectedPetId === 'all'
-                ? 'bg-teal-600 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                ? 'bg-teal-600 text-white shadow-sm'
+                : 'bg-white text-slate-600 border border-slate-200 hover:border-teal-300'
             }`}
           >
-            Όλα
+            Όλα τα κατοικίδια
           </button>
           {pets.map((pet) => (
             <button
               key={pet.id}
-              onClick={() => setSelectedPetId(pet.id)}
+              onClick={() => handlePetChange(pet.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all ${
                 selectedPetId === pet.id
-                  ? 'bg-teal-600 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-teal-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:border-teal-300'
               }`}
             >
-              <div className="w-6 h-6 rounded-full overflow-hidden bg-teal-100 flex items-center justify-center">
+              <div className={`w-6 h-6 rounded-full overflow-hidden flex items-center justify-center ${
+                selectedPetId === pet.id ? 'bg-teal-500' : 'bg-teal-100'
+              }`}>
                 {pet.image_url ? (
                   <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-teal-700 text-xs font-bold">{pet.name.charAt(0)}</span>
+                  <span className={`text-xs font-bold ${
+                    selectedPetId === pet.id ? 'text-white' : 'text-teal-700'
+                  }`}>{pet.name.charAt(0)}</span>
                 )}
               </div>
               {pet.name}
             </button>
           ))}
+        </div>
+
+        {/* Event Type Filter */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wide whitespace-nowrap mr-1">Τύπος</span>
+          {EVENT_TYPE_OPTIONS.map(opt => {
+            const isActive = eventTypeFilter === opt.value;
+            const typeStyle = opt.value ? eventTypeColors[opt.value] : null;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => handleEventTypeChange(opt.value)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs whitespace-nowrap transition-all ${
+                  isActive
+                    ? typeStyle
+                      ? `${typeStyle.bg} ${typeStyle.text} ring-1 ring-current/20`
+                      : 'bg-slate-800 text-white'
+                    : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                {typeStyle && <span className="text-sm">{typeStyle.icon}</span>}
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -127,8 +193,8 @@ export default function MedicalPage() {
       {/* Timeline */}
       {!loading && (
         <div className="space-y-4">
-          {sortedEvents.length > 0 ? (
-            sortedEvents.map((event, index) => {
+          {events.length > 0 ? (
+            events.map((event, index) => {
               const typeStyle = eventTypeColors[event.event_type] || { bg: 'bg-slate-100', text: 'text-slate-700', icon: '📋' };
               const pet = pets.find(p => p.id === event.pet_id);
               const typeLabel = eventTypeTranslations[event.event_type] || event.event_type;
@@ -136,7 +202,7 @@ export default function MedicalPage() {
               return (
                 <div key={event.id} className="relative">
                   {/* Timeline Line */}
-                  {index < sortedEvents.length - 1 && (
+                  {index < events.length - 1 && (
                     <div className="absolute left-7 top-14 w-0.5 h-full bg-slate-200" />
                   )}
 
@@ -206,6 +272,7 @@ export default function MedicalPage() {
               <p className="text-slate-500">Δεν υπάρχουν καταγεγραμμένα ιατρικά γεγονότα.</p>
             </div>
           )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       )}
     </div>
