@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useVetReviews, useVetReviewStats, replyToReview } from '@/hooks/useVetData';
 import { getImageUrl } from '@/lib/api';
+import Pagination from '@/components/Pagination';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('el-GR', {
@@ -14,7 +15,8 @@ function formatDate(dateStr: string): string {
 }
 
 export default function VetReviewsPage() {
-  const { reviews, loading: reviewsLoading, error, refetch } = useVetReviews();
+  const [page, setPage] = useState(1);
+  const { reviews, totalPages, loading: reviewsLoading, error, refetch } = useVetReviews(page, 10);
   const { stats, loading: statsLoading } = useVetReviewStats();
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
@@ -208,6 +210,8 @@ export default function VetReviewsPage() {
           ))}
         </div>
       )}
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   useVetNotifications,
   markVetNotificationRead,
   markAllVetNotificationsRead,
 } from '@/hooks/useVetData';
+import Pagination from '@/components/Pagination';
 
 const notificationIcons: Record<string, { bg: string; icon: React.ReactNode }> = {
   appointment: {
@@ -49,7 +50,8 @@ function formatDate(dateStr: string) {
 }
 
 export default function VetNotificationsPage() {
-  const { notifications, loading, error, refetch } = useVetNotifications();
+  const [page, setPage] = useState(1);
+  const { notifications, totalPages, loading, error, refetch } = useVetNotifications(page, 10);
 
   const unreadCount = useMemo(
     () => notifications.filter(n => !n.is_read).length,
@@ -170,6 +172,8 @@ export default function VetNotificationsPage() {
           </div>
         )}
       </div>
+
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }
