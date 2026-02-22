@@ -84,6 +84,17 @@ class VetRepository:
         self.db.refresh(vet)
         return vet
 
+    def get_on_call_vets(self) -> list[Vet]:
+        """Get all vets currently on-call with coordinates"""
+        query = select(Vet).where(
+            and_(
+                Vet.is_on_call == True,
+                Vet.coordinates_lat.isnot(None),
+                Vet.coordinates_lng.isnot(None),
+            )
+        )
+        return list(self.db.scalars(query).all())
+
     def get_booked_slots(self, vet_id: UUID, target_date: date) -> list[Appointment]:
         """Get all active (pending/confirmed) appointments for a vet on a given date"""
         day_start = datetime.combine(target_date, datetime.min.time())

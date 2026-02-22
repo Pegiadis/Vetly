@@ -86,6 +86,12 @@ class OnCallToggleRequest(BaseModel):
     is_on_call: bool
 
 
+class OnCallVetsResponse(BaseModel):
+    """List of on-call vets (unpaginated)"""
+    items: list[VetResponse]
+    count: int
+
+
 class AvailableSlotsResponse(BaseModel):
     """Response for available time slots"""
     date: str

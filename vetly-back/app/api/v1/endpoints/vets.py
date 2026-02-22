@@ -16,6 +16,7 @@ from app.schemas.vet import (
     VetUpdateRequest,
     VetHoursUpdateRequest,
     OnCallToggleRequest,
+    OnCallVetsResponse,
     AvailableSlotsResponse,
 )
 
@@ -85,6 +86,15 @@ def toggle_current_vet_on_call(
     """Toggle the current authenticated vet's on-call status"""
     service = VetService(db)
     return service.toggle_on_call(current_vet, data.is_on_call)
+
+
+@router.get("/on-call", response_model=OnCallVetsResponse)
+def get_on_call_vets(
+    db: Session = Depends(get_db),
+) -> OnCallVetsResponse:
+    """Get all currently on-call vets"""
+    service = VetService(db)
+    return service.get_on_call_vets()
 
 
 @router.get("/{vet_id}/available-slots", response_model=AvailableSlotsResponse)

@@ -15,6 +15,7 @@ from app.schemas.vet import (
     VetUpdateRequest,
     VetHoursUpdateRequest,
     AvailableSlotsResponse,
+    OnCallVetsResponse,
 )
 
 
@@ -79,6 +80,12 @@ class VetService:
         hours_dict = data.hours.model_dump(exclude_none=True)
         updated_vet = self.repository.update_hours(vet, hours_dict)
         return VetResponse.model_validate(updated_vet)
+
+    def get_on_call_vets(self) -> OnCallVetsResponse:
+        """Get all currently on-call vets"""
+        vets = self.repository.get_on_call_vets()
+        items = [VetResponse.model_validate(vet) for vet in vets]
+        return OnCallVetsResponse(items=items, count=len(items))
 
     def toggle_on_call(self, vet: Vet, is_on_call: bool) -> VetResponse:
         """Toggle a vet's on-call status"""
