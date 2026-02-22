@@ -73,6 +73,11 @@ class Vet(BaseModel):
         "BlogPost",
         back_populates="author_vet"
     )
+    clients = relationship(
+        "VetClient",
+        back_populates="vet",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self):
         return f"<Vet(id={self.id}, name={self.name}, specialty={self.specialty})>"

@@ -49,6 +49,10 @@ class PetOwner(BaseModel):
         cascade="all, delete-orphan",
         overlaps="vet"
     )
+    vet_client_records = relationship(
+        "VetClient",
+        back_populates="pet_owner",
+    )
 
     def __repr__(self):
         return f"<PetOwner(id={self.id}, email={self.email}, name={self.name})>"

@@ -16,3 +16,4 @@ from app.models.appointment import Appointment  # noqa
 from app.models.review import Review  # noqa
 from app.models.notification import Notification  # noqa
 from app.models.blog_post import BlogPost  # noqa
+from app.models.vet_client import VetClient, VetClientPet  # noqa

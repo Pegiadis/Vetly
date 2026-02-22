@@ -1,0 +1,234 @@
+"""
+Vet client management service
+"""
+
+import secrets
+from datetime import datetime, timedelta
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.db.base import PetOwner
+from app.core.security import create_access_token, get_password_hash
+from app.models.pet import PetType, Gender
+from app.repositories.vet_client import VetClientRepository
+from app.schemas.auth import TokenResponse
+from app.schemas.vet_client import (
+    InviteInfoResponse,
+    InviteLinkResponse,
+    InviteRegisterRequest,
+    VetClientCreateRequest,
+    VetClientListItem,
+    VetClientListResponse,
+    VetClientPetCreateRequest,
+    VetClientPetResponse,
+    VetClientPetUpdateRequest,
+    VetClientResponse,
+    VetClientUpdateRequest,
+)
+
+
+INVITE_EXPIRY_DAYS = 7
+
+
+class VetClientService:
+    """Service for vet client management"""
+
+    def __init__(self, db: Session):
+        self.db = db
+        self.repo = VetClientRepository(db)
+
+    def list_clients(self, vet_id: UUID, search: str | None, page: int, page_size: int) -> VetClientListResponse:
+        skip = (page - 1) * page_size
+        clients, total = self.repo.get_by_vet(vet_id, search=search, skip=skip, limit=page_size)
+        items = [
+            VetClientListItem(
+                id=c.id,
+                name=c.name,
+                email=c.email,
+                phone=c.phone,
+                status=c.status,
+                pet_count=len(c.pets) if c.pets else 0,
+                created_at=c.created_at,
+            )
+            for c in clients
+        ]
+        return VetClientListResponse(items=items, total=total, page=page, page_size=page_size)
+
+    def get_client(self, client_id: UUID, vet_id: UUID) -> VetClientResponse:
+        client = self.repo.get_by_id_for_vet(client_id, vet_id)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        return VetClientResponse.model_validate(client)
+
+    def create_client(self, vet_id: UUID, data: VetClientCreateRequest) -> VetClientResponse:
+        if data.email:
+            existing = self.repo.get_by_email_for_vet(vet_id, data.email)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A client with this email already exists",
+                )
+        client = self.repo.create(
+            vet_id=vet_id,
+            name=data.name,
+            email=data.email,
+            phone=data.phone,
+            address=data.address,
+            notes=data.notes,
+        )
+        return VetClientResponse.model_validate(client)
+
+    def update_client(self, client_id: UUID, vet_id: UUID, data: VetClientUpdateRequest) -> VetClientResponse:
+        client = self.repo.get_by_id_for_vet(client_id, vet_id)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+        update_data = data.model_dump(exclude_unset=True)
+
+        if "email" in update_data and update_data["email"] and update_data["email"] != client.email:
+            existing = self.repo.get_by_email_for_vet(vet_id, update_data["email"])
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="A client with this email already exists",
+                )
+
+        updated = self.repo.update(client, **update_data)
+        return VetClientResponse.model_validate(updated)
+
+    def delete_client(self, client_id: UUID, vet_id: UUID) -> None:
+        client = self.repo.get_by_id_for_vet(client_id, vet_id)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        self.repo.delete(client)
+
+    # --- Invite ---
+
+    def generate_invite(self, client_id: UUID, vet_id: UUID, base_url: str) -> InviteLinkResponse:
+        client = self.repo.get_by_id_for_vet(client_id, vet_id)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        if client.status == "linked":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Client already has a Vetly account",
+            )
+
+        token = secrets.token_hex(32)
+        expires_at = datetime.utcnow() + timedelta(days=INVITE_EXPIRY_DAYS)
+
+        self.repo.update(client, invite_token=token, invite_expires_at=expires_at, status="invited")
+
+        invite_url = f"{base_url}/invite/{token}"
+        return InviteLinkResponse(invite_url=invite_url, expires_at=expires_at)
+
+    def get_invite_info(self, token: str) -> InviteInfoResponse:
+        client = self.repo.get_by_invite_token(token)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite link")
+        if client.invite_expires_at and client.invite_expires_at < datetime.utcnow():
+            raise HTTPException(status_code=status.HTTP_410_GONE, detail="Invite link has expired")
+        if client.status == "linked":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used")
+
+        return InviteInfoResponse(
+            vet_name=client.vet.name if client.vet else "Κτηνίατρος",
+            client_name=client.name,
+            client_email=client.email,
+        )
+
+    def register_via_invite(self, token: str, data: InviteRegisterRequest) -> TokenResponse:
+        client = self.repo.get_by_invite_token(token)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite link")
+        if client.invite_expires_at and client.invite_expires_at < datetime.utcnow():
+            raise HTTPException(status_code=status.HTTP_410_GONE, detail="Invite link has expired")
+        if client.status == "linked":
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used")
+
+        # Check email not taken
+        existing = self.db.scalar(select(PetOwner).where(PetOwner.email == data.email))
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered",
+            )
+
+        # Create PetOwner
+        pet_owner = PetOwner(
+            email=data.email,
+            password_hash=get_password_hash(data.password),
+            name=data.name,
+            phone=data.phone,
+            address=data.address,
+            email_verified=False,
+        )
+        self.db.add(pet_owner)
+        self.db.flush()
+
+        # Link client
+        self.repo.update(
+            client,
+            pet_owner_id=pet_owner.id,
+            status="linked",
+            invite_token=None,
+            invite_expires_at=None,
+        )
+
+        self.db.commit()
+        self.db.refresh(pet_owner)
+
+        access_token = create_access_token(subject=str(pet_owner.id), token_type="pet_owner")
+        return TokenResponse(access_token=access_token)
+
+    # --- Pets ---
+
+    def add_pet(self, client_id: UUID, vet_id: UUID, data: VetClientPetCreateRequest) -> VetClientPetResponse:
+        client = self.repo.get_by_id_for_vet(client_id, vet_id)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+        pet = self.repo.add_pet(
+            vet_client_id=client.id,
+            name=data.name,
+            pet_type=PetType(data.type),
+            breed=data.breed,
+            age=data.age,
+            weight=data.weight,
+            gender=Gender(data.gender) if data.gender else None,
+            notes=data.notes,
+        )
+        return VetClientPetResponse.model_validate(pet)
+
+    def update_pet(self, client_id: UUID, vet_id: UUID, pet_id: UUID,
+                   data: VetClientPetUpdateRequest) -> VetClientPetResponse:
+        client = self.repo.get_by_id_for_vet(client_id, vet_id)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+        pet = self.repo.get_pet(pet_id, client.id)
+        if not pet:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
+
+        update_data = data.model_dump(exclude_unset=True)
+        if "type" in update_data and update_data["type"]:
+            update_data["type"] = PetType(update_data["type"])
+        if "gender" in update_data and update_data["gender"]:
+            update_data["gender"] = Gender(update_data["gender"])
+
+        updated = self.repo.update_pet(pet, **update_data)
+        return VetClientPetResponse.model_validate(updated)
+
+    def delete_pet(self, client_id: UUID, vet_id: UUID, pet_id: UUID) -> None:
+        client = self.repo.get_by_id_for_vet(client_id, vet_id)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+        pet = self.repo.get_pet(pet_id, client.id)
+        if not pet:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
+
+        self.repo.delete_pet(pet)

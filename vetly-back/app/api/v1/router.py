@@ -13,6 +13,8 @@ from app.api.v1.endpoints import (
     vet_reviews,
     vet_analytics,
     vet_notifications,
+    vet_clients,
+    invite,
     owner,
     uploads,
 )
@@ -28,6 +30,8 @@ api_router.include_router(vet_appointments.router, prefix="/vet/appointments", t
 api_router.include_router(vet_reviews.router, prefix="/vet/reviews", tags=["Vet Reviews"])
 api_router.include_router(vet_analytics.router, prefix="/vet", tags=["Vet Analytics"])
 api_router.include_router(vet_notifications.router, prefix="/vet/notifications", tags=["Vet Notifications"])
+api_router.include_router(vet_clients.router, prefix="/vet/clients", tags=["Vet Clients"])
+api_router.include_router(invite.router, prefix="/invite", tags=["Invite"])
 api_router.include_router(owner.router, prefix="/owner", tags=["Pet Owner"])
 api_router.include_router(uploads.router, prefix="/uploads", tags=["Uploads"])
 
