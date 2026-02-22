@@ -12,6 +12,7 @@ import {
   VetAppointment,
   ExaminationMedication,
 } from '@/hooks/useVetData';
+import CreateAppointmentDialog from '@/components/vet/CreateAppointmentDialog';
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('el-GR', {
@@ -292,6 +293,7 @@ export default function VetDashboardPage() {
   const { appointments: pendingAppointments, loading: pendingLoading } = usePendingAppointments();
   const { patients: recentPatients, loading: patientsLoading } = usePatients();
   const [examAppointment, setExamAppointment] = useState<VetAppointment | null>(null);
+  const [showCreateAppt, setShowCreateAppt] = useState(false);
 
   const loading = statsLoading || todayLoading || pendingLoading || patientsLoading;
 
@@ -433,9 +435,20 @@ export default function VetDashboardPage() {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-lg font-bold text-slate-800">Πρόγραμμα Ημέρας</h3>
-              <span className="text-sm text-slate-400 font-medium">
-                {todayAppointments.length} {todayAppointments.length === 1 ? 'ραντεβού' : 'ραντεβού'}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-slate-400 font-medium">
+                  {todayAppointments.length} {todayAppointments.length === 1 ? 'ραντεβού' : 'ραντεβού'}
+                </span>
+                <button
+                  onClick={() => setShowCreateAppt(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Νέο Ραντεβού
+                </button>
+              </div>
             </div>
 
             {todayAppointments.length > 0 ? (
@@ -614,6 +627,13 @@ export default function VetDashboardPage() {
           onSuccess={handleExamSuccess}
         />
       )}
+
+      {/* Create Appointment Dialog */}
+      <CreateAppointmentDialog
+        open={showCreateAppt}
+        onClose={() => setShowCreateAppt(false)}
+        onSuccess={refetchToday}
+      />
     </div>
   );
 }

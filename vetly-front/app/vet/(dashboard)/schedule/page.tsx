@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useWeekAppointments, approveAppointment, rejectAppointment, VetAppointment } from '@/hooks/useVetData';
+import CreateAppointmentDialog from '@/components/vet/CreateAppointmentDialog';
 
 const weekDayLabels = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
 const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
@@ -189,6 +190,7 @@ export default function VetSchedulePage() {
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const weekStartISO = formatDateISO(weekStart);
   const { appointments, loading, error, refetch } = useWeekAppointments(weekStartISO);
+  const [showCreateAppt, setShowCreateAppt] = useState(false);
 
   const weekDates = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -283,6 +285,15 @@ export default function VetSchedulePage() {
           >
             Επόμ. &rarr;
           </button>
+          <button
+            onClick={() => setShowCreateAppt(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Νέο Ραντεβού
+          </button>
         </div>
       </div>
 
@@ -354,6 +365,13 @@ export default function VetSchedulePage() {
           <p className="text-slate-500">Δεν υπάρχουν προγραμματισμένα ραντεβού για αυτή την εβδομάδα.</p>
         </div>
       )}
+
+      {/* Create Appointment Dialog */}
+      <CreateAppointmentDialog
+        open={showCreateAppt}
+        onClose={() => setShowCreateAppt(false)}
+        onSuccess={refetch}
+      />
     </div>
   );
 }
