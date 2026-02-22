@@ -725,6 +725,19 @@ export interface VetClientPet {
   created_at: string;
 }
 
+export interface LinkedPet {
+  id: string;
+  name: string;
+  type: string;
+  breed: string | null;
+  age: number | null;
+  weight: number | null;
+  gender: string | null;
+  chip_number: string | null;
+  image_url: string | null;
+  cover_image_url: string | null;
+}
+
 export interface VetClient {
   id: string;
   vet_id: string;
@@ -738,6 +751,7 @@ export interface VetClient {
   created_at: string;
   updated_at: string;
   pets: VetClientPet[];
+  linked_pets: LinkedPet[];
 }
 
 export interface VetClientListItem {
