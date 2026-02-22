@@ -9,7 +9,6 @@ export default function VetHeader() {
   const { user } = useAuth();
   const vetName = user?.name || '';
   const vetImage = getImageUrl(user?.image_url);
-  const [isOnCall, setIsOnCall] = useState(true);
   const [showNotifications, setShowNotifications] = useState(false);
 
   return (
@@ -35,22 +34,6 @@ export default function VetHeader() {
 
       {/* Right Side */}
       <div className="flex items-center gap-4">
-        {/* On-Call Toggle */}
-        <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-xl">
-          <span className={`text-xs font-bold px-3 py-1 rounded-lg ${isOnCall ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-500'}`}>
-            {isOnCall ? 'Διαθέσιμος' : 'Εκτός'}
-          </span>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isOnCall}
-              onChange={() => setIsOnCall(!isOnCall)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500" />
-          </label>
-        </div>
-
         {/* Notifications */}
         <div className="relative">
           <button
