@@ -19,6 +19,7 @@ from app.schemas.vet_client import (
     InviteInfoResponse,
     InviteLinkResponse,
     InviteRegisterRequest,
+    LinkedPetResponse,
     VetClientCreateRequest,
     VetClientListItem,
     VetClientListResponse,
@@ -41,27 +42,43 @@ class VetClientService:
         self.repo = VetClientRepository(db)
 
     def list_clients(self, vet_id: UUID, search: str | None, page: int, page_size: int) -> VetClientListResponse:
+        self.repo.sync_appointment_owners(vet_id)
+
         skip = (page - 1) * page_size
         clients, total = self.repo.get_by_vet(vet_id, search=search, skip=skip, limit=page_size)
-        items = [
-            VetClientListItem(
+        items = []
+        for c in clients:
+            # For linked clients, count real pets from PetOwner
+            if c.pet_owner_id and c.pet_owner:
+                pet_count = len(c.pet_owner.pets) if c.pet_owner.pets else 0
+            else:
+                pet_count = len(c.pets) if c.pets else 0
+            items.append(VetClientListItem(
                 id=c.id,
                 name=c.name,
                 email=c.email,
                 phone=c.phone,
                 status=c.status,
-                pet_count=len(c.pets) if c.pets else 0,
+                pet_count=pet_count,
                 created_at=c.created_at,
-            )
-            for c in clients
-        ]
+            ))
         return VetClientListResponse(items=items, total=total, page=page, page_size=page_size)
 
     def get_client(self, client_id: UUID, vet_id: UUID) -> VetClientResponse:
         client = self.repo.get_by_id_for_vet(client_id, vet_id)
         if not client:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
-        return VetClientResponse.model_validate(client)
+
+        response = VetClientResponse.model_validate(client)
+
+        # For linked clients, include real Pet records from PetOwner
+        if client.pet_owner_id and client.pet_owner:
+            response.linked_pets = [
+                LinkedPetResponse.model_validate(p)
+                for p in client.pet_owner.pets
+            ]
+
+        return response
 
     def create_client(self, vet_id: UUID, data: VetClientCreateRequest) -> VetClientResponse:
         if data.email:

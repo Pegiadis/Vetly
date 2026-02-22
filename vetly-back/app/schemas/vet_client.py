@@ -44,6 +44,23 @@ class VetClientPetUpdateRequest(BaseModel):
     notes: str | None = None
 
 
+# --- Linked pet schema (real Pet records for linked clients) ---
+
+class LinkedPetResponse(BaseModel):
+    id: UUID
+    name: str
+    type: str
+    breed: str | None = None
+    age: int | None = None
+    weight: float | None = None
+    gender: str | None = None
+    chip_number: str | None = None
+    image_url: str | None = None
+    cover_image_url: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
 # --- Client schemas ---
 
 class VetClientResponse(BaseModel):
@@ -59,6 +76,7 @@ class VetClientResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     pets: list[VetClientPetResponse] = []
+    linked_pets: list[LinkedPetResponse] = []
 
     model_config = {"from_attributes": True}
 

@@ -4,10 +4,12 @@ Repository for vet client database operations
 
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import distinct, func, or_, select
+from sqlalchemy.orm import Session, joinedload, subqueryload
 
 from app.db.base import VetClient, VetClientPet
+from app.models.appointment import Appointment
+from app.models.pet_owner import PetOwner
 from app.models.pet import PetType, Gender
 
 
@@ -16,6 +18,64 @@ class VetClientRepository:
 
     def __init__(self, db: Session):
         self.db = db
+
+    # --- Sync ---
+
+    def sync_appointment_owners(self, vet_id: UUID) -> int:
+        """Auto-create VetClient records for PetOwners with appointments."""
+        # pet_owner_ids that already have a VetClient for this vet
+        existing_links = (
+            select(VetClient.pet_owner_id)
+            .where(VetClient.vet_id == vet_id, VetClient.pet_owner_id.isnot(None))
+            .subquery()
+        )
+
+        # PetOwners with appointments for this vet but no VetClient record
+        missing_owners = list(self.db.scalars(
+            select(PetOwner)
+            .where(
+                PetOwner.id.in_(
+                    select(distinct(Appointment.pet_owner_id))
+                    .where(Appointment.vet_id == vet_id)
+                ),
+                PetOwner.id.notin_(select(existing_links.c.pet_owner_id)),
+            )
+        ).all())
+
+        created = 0
+        for owner in missing_owners:
+            # Check if there's an unlinked VetClient with matching email
+            if owner.email:
+                existing_by_email = self.db.scalar(
+                    select(VetClient).where(
+                        VetClient.vet_id == vet_id,
+                        VetClient.email == owner.email,
+                        VetClient.pet_owner_id.is_(None),
+                    )
+                )
+                if existing_by_email:
+                    existing_by_email.pet_owner_id = owner.id
+                    existing_by_email.status = "linked"
+                    existing_by_email.name = owner.name
+                    continue
+
+            client = VetClient(
+                id=uuid4(),
+                vet_id=vet_id,
+                pet_owner_id=owner.id,
+                name=owner.name,
+                email=owner.email,
+                phone=owner.phone,
+                address=owner.address,
+                status="linked",
+            )
+            self.db.add(client)
+            created += 1
+
+        if missing_owners:
+            self.db.commit()
+
+        return created
 
     # --- Client CRUD ---
 
@@ -55,6 +115,9 @@ class VetClientRepository:
         where = tuple(filters)
         query = (
             select(VetClient)
+            .options(
+                subqueryload(VetClient.pet_owner).subqueryload(PetOwner.pets),
+            )
             .where(*where)
             .order_by(VetClient.created_at.desc())
             .offset(skip)
@@ -70,7 +133,10 @@ class VetClientRepository:
     def get_by_id_for_vet(self, client_id: UUID, vet_id: UUID) -> VetClient | None:
         query = (
             select(VetClient)
-            .options(joinedload(VetClient.pets))
+            .options(
+                joinedload(VetClient.pets),
+                joinedload(VetClient.pet_owner).subqueryload(PetOwner.pets),
+            )
             .where(VetClient.id == client_id, VetClient.vet_id == vet_id)
         )
         return self.db.scalar(query)
