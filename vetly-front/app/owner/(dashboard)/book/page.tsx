@@ -12,7 +12,6 @@ const appointmentTypes = [
   { id: 'Checkup', name: 'Γενικός Έλεγχος', icon: '🩺' },
   { id: 'Vaccination', name: 'Εμβολιασμός', icon: '💉' },
   { id: 'Dental Cleaning', name: 'Οδοντιατρικά', icon: '🦷' },
-  { id: 'Emergency', name: 'Επείγον', icon: '🚨' },
   { id: 'Surgery', name: 'Χειρουργείο', icon: '🏥' },
   { id: 'Grooming', name: 'Περιποίηση', icon: '✂️' },
 ];
