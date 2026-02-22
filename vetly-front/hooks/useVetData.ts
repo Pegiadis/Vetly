@@ -710,3 +710,167 @@ export async function markVetNotificationRead(notificationId: string): Promise<V
 export async function markAllVetNotificationsRead(): Promise<void> {
   return api.post<void>('/vet/notifications/mark-all-read', {});
 }
+
+// --- Vet Clients ---
+
+export interface VetClientPet {
+  id: string;
+  name: string;
+  type: string;
+  breed: string | null;
+  age: number | null;
+  weight: number | null;
+  gender: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface VetClient {
+  id: string;
+  vet_id: string;
+  pet_owner_id: string | null;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  notes: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  pets: VetClientPet[];
+}
+
+export interface VetClientListItem {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  status: string;
+  pet_count: number;
+  created_at: string;
+}
+
+interface VetClientListResponse {
+  items: VetClientListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export function useVetClients(page = 1, pageSize = 10, search?: string) {
+  const [clients, setClients] = useState<VetClientListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchClients = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('page_size', String(pageSize));
+      if (search) params.set('search', search);
+      const data = await api.get<VetClientListResponse>(`/vet/clients?${params.toString()}`);
+      setClients(data.items);
+      setTotal(data.total);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch clients');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, search]);
+
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  return { clients, total, totalPages, loading, error, refetch: fetchClients };
+}
+
+export function useVetClient(clientId: string | null) {
+  const [client, setClient] = useState<VetClient | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchClient = useCallback(async () => {
+    if (!clientId) {
+      setClient(null);
+      return;
+    }
+    try {
+      setLoading(true);
+      const data = await api.get<VetClient>(`/vet/clients/${clientId}`);
+      setClient(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch client');
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId]);
+
+  useEffect(() => {
+    fetchClient();
+  }, [fetchClient]);
+
+  return { client, loading, error, refetch: fetchClient };
+}
+
+export async function createVetClient(data: {
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+}): Promise<VetClient> {
+  return api.post<VetClient>('/vet/clients', data);
+}
+
+export async function updateVetClient(id: string, data: {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+}): Promise<VetClient> {
+  return api.put<VetClient>(`/vet/clients/${id}`, data);
+}
+
+export async function deleteVetClient(id: string): Promise<void> {
+  return api.delete<void>(`/vet/clients/${id}`);
+}
+
+export async function generateClientInvite(clientId: string): Promise<{ invite_url: string; expires_at: string }> {
+  return api.post<{ invite_url: string; expires_at: string }>(`/vet/clients/${clientId}/invite`, {});
+}
+
+export async function addClientPet(clientId: string, data: {
+  name: string;
+  type: string;
+  breed?: string;
+  age?: number;
+  weight?: number;
+  gender?: string;
+  notes?: string;
+}): Promise<VetClientPet> {
+  return api.post<VetClientPet>(`/vet/clients/${clientId}/pets`, data);
+}
+
+export async function updateClientPet(clientId: string, petId: string, data: {
+  name?: string;
+  type?: string;
+  breed?: string;
+  age?: number;
+  weight?: number;
+  gender?: string;
+  notes?: string;
+}): Promise<VetClientPet> {
+  return api.put<VetClientPet>(`/vet/clients/${clientId}/pets/${petId}`, data);
+}
+
+export async function deleteClientPet(clientId: string, petId: string): Promise<void> {
+  return api.delete<void>(`/vet/clients/${clientId}/pets/${petId}`);
+}
