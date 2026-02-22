@@ -353,7 +353,7 @@ export default function VetDashboardPage() {
         </Link>
 
         <Link
-          href="/vet/patients"
+          href="/vet/clients"
           className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-teal-300 hover:shadow-md transition-all"
         >
           <div className="flex items-center gap-4">
@@ -568,7 +568,7 @@ export default function VetDashboardPage() {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
             <h3 className="font-bold text-slate-800 mb-4 flex items-center justify-between">
               Πρόσφατα Κατοικίδια
-              <Link href="/vet/patients" className="text-xs text-indigo-600 font-bold hover:text-indigo-800">
+              <Link href="/vet/clients" className="text-xs text-indigo-600 font-bold hover:text-indigo-800">
                 Όλοι
               </Link>
             </h3>
@@ -577,7 +577,7 @@ export default function VetDashboardPage() {
                 recentPatients.slice(0, 4).map((patient) => (
                   <Link
                     key={patient.id}
-                    href="/vet/patients"
+                    href="/vet/clients"
                     className="flex items-center justify-between group cursor-pointer"
                   >
                     <div className="flex items-center gap-3">
