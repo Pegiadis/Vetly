@@ -11,3 +11,8 @@ export const VetSearchMap = dynamic(
   () => import('./MapComponents').then(mod => mod.VetSearchMapInner),
   { ssr: false, loading: () => <div className="h-full w-full bg-slate-100 rounded-xl animate-pulse flex items-center justify-center text-slate-400">Φόρτωση χάρτη...</div> }
 );
+
+export const OnCallMap = dynamic(
+  () => import('./MapComponents').then(mod => mod.OnCallMapInner),
+  { ssr: false, loading: () => <div className="h-full w-full bg-slate-100 rounded-xl animate-pulse flex items-center justify-center text-slate-400">Φόρτωση χάρτη...</div> }
+);

@@ -134,6 +134,50 @@ export function useVets() {
   return { vets, loading, error, refetch: fetchVets };
 }
 
+export interface OnCallVet {
+  id: string;
+  name: string;
+  specialty: string;
+  phone: string;
+  address: string;
+  city: string;
+  image_url: string | null;
+  coordinates_lat: number;
+  coordinates_lng: number;
+  rating_average: number;
+  reviews_count: number;
+  is_on_call: boolean;
+  is_verified: boolean;
+  hours: Record<string, { open: string | null; close: string | null; closed: boolean }> | null;
+}
+
+export function useOnCallVets() {
+  const [vets, setVets] = useState<OnCallVet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchOnCallVets = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<{ items: OnCallVet[]; count: number }>('/vets/on-call');
+      setVets(data.items);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch on-call vets');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOnCallVets();
+    const interval = setInterval(fetchOnCallVets, 30000);
+    return () => clearInterval(interval);
+  }, [fetchOnCallVets]);
+
+  return { vets, loading, error, refetch: fetchOnCallVets };
+}
+
 export function useAvailableSlots(vetId: string | null, date: string | null) {
   const [slots, setSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
