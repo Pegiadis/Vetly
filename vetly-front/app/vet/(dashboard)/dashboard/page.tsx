@@ -363,7 +363,7 @@ export default function VetDashboardPage() {
               </svg>
             </div>
             <div>
-              <p className="text-slate-500 text-xs font-bold uppercase">Ασθενείς</p>
+              <p className="text-slate-500 text-xs font-bold uppercase">Κατοικίδια</p>
               <h3 className="text-2xl font-bold text-slate-800">{stats?.total_patients ?? 0}</h3>
             </div>
           </div>
@@ -567,7 +567,7 @@ export default function VetDashboardPage() {
           {/* Recent Patients */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
             <h3 className="font-bold text-slate-800 mb-4 flex items-center justify-between">
-              Πρόσφατοι Ασθενείς
+              Πρόσφατα Κατοικίδια
               <Link href="/vet/patients" className="text-xs text-indigo-600 font-bold hover:text-indigo-800">
                 Όλοι
               </Link>

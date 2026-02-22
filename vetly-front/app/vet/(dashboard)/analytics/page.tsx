@@ -61,7 +61,7 @@ export default function VetAnalyticsPage() {
           </div>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-          <p className="text-sm text-slate-500 font-medium">Συνολικοί Ασθενείς</p>
+          <p className="text-sm text-slate-500 font-medium">Συνολικά Κατοικίδια</p>
           <div className="flex items-end justify-between mt-2">
             <span className="text-3xl font-bold text-slate-900">{dashboard.total_patients}</span>
           </div>
