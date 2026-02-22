@@ -12,9 +12,11 @@ import {
   addClientPet,
   updateClientPet,
   deleteClientPet,
+  usePatientHistory,
   type VetClient,
   type VetClientPet,
   type VetClientListItem,
+  type LinkedPet,
 } from '@/hooks/useVetData';
 import Pagination from '@/components/Pagination';
 
@@ -445,6 +447,7 @@ export default function VetClientsPage() {
   const [showAddPet, setShowAddPet] = useState(false);
   const [editingPet, setEditingPet] = useState<VetClientPet | null>(null);
   const [inviteData, setInviteData] = useState<{ invite_url: string; expires_at: string } | null>(null);
+  const [historyPetId, setHistoryPetId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'client' | 'pet'; id: string; petId?: string; name: string } | null>(null);
 
   // Debounce search
@@ -460,6 +463,12 @@ export default function VetClientsPage() {
 
   const { clients, totalPages, loading, error, refetch } = useVetClients(page, 10, debouncedSearch || undefined);
   const { client: selectedClient, loading: clientLoading, refetch: refetchClient } = useVetClient(selectedClientId);
+  const { events: historyEvents, loading: historyLoading } = usePatientHistory(historyPetId);
+
+  // Reset history when switching clients
+  useEffect(() => {
+    setHistoryPetId(null);
+  }, [selectedClientId]);
 
   const handleClientSaved = () => {
     setShowAddClient(false);
@@ -569,7 +578,7 @@ export default function VetClientsPage() {
                 <th className="p-5 font-bold">Email</th>
                 <th className="p-5 font-bold">Τηλέφωνο</th>
                 <th className="p-5 font-bold">Κατάσταση</th>
-                <th className="p-5 font-bold text-center">Ζώα</th>
+                <th className="p-5 font-bold text-center">Κατοικίδια</th>
                 <th className="p-5 font-bold text-right">Ενέργειες</th>
               </tr>
             </thead>
@@ -707,66 +716,143 @@ export default function VetClientsPage() {
                 )}
 
                 {/* Pets */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-bold text-slate-800 text-sm">Κατοικίδια ({selectedClient.pets.length})</h3>
-                    <button
-                      onClick={() => { setEditingPet(null); setShowAddPet(true); }}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      Προσθήκη
-                    </button>
-                  </div>
-                  {selectedClient.pets.length > 0 ? (
+                {selectedClient.status === 'linked' && selectedClient.linked_pets?.length > 0 ? (
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm mb-3">
+                      Κατοικίδια ({selectedClient.linked_pets.length})
+                    </h3>
                     <div className="space-y-2">
-                      {selectedClient.pets.map(pet => (
+                      {selectedClient.linked_pets.map(pet => (
                         <div key={pet.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">{pet.type === 'Dog' ? '🐕' : pet.type === 'Cat' ? '🐈' : '🐾'}</span>
-                              <div>
-                                <p className="font-bold text-slate-800 text-sm">{pet.name}</p>
-                                <p className="text-xs text-slate-500">
-                                  {petTypeLabels[pet.type] || pet.type}
-                                  {pet.breed ? ` · ${pet.breed}` : ''}
-                                  {pet.age != null ? ` · ${pet.age} ετών` : ''}
-                                  {pet.weight != null ? ` · ${pet.weight}kg` : ''}
-                                  {pet.gender ? ` · ${genderLabels[pet.gender] || pet.gender}` : ''}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setEditingPet(pet); setShowAddPet(true); }}
-                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'pet', id: pet.id, name: pet.name }); }}
-                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
+                          <div className="flex items-center gap-3">
+                            {pet.image_url ? (
+                              <img src={pet.image_url} alt={pet.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                            ) : (
+                              <span className="text-lg flex-shrink-0">{pet.type === 'DOG' ? '🐕' : pet.type === 'CAT' ? '🐈' : '🐾'}</span>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-slate-800 text-sm">{pet.name}</p>
+                              <p className="text-xs text-slate-500">
+                                {petTypeLabels[pet.type] || pet.type}
+                                {pet.breed ? ` · ${pet.breed}` : ''}
+                                {pet.age != null ? ` · ${pet.age} ετών` : ''}
+                                {pet.weight != null ? ` · ${pet.weight}kg` : ''}
+                                {pet.gender ? ` · ${genderLabels[pet.gender] || pet.gender}` : ''}
+                              </p>
+                              {pet.chip_number && (
+                                <p className="text-xs text-slate-400 mt-0.5">Microchip: {pet.chip_number}</p>
+                              )}
                             </div>
                           </div>
-                          {pet.notes && (
-                            <p className="text-xs text-slate-500 mt-2 bg-slate-50 rounded-lg p-2">{pet.notes}</p>
+                          {/* History toggle */}
+                          <div className="mt-2 flex gap-2">
+                            <button
+                              onClick={() => setHistoryPetId(historyPetId === pet.id ? null : pet.id)}
+                              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                              </svg>
+                              Ιστορικό
+                            </button>
+                          </div>
+                          {/* Medical History */}
+                          {historyPetId === pet.id && (
+                            <div className="mt-3 border-t border-slate-100 pt-3">
+                              {historyLoading ? (
+                                <div className="flex justify-center py-3">
+                                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
+                                </div>
+                              ) : historyEvents.length > 0 ? (
+                                <div className="space-y-2 max-h-60 overflow-y-auto">
+                                  {historyEvents.map(event => (
+                                    <div key={event.id} className="bg-slate-50 rounded-lg p-2.5">
+                                      <div className="flex items-center justify-between">
+                                        <p className="font-bold text-slate-700 text-xs">{event.title}</p>
+                                        <span className="text-[10px] text-slate-400">
+                                          {new Date(event.date).toLocaleDateString('el-GR')}
+                                        </span>
+                                      </div>
+                                      <span className="inline-block mt-1 px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded text-[10px] font-bold">
+                                        {event.event_type}
+                                      </span>
+                                      {event.notes && (
+                                        <p className="text-xs text-slate-500 mt-1">{event.notes}</p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="text-xs text-slate-400 italic text-center py-2">Δεν υπάρχει ιστορικό.</p>
+                              )}
+                            </div>
                           )}
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-slate-400 italic">Δεν έχουν καταχωρηθεί κατοικίδια.</p>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-bold text-slate-800 text-sm">Κατοικίδια ({selectedClient.pets.length})</h3>
+                      <button
+                        onClick={() => { setEditingPet(null); setShowAddPet(true); }}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Προσθήκη
+                      </button>
+                    </div>
+                    {selectedClient.pets.length > 0 ? (
+                      <div className="space-y-2">
+                        {selectedClient.pets.map(pet => (
+                          <div key={pet.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{pet.type === 'Dog' ? '🐕' : pet.type === 'Cat' ? '🐈' : '🐾'}</span>
+                                <div>
+                                  <p className="font-bold text-slate-800 text-sm">{pet.name}</p>
+                                  <p className="text-xs text-slate-500">
+                                    {petTypeLabels[pet.type] || pet.type}
+                                    {pet.breed ? ` · ${pet.breed}` : ''}
+                                    {pet.age != null ? ` · ${pet.age} ετών` : ''}
+                                    {pet.weight != null ? ` · ${pet.weight}kg` : ''}
+                                    {pet.gender ? ` · ${genderLabels[pet.gender] || pet.gender}` : ''}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setEditingPet(pet); setShowAddPet(true); }}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'pet', id: pet.id, name: pet.name }); }}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                            {pet.notes && (
+                              <p className="text-xs text-slate-500 mt-2 bg-slate-50 rounded-lg p-2">{pet.notes}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 italic">Δεν έχουν καταχωρηθεί κατοικίδια.</p>
+                    )}
+                  </div>
+                )}
               </div>
             ) : null}
 
