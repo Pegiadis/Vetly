@@ -1,9 +1,10 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePendingAppointments, useVetNotifications } from '@/hooks/useVetData';
+import { usePendingAppointments, useVetNotifications, useVetProfile, toggleOnCall } from '@/hooks/useVetData';
 
 const navItems = [
   {
@@ -101,6 +102,28 @@ export default function VetSidebar() {
   const { logout } = useAuth();
   const { appointments: pendingAppointments } = usePendingAppointments();
   const { notifications } = useVetNotifications();
+  const { profile } = useVetProfile();
+
+  const [isOnCall, setIsOnCall] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    if (profile) setIsOnCall(profile.is_on_call);
+  }, [profile]);
+
+  const handleToggleOnCall = async () => {
+    if (toggling) return;
+    const newValue = !isOnCall;
+    setIsOnCall(newValue);
+    setToggling(true);
+    try {
+      await toggleOnCall(newValue);
+    } catch {
+      setIsOnCall(!newValue);
+    } finally {
+      setToggling(false);
+    }
+  };
 
   const unreadNotifCount = notifications.filter(n => !n.is_read).length;
 
@@ -124,6 +147,31 @@ export default function VetSidebar() {
             <span className="text-xs text-indigo-600 font-semibold ml-1">Pro</span>
           </div>
         </Link>
+      </div>
+
+      {/* On-Call Toggle */}
+      <div className="px-4 py-3 border-b border-slate-100">
+        <button
+          onClick={handleToggleOnCall}
+          disabled={toggling}
+          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all ${
+            isOnCall
+              ? 'bg-green-50 border border-green-200'
+              : 'bg-slate-50 border border-slate-200'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className={`w-2.5 h-2.5 rounded-full ${isOnCall ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
+            <span className={`text-sm font-bold ${isOnCall ? 'text-green-700' : 'text-slate-500'}`}>
+              {isOnCall ? 'Εφημερεύω' : 'Εφημερία'}
+            </span>
+          </div>
+          <div className={`w-10 h-5 rounded-full transition-colors relative ${isOnCall ? 'bg-green-500' : 'bg-slate-300'}`}>
+            <div className={`w-4 h-4 bg-white rounded-full shadow absolute top-0.5 transition-transform ${isOnCall ? 'left-5.5 translate-x-0' : 'left-0.5 translate-x-0'}`}
+              style={{ left: isOnCall ? '22px' : '2px' }}
+            />
+          </div>
+        </button>
       </div>
 
       {/* Navigation */}

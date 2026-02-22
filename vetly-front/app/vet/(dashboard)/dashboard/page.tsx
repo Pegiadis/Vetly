@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -9,6 +9,8 @@ import {
   usePendingAppointments,
   usePatients,
   completeExamination,
+  useVetProfile,
+  toggleOnCall,
   VetAppointment,
   ExaminationMedication,
 } from '@/hooks/useVetData';
@@ -294,6 +296,27 @@ export default function VetDashboardPage() {
   const { patients: recentPatients, loading: patientsLoading } = usePatients();
   const [examAppointment, setExamAppointment] = useState<VetAppointment | null>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
+  const { profile } = useVetProfile();
+  const [isOnCall, setIsOnCall] = useState(false);
+  const [togglingOnCall, setTogglingOnCall] = useState(false);
+
+  useEffect(() => {
+    if (profile) setIsOnCall(profile.is_on_call);
+  }, [profile]);
+
+  const handleToggleOnCall = async () => {
+    if (togglingOnCall) return;
+    const newValue = !isOnCall;
+    setIsOnCall(newValue);
+    setTogglingOnCall(true);
+    try {
+      await toggleOnCall(newValue);
+    } catch {
+      setIsOnCall(!newValue);
+    } finally {
+      setTogglingOnCall(false);
+    }
+  };
 
   const loading = statsLoading || todayLoading || pendingLoading || patientsLoading;
 
@@ -319,7 +342,7 @@ export default function VetDashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <Link
           href="/vet/appointments"
           className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all"
@@ -404,6 +427,30 @@ export default function VetDashboardPage() {
             </div>
           </div>
         </Link>
+
+        <button
+          onClick={handleToggleOnCall}
+          disabled={togglingOnCall}
+          className={`rounded-2xl p-5 shadow-sm border transition-all text-left ${
+            isOnCall
+              ? 'bg-green-50 border-green-200 hover:border-green-300'
+              : 'bg-white border-slate-100 hover:border-green-300'
+          }`}
+        >
+          <div className="flex items-center gap-4">
+            <div className={`p-3 rounded-xl ${isOnCall ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-slate-500 text-xs font-bold uppercase">Εφημερία</p>
+              <h3 className={`text-lg font-bold ${isOnCall ? 'text-green-700' : 'text-slate-400'}`}>
+                {isOnCall ? 'Ενεργή' : 'Ανενεργή'}
+              </h3>
+            </div>
+          </div>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
