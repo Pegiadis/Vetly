@@ -57,6 +57,7 @@ class AppointmentCreateRequest(BaseModel):
     type: str = Field(..., min_length=1, max_length=100)
     duration_minutes: int = Field(default=30, ge=15, le=180)
     notes: str | None = Field(None, max_length=1000)
+    service_type_id: UUID | None = None
 
 
 class AppointmentRescheduleRequest(BaseModel):
@@ -100,6 +101,8 @@ class AppointmentResponse(BaseModel):
     type: str
     status: str
     notes: str | None = None
+    price: Decimal | None = None
+    service_type_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
     pet: AppointmentPetInfo | None = None
@@ -270,6 +273,11 @@ class NotificationPaginatedResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class UnreadCountResponse(BaseModel):
+    """Unread notification count"""
+    count: int
 
 
 # --- Owner Profile Update ---

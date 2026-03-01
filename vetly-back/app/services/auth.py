@@ -16,6 +16,7 @@ from app.core.security import (
 from app.schemas.auth import LoginRequest, TokenResponse, VetRegisterRequest, PetOwnerRegisterRequest
 from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
+from app.utils.slug import generate_unique_slug
 
 
 class AuthService:
@@ -100,11 +101,15 @@ class AuthService:
                 detail="License number already registered",
             )
 
+        # Generate unique slug from name
+        slug = generate_unique_slug(self.db, data.name)
+
         # Create new vet
         vet = Vet(
             email=data.email,
             password_hash=get_password_hash(data.password),
             name=data.name,
+            slug=slug,
             specialty=data.specialty,
             license_number=data.license_number,
             phone=data.phone,

@@ -21,6 +21,7 @@ class Vet(BaseModel):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=True)  # Nullable for existing records
     name = Column(String(255), nullable=False)
+    slug = Column(String(255), unique=True, index=True, nullable=True)
     specialty = Column(String(255), nullable=False)  # e.g., "General Practice", "Surgery"
     license_number = Column(String(100), unique=True, nullable=False, index=True)
     
@@ -77,6 +78,16 @@ class Vet(BaseModel):
         "VetClient",
         back_populates="vet",
         cascade="all, delete-orphan"
+    )
+    chat_conversations = relationship(
+        "ChatConversation",
+        back_populates="vet",
+        cascade="all, delete-orphan",
+    )
+    service_types = relationship(
+        "ServiceType",
+        back_populates="vet",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self):

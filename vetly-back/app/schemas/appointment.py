@@ -3,6 +3,7 @@ Appointment schemas for request/response validation
 """
 
 from uuid import UUID
+from decimal import Decimal
 from datetime import datetime, date, time as TimeType
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -43,6 +44,8 @@ class AppointmentResponse(BaseModel):
     type: str
     status: str
     notes: str | None = None
+    price: Decimal | None = None
+    service_type_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -68,6 +71,8 @@ class VetCreateAppointmentRequest(BaseModel):
     type: str = Field(..., min_length=1, max_length=100)
     duration_minutes: int = Field(30, ge=15, le=120)
     notes: str | None = Field(None, max_length=2000)
+    service_type_id: UUID | None = None
+    price: Decimal | None = Field(None, gt=0)
 
 
 class AppointmentStatusUpdate(BaseModel):

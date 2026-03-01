@@ -17,3 +17,6 @@ from app.models.review import Review  # noqa
 from app.models.notification import Notification  # noqa
 from app.models.blog_post import BlogPost  # noqa
 from app.models.vet_client import VetClient, VetClientPet  # noqa
+from app.models.chat import ChatConversation, ChatMessage  # noqa
+from app.models.service_type import ServiceType  # noqa
+from app.models.reminder import Reminder  # noqa

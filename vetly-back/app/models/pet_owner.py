@@ -53,6 +53,11 @@ class PetOwner(BaseModel):
         "VetClient",
         back_populates="pet_owner",
     )
+    chat_conversations = relationship(
+        "ChatConversation",
+        back_populates="pet_owner",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<PetOwner(id={self.id}, email={self.email}, name={self.name})>"

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_db, get_current_vet
 from app.db.base import Vet
 from app.repositories.notification import NotificationRepository
-from app.schemas.owner import NotificationPaginatedResponse, NotificationResponse
+from app.schemas.owner import NotificationPaginatedResponse, NotificationResponse, UnreadCountResponse
 
 router = APIRouter()
 
@@ -57,3 +57,27 @@ def mark_all_vet_notifications_read(
     """Mark all notifications as read"""
     repo = NotificationRepository(db)
     repo.mark_all_read_for_vet(current_vet.id)
+
+
+@router.get("/unread-count", response_model=UnreadCountResponse)
+def get_vet_unread_count(
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> UnreadCountResponse:
+    """Get unread notification count for polling"""
+    repo = NotificationRepository(db)
+    count = repo.count_unread_for_vet(current_vet.id)
+    return UnreadCountResponse(count=count)
+
+
+@router.get("/latest-unread", response_model=NotificationResponse | None)
+def get_vet_latest_unread(
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> NotificationResponse | None:
+    """Get the latest unread notification for popup display"""
+    repo = NotificationRepository(db)
+    notification = repo.get_latest_unread_for_vet(current_vet.id)
+    if not notification:
+        return None
+    return NotificationResponse.model_validate(notification)

@@ -11,6 +11,7 @@ from app.repositories.appointment import AppointmentRepository
 from app.models.appointment import AppointmentStatus
 from app.models.medication import MedicationFrequency
 from app.services.notification import NotificationService
+from app.services.reminder import ReminderService
 from app.schemas.appointment import (
     AppointmentDetailResponse,
     AppointmentListResponse,
@@ -26,8 +27,10 @@ class AppointmentService:
     """Service for Appointment business logic"""
 
     def __init__(self, db: Session):
+        self.db = db
         self.repository = AppointmentRepository(db)
         self.notifications = NotificationService(db)
+        self.reminders = ReminderService(db)
 
     def _build_detail_response(self, appointment) -> AppointmentDetailResponse:
         """Build a detailed appointment response with pet and pet owner info"""
@@ -60,6 +63,8 @@ class AppointmentService:
             duration_minutes=data.duration_minutes,
             notes=data.notes,
             status=AppointmentStatus.CONFIRMED,
+            service_type_id=getattr(data, "service_type_id", None),
+            price=getattr(data, "price", None),
         )
 
         # Re-fetch with relations loaded
@@ -70,7 +75,7 @@ class AppointmentService:
         vet_name = appointment.vet.name if appointment.vet else ""
         self.notifications.notify_owner(
             pet.pet_owner_id,
-            type="appointment",
+            type="appointment_new",
             title="Νέο ραντεβού",
             message=f"Ο {vet_name} προγραμμάτισε ραντεβού για {pet.name} στις {date_str}",
         )
@@ -196,7 +201,7 @@ class AppointmentService:
         vet_name = appointment.vet.name if appointment.vet else ""
         self.notifications.notify_owner(
             appointment.pet_owner_id,
-            type="appointment",
+            type="appointment_confirm",
             title="Ραντεβού επιβεβαιώθηκε",
             message=f"Το ραντεβού σας για {pet_name} με {vet_name} επιβεβαιώθηκε",
         )
@@ -231,7 +236,7 @@ class AppointmentService:
         vet_name = appointment.vet.name if appointment.vet else ""
         self.notifications.notify_owner(
             appointment.pet_owner_id,
-            type="appointment",
+            type="appointment_reject",
             title="Ραντεβού απορρίφθηκε",
             message=f"Το ραντεβού σας για {pet_name} με {vet_name} απορρίφθηκε",
         )
@@ -294,9 +299,20 @@ class AppointmentService:
         pet_name = appointment.pet.name if appointment.pet else ""
         self.notifications.notify_owner(
             appointment.pet_owner_id,
-            type="appointment",
+            type="appointment_complete",
             title="Εξέταση ολοκληρώθηκε",
             message=f"Η εξέταση του {pet_name} ολοκληρώθηκε. Διάγνωση: {data.diagnosis}",
         )
+
+        # Auto-create vaccination reminder if the appointment type indicates vaccination
+        appointment_type_lower = (appointment.type or "").lower()
+        if "vaccination" in appointment_type_lower or "εμβολ" in appointment_type_lower:
+            self.reminders.auto_create_vaccination_reminder(
+                db=self.db,
+                pet_id=appointment.pet_id,
+                vet_id=vet_id,
+                vaccination_title=data.diagnosis,
+            )
+            self.db.commit()
 
         return self._build_detail_response(updated)

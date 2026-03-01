@@ -103,6 +103,15 @@ class OwnerService:
                 detail="Η ώρα αυτή μόλις κρατήθηκε από κάποιον άλλο. Παρακαλώ επιλέξτε άλλη ώρα.",
             )
 
+        # Check same-day duplicate (same pet + same vet + same day)
+        if self.repository.has_same_day_appointment(
+            data.pet_id, data.vet_id, data.scheduled_at
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Το κατοικίδιο έχει ήδη ραντεβού με αυτόν τον κτηνίατρο την ίδια ημέρα.",
+            )
+
         # Create the appointment
         appointment = self.repository.create_appointment(
             pet_owner_id=owner_id,
@@ -112,6 +121,7 @@ class OwnerService:
             appointment_type=data.type,
             duration_minutes=data.duration_minutes,
             notes=data.notes,
+            service_type_id=getattr(data, "service_type_id", None),
         )
 
         # Notify vet
@@ -120,7 +130,7 @@ class OwnerService:
         date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_vet(
             data.vet_id,
-            type="appointment",
+            type="appointment_new",
             title="Νέο αίτημα ραντεβού",
             message=f"{owner_name} ζήτησε ραντεβού για {pet.name} στις {date_str}",
         )
@@ -149,7 +159,7 @@ class OwnerService:
         date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_vet(
             appointment.vet_id,
-            type="appointment",
+            type="appointment_cancel",
             title="Ακύρωση ραντεβού",
             message=f"Ο ιδιοκτήτης {owner_name} ακύρωσε το ραντεβού για {pet_name} στις {date_str}",
         )
@@ -180,7 +190,7 @@ class OwnerService:
         new_date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_vet(
             appointment.vet_id,
-            type="appointment",
+            type="appointment_reschedule",
             title="Αναπρογραμματισμός ραντεβού",
             message=f"Ο ιδιοκτήτης {owner_name} αναπρογραμμάτισε το ραντεβού για {pet_name} στις {new_date_str}",
         )
@@ -248,6 +258,11 @@ class OwnerService:
             total=total, page=page, page_size=page_size,
         )
 
+    def get_reviewable_vets(self, owner_id: UUID) -> list[VetListResponse]:
+        """Get vets the owner can review (those with completed appointments)"""
+        vets = self.repository.get_reviewable_vets(owner_id)
+        return [VetListResponse.model_validate(vet) for vet in vets]
+
     def create_review(
         self, owner_id: UUID, data: OwnerReviewCreateRequest
     ) -> OwnerReviewResponse:
@@ -257,6 +272,12 @@ class OwnerService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Vet not found",
+            )
+
+        if not self.repository.has_completed_appointment_with_vet(owner_id, data.vet_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Μπορείτε να αξιολογήσετε μόνο κτηνιάτρους με τους οποίους έχετε ολοκληρωμένο ραντεβού.",
             )
 
         review = self.repository.create_review(

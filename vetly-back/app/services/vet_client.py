@@ -14,6 +14,7 @@ from app.db.base import PetOwner
 from app.core.security import create_access_token, get_password_hash
 from app.models.pet import PetType, Gender
 from app.repositories.vet_client import VetClientRepository
+from app.services.notification import NotificationService
 from app.schemas.auth import TokenResponse
 from app.schemas.vet_client import (
     InviteInfoResponse,
@@ -40,6 +41,7 @@ class VetClientService:
     def __init__(self, db: Session):
         self.db = db
         self.repo = VetClientRepository(db)
+        self.notifications = NotificationService(db)
 
     def list_clients(self, vet_id: UUID, search: str | None, page: int, page_size: int) -> VetClientListResponse:
         self.repo.sync_appointment_owners(vet_id)
@@ -197,6 +199,14 @@ class VetClientService:
 
         self.db.commit()
         self.db.refresh(pet_owner)
+
+        # Notify vet that client accepted the invite
+        self.notifications.notify_vet(
+            client.vet_id,
+            type="client",
+            title="Νέος πελάτης",
+            message=f"Ο {data.name} αποδέχτηκε την πρόσκλησή σας και δημιούργησε λογαριασμό",
+        )
 
         access_token = create_access_token(subject=str(pet_owner.id), token_type="pet_owner")
         return TokenResponse(access_token=access_token)

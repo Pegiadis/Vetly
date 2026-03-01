@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.base import Vet
 from app.repositories.vet import VetRepository
+from app.utils.slug import generate_unique_slug
 from app.schemas.vet import (
     VetResponse,
     VetListResponse,
@@ -72,6 +73,11 @@ class VetService:
     def update_profile(self, vet: Vet, data: VetUpdateRequest) -> VetResponse:
         """Update a vet's profile"""
         update_data = data.model_dump(exclude_unset=True, exclude_none=True)
+        # Regenerate slug when name changes
+        if "name" in update_data:
+            update_data["slug"] = generate_unique_slug(
+                self.repository.db, update_data["name"], vet_id=vet.id
+            )
         updated_vet = self.repository.update(vet, update_data)
         return VetResponse.model_validate(updated_vet)
 

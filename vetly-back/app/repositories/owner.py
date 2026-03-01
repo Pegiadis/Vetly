@@ -150,6 +150,22 @@ class OwnerRepository:
                 return True
         return False
 
+    def has_same_day_appointment(
+        self, pet_id: UUID, vet_id: UUID, scheduled_at: datetime
+    ) -> bool:
+        """Check if the same pet already has an active appointment with the same vet on the same day"""
+        day_start = scheduled_at.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+
+        query = select(Appointment.id).where(
+            Appointment.pet_id == pet_id,
+            Appointment.vet_id == vet_id,
+            Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
+            Appointment.scheduled_at >= day_start,
+            Appointment.scheduled_at < day_end,
+        ).limit(1)
+        return self.db.scalar(query) is not None
+
     def create_appointment(
         self,
         pet_owner_id: UUID,
@@ -159,6 +175,7 @@ class OwnerRepository:
         appointment_type: str,
         duration_minutes: int,
         notes: str | None = None,
+        service_type_id: UUID | None = None,
     ) -> Appointment:
         """Create a new appointment"""
         appointment = Appointment(
@@ -169,6 +186,7 @@ class OwnerRepository:
             type=appointment_type,
             duration_minutes=duration_minutes,
             notes=notes,
+            service_type_id=service_type_id,
             status=AppointmentStatus.PENDING,
         )
         self.db.add(appointment)
@@ -337,6 +355,31 @@ class OwnerRepository:
             vet.reviews_count = count
             vet.rating_average = round(float(avg_rating), 2)
             self.db.commit()
+
+    # --- Review helpers ---
+
+    def has_completed_appointment_with_vet(self, owner_id: UUID, vet_id: UUID) -> bool:
+        """Check if the owner has at least one COMPLETED appointment with the given vet"""
+        query = select(Appointment.id).where(
+            Appointment.pet_owner_id == owner_id,
+            Appointment.vet_id == vet_id,
+            Appointment.status == AppointmentStatus.COMPLETED,
+        ).limit(1)
+        return self.db.scalar(query) is not None
+
+    def get_reviewable_vets(self, owner_id: UUID) -> list[Vet]:
+        """Get vets with whom the owner has completed at least one appointment"""
+        vet_ids_subq = (
+            select(Appointment.vet_id)
+            .where(
+                Appointment.pet_owner_id == owner_id,
+                Appointment.status == AppointmentStatus.COMPLETED,
+            )
+            .distinct()
+            .subquery()
+        )
+        query = select(Vet).where(Vet.id.in_(select(vet_ids_subq))).order_by(Vet.name)
+        return list(self.db.scalars(query).all())
 
     # --- Notifications ---
 

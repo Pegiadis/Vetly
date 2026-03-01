@@ -145,6 +145,8 @@ class AppointmentRepository:
         duration_minutes: int = 30,
         notes: str | None = None,
         status: AppointmentStatus = AppointmentStatus.CONFIRMED,
+        service_type_id: UUID | None = None,
+        price: object = None,
     ) -> Appointment:
         """Create a new appointment"""
         appointment = Appointment(
@@ -156,6 +158,8 @@ class AppointmentRepository:
             duration_minutes=duration_minutes,
             notes=notes,
             status=status,
+            service_type_id=service_type_id,
+            price=price,
         )
         self.db.add(appointment)
         self.db.commit()

@@ -80,3 +80,49 @@ class NotificationRepository:
         result = self.db.execute(stmt)
         self.db.commit()
         return result.rowcount
+
+    # --- Unread helpers (used by polling endpoints) ---
+
+    def count_unread_for_owner(self, owner_id: UUID) -> int:
+        """Count unread notifications for a pet owner"""
+        return self.db.scalar(
+            select(func.count(Notification.id)).where(
+                Notification.pet_owner_id == owner_id,
+                Notification.is_read == False,
+            )
+        ) or 0
+
+    def count_unread_for_vet(self, vet_id: UUID) -> int:
+        """Count unread notifications for a vet"""
+        return self.db.scalar(
+            select(func.count(Notification.id)).where(
+                Notification.vet_id == vet_id,
+                Notification.is_read == False,
+            )
+        ) or 0
+
+    def get_latest_unread_for_owner(self, owner_id: UUID) -> Notification | None:
+        """Get the most recent unread notification for a pet owner"""
+        query = (
+            select(Notification)
+            .where(
+                Notification.pet_owner_id == owner_id,
+                Notification.is_read == False,
+            )
+            .order_by(Notification.created_at.desc())
+            .limit(1)
+        )
+        return self.db.scalar(query)
+
+    def get_latest_unread_for_vet(self, vet_id: UUID) -> Notification | None:
+        """Get the most recent unread notification for a vet"""
+        query = (
+            select(Notification)
+            .where(
+                Notification.vet_id == vet_id,
+                Notification.is_read == False,
+            )
+            .order_by(Notification.created_at.desc())
+            .limit(1)
+        )
+        return self.db.scalar(query)

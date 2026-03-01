@@ -26,11 +26,13 @@ from app.schemas.owner import (
     OwnerReviewUpdateRequest,
     NotificationPaginatedResponse,
     NotificationResponse,
+    UnreadCountResponse,
     OwnerProfileUpdateRequest,
     PetCreateRequest,
     PetUpdateRequest,
     PetResponse,
 )
+from app.repositories.notification import NotificationRepository
 
 router = APIRouter()
 
@@ -164,6 +166,16 @@ def delete_medication(
     service.delete_medication(current_owner.id, medication_id)
 
 
+@router.get("/reviewable-vets", response_model=list[VetListResponse])
+def get_reviewable_vets(
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> list[VetListResponse]:
+    """Get vets with whom the owner has completed appointments (for review creation)"""
+    service = OwnerService(db)
+    return service.get_reviewable_vets(current_owner.id)
+
+
 @router.get("/reviews", response_model=OwnerReviewPaginatedResponse)
 def get_my_reviews(
     page: int = Query(1, ge=1),
@@ -241,6 +253,30 @@ def mark_all_notifications_read(
     """Mark all notifications as read"""
     service = OwnerService(db)
     service.mark_all_notifications_read(current_owner.id)
+
+
+@router.get("/notifications/unread-count", response_model=UnreadCountResponse)
+def get_unread_count(
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> UnreadCountResponse:
+    """Get unread notification count for polling"""
+    repo = NotificationRepository(db)
+    count = repo.count_unread_for_owner(current_owner.id)
+    return UnreadCountResponse(count=count)
+
+
+@router.get("/notifications/latest-unread", response_model=NotificationResponse | None)
+def get_latest_unread(
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> NotificationResponse | None:
+    """Get the latest unread notification for popup display"""
+    repo = NotificationRepository(db)
+    notification = repo.get_latest_unread_for_owner(current_owner.id)
+    if not notification:
+        return None
+    return NotificationResponse.model_validate(notification)
 
 
 @router.put("/profile", response_model=PetOwnerResponse)

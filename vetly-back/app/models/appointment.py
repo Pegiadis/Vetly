@@ -3,7 +3,7 @@ Appointment model
 """
 
 import enum
-from sqlalchemy import Column, String, DateTime, Integer, Text, Enum, ForeignKey
+from sqlalchemy import Column, String, DateTime, Integer, Text, Enum, ForeignKey, Numeric
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -57,13 +57,23 @@ class Appointment(BaseModel):
         index=True
     )
     
+    # Pricing
+    service_type_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("service_types.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    price = Column(Numeric(10, 2), nullable=True)
+
     # Additional Information
     notes = Column(Text, nullable=True)
-    
+
     # Relationships
     vet = relationship("Vet", back_populates="appointments")
     pet_owner = relationship("PetOwner", back_populates="appointments")
     pet = relationship("Pet", back_populates="appointments")
+    service_type = relationship("ServiceType")
     
     def __repr__(self):
         return f"<Appointment(id={self.id}, scheduled_at={self.scheduled_at}, status={self.status.value})>"
