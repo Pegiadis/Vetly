@@ -56,3 +56,7 @@ __pycache__/
 
 # Uploads
 vetly-back/uploads/
+
+# Production secrets
+deploy/.env
+deploy/backups/
