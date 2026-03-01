@@ -13,6 +13,7 @@ import {
   updateClientPet,
   deleteClientPet,
   usePatientHistory,
+  createReminder,
   type VetClient,
   type VetClientPet,
   type VetClientListItem,
@@ -449,6 +450,10 @@ export default function VetClientsPage() {
   const [inviteData, setInviteData] = useState<{ invite_url: string; expires_at: string } | null>(null);
   const [historyPetId, setHistoryPetId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'client' | 'pet'; id: string; petId?: string; name: string } | null>(null);
+  const [showReminderPetId, setShowReminderPetId] = useState<string | null>(null);
+  const [reminderForm, setReminderForm] = useState({ type: 'checkup', title: '', message: '', due_date: '', reminder_days_before: 14 });
+  const [reminderSubmitting, setReminderSubmitting] = useState(false);
+  const [reminderError, setReminderError] = useState('');
 
   // Debounce search
   const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -511,6 +516,31 @@ export default function VetClientsPage() {
       // silent
     }
     setDeleteTarget(null);
+  };
+
+  const handleCreateReminder = async (petId: string) => {
+    if (!reminderForm.title.trim() || !reminderForm.due_date) {
+      setReminderError('Συμπληρώστε τα υποχρεωτικά πεδία.');
+      return;
+    }
+    setReminderSubmitting(true);
+    setReminderError('');
+    try {
+      await createReminder({
+        pet_id: petId,
+        type: reminderForm.type,
+        title: reminderForm.title,
+        message: reminderForm.message || undefined,
+        due_date: reminderForm.due_date,
+        reminder_days_before: reminderForm.reminder_days_before,
+      });
+      setShowReminderPetId(null);
+      setReminderForm({ type: 'checkup', title: '', message: '', due_date: '', reminder_days_before: 14 });
+    } catch (err) {
+      setReminderError(err instanceof Error ? err.message : 'Σφάλμα κατά την αποθήκευση.');
+    } finally {
+      setReminderSubmitting(false);
+    }
   };
 
   if (loading && clients.length === 0) {
@@ -745,7 +775,7 @@ export default function VetClientsPage() {
                             </div>
                           </div>
                           {/* History toggle */}
-                          <div className="mt-2 flex gap-2">
+                          <div className="mt-2 flex gap-2 flex-wrap">
                             <button
                               onClick={() => setHistoryPetId(historyPetId === pet.id ? null : pet.id)}
                               className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
@@ -755,7 +785,63 @@ export default function VetClientsPage() {
                               </svg>
                               Ιστορικό
                             </button>
+                            <button
+                              onClick={() => { setShowReminderPetId(showReminderPetId === pet.id ? null : pet.id); setReminderError(''); }}
+                              className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              Υπενθύμιση
+                            </button>
                           </div>
+                          {/* Create Reminder inline form */}
+                          {showReminderPetId === pet.id && (
+                            <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
+                              <p className="text-xs font-bold text-slate-700">Νέα Υπενθύμιση</p>
+                              {reminderError && (
+                                <p className="text-xs text-red-600">{reminderError}</p>
+                              )}
+                              <select
+                                value={reminderForm.type}
+                                onChange={e => setReminderForm(f => ({ ...f, type: e.target.value }))}
+                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                              >
+                                <option value="vaccination">Εμβολιασμός</option>
+                                <option value="checkup">Έλεγχος</option>
+                                <option value="medication">Φαρμακευτική Αγωγή</option>
+                                <option value="custom">Γενικό</option>
+                              </select>
+                              <input
+                                type="text"
+                                placeholder="Τίτλος *"
+                                value={reminderForm.title}
+                                onChange={e => setReminderForm(f => ({ ...f, title: e.target.value }))}
+                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                              />
+                              <input
+                                type="date"
+                                value={reminderForm.due_date}
+                                onChange={e => setReminderForm(f => ({ ...f, due_date: e.target.value }))}
+                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                              />
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setShowReminderPetId(null)}
+                                  className="flex-1 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
+                                >
+                                  Ακύρωση
+                                </button>
+                                <button
+                                  onClick={() => handleCreateReminder(pet.id)}
+                                  disabled={reminderSubmitting}
+                                  className="flex-1 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                  {reminderSubmitting ? '...' : 'Αποθήκευση'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                           {/* Medical History */}
                           {historyPetId === pet.id && (
                             <div className="mt-3 border-t border-slate-100 pt-3">
@@ -844,6 +930,61 @@ export default function VetClientsPage() {
                             </div>
                             {pet.notes && (
                               <p className="text-xs text-slate-500 mt-2 bg-slate-50 rounded-lg p-2">{pet.notes}</p>
+                            )}
+                            <div className="mt-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setShowReminderPetId(showReminderPetId === pet.id ? null : pet.id); setReminderError(''); }}
+                                className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Δημιουργία Υπενθύμισης
+                              </button>
+                            </div>
+                            {showReminderPetId === pet.id && (
+                              <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
+                                <p className="text-xs font-bold text-slate-700">Νέα Υπενθύμιση</p>
+                                {reminderError && <p className="text-xs text-red-600">{reminderError}</p>}
+                                <select
+                                  value={reminderForm.type}
+                                  onChange={e => setReminderForm(f => ({ ...f, type: e.target.value }))}
+                                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                >
+                                  <option value="vaccination">Εμβολιασμός</option>
+                                  <option value="checkup">Έλεγχος</option>
+                                  <option value="medication">Φαρμακευτική Αγωγή</option>
+                                  <option value="custom">Γενικό</option>
+                                </select>
+                                <input
+                                  type="text"
+                                  placeholder="Τίτλος *"
+                                  value={reminderForm.title}
+                                  onChange={e => setReminderForm(f => ({ ...f, title: e.target.value }))}
+                                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                />
+                                <input
+                                  type="date"
+                                  value={reminderForm.due_date}
+                                  onChange={e => setReminderForm(f => ({ ...f, due_date: e.target.value }))}
+                                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                />
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => setShowReminderPetId(null)}
+                                    className="flex-1 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
+                                  >
+                                    Ακύρωση
+                                  </button>
+                                  <button
+                                    onClick={() => handleCreateReminder(pet.id)}
+                                    disabled={reminderSubmitting}
+                                    className="flex-1 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                  >
+                                    {reminderSubmitting ? '...' : 'Αποθήκευση'}
+                                  </button>
+                                </div>
+                              </div>
                             )}
                           </div>
                         ))}

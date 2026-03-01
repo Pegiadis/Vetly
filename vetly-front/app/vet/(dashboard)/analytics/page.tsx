@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useFullAnalytics } from '@/hooks/useVetData';
+import { useFullAnalytics, useRevenueStats, useRevenueByService } from '@/hooks/useVetData';
 
 const petTypeEmojis: Record<string, string> = {
   Dog: '\uD83D\uDC15',
@@ -15,8 +15,14 @@ const petTypeLabels: Record<string, string> = {
   Other: 'Άλλα',
 };
 
+function formatEuro(value: number | string): string {
+  return `${Number(value).toFixed(2)} €`;
+}
+
 export default function VetAnalyticsPage() {
   const { analytics, loading, error } = useFullAnalytics();
+  const { stats: revenueStats, loading: revenueLoading } = useRevenueStats();
+  const { data: revenueByService, loading: revenueByServiceLoading } = useRevenueByService();
 
   if (loading) {
     return (
@@ -50,6 +56,93 @@ export default function VetAnalyticsPage() {
         </Link>
         <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
         <p className="text-slate-500 mt-1">Στατιστικά ιατρείου</p>
+      </div>
+
+      {/* Revenue Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl shadow-sm p-5 text-white">
+          <p className="text-sm text-emerald-100 font-medium">Συνολικά Έσοδα</p>
+          <div className="flex items-end justify-between mt-2">
+            {revenueLoading ? (
+              <div className="h-9 w-32 bg-white/20 rounded animate-pulse" />
+            ) : (
+              <span className="text-3xl font-bold">{formatEuro(revenueStats?.total_revenue ?? 0)}</span>
+            )}
+            <svg className="w-8 h-8 text-emerald-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <p className="text-xs text-emerald-200 mt-2">{revenueStats?.total_appointments_with_price ?? 0} ραντεβού με τιμή</p>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+          <p className="text-sm text-slate-500 font-medium">Μηνιαία Έσοδα</p>
+          <div className="flex items-end justify-between mt-2">
+            {revenueLoading ? (
+              <div className="h-9 w-32 bg-slate-100 rounded animate-pulse" />
+            ) : (
+              <span className="text-3xl font-bold text-slate-900">{formatEuro(revenueStats?.monthly_revenue ?? 0)}</span>
+            )}
+            <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+          </div>
+          <p className="text-xs text-slate-400 mt-2">Τρέχων μήνας</p>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
+          <p className="text-sm text-slate-500 font-medium">Μ.Ο. ανά Ραντεβού</p>
+          <div className="flex items-end justify-between mt-2">
+            {revenueLoading ? (
+              <div className="h-9 w-32 bg-slate-100 rounded animate-pulse" />
+            ) : (
+              <span className="text-3xl font-bold text-slate-900">{formatEuro(revenueStats?.avg_per_appointment ?? 0)}</span>
+            )}
+            <svg className="w-6 h-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <p className="text-xs text-slate-400 mt-2">Μέσος όρος ανά επίσκεψη</p>
+        </div>
+      </div>
+
+      {/* Revenue by Service */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
+        <h2 className="text-lg font-bold text-slate-800 mb-4">Έσοδα ανά Υπηρεσία</h2>
+        {revenueByServiceLoading ? (
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="animate-pulse h-10 bg-slate-100 rounded-xl" />
+            ))}
+          </div>
+        ) : revenueByService && revenueByService.items.length > 0 ? (
+          <div className="space-y-3">
+            {revenueByService.items.map(item => {
+              const pct = revenueByService.total_revenue > 0
+                ? (item.total_revenue / revenueByService.total_revenue) * 100
+                : 0;
+              return (
+                <div key={item.service_name} className="flex items-center gap-4">
+                  <div className="w-40 shrink-0">
+                    <p className="text-sm font-medium text-slate-700 truncate">{item.service_name}</p>
+                    <p className="text-xs text-slate-400">{item.appointment_count} ραντεβού</p>
+                  </div>
+                  <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 rounded-full transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-bold text-slate-800 w-24 text-right shrink-0">
+                    {formatEuro(item.total_revenue)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 py-4">Δεν υπάρχουν δεδομένα εσόδων ακόμα.</p>
+        )}
       </div>
 
       {/* Stats Cards */}

@@ -1,0 +1,437 @@
+'use client';
+
+import { useState } from 'react';
+import {
+  useVetReminders,
+  deleteVetReminder,
+  createReminder,
+  usePatients,
+  type VetReminder,
+} from '@/hooks/useVetData';
+import Pagination from '@/components/Pagination';
+
+type ReminderType = 'vaccination' | 'checkup' | 'medication' | 'custom';
+
+const TYPE_LABELS: Record<ReminderType, string> = {
+  vaccination: 'Εμβολιασμός',
+  checkup: 'Έλεγχος',
+  medication: 'Φαρμακευτική Αγωγή',
+  custom: 'Γενικό',
+};
+
+const TYPE_BADGE_CLASSES: Record<ReminderType, string> = {
+  vaccination: 'bg-green-100 text-green-700',
+  checkup: 'bg-blue-100 text-blue-700',
+  medication: 'bg-purple-100 text-purple-700',
+  custom: 'bg-slate-100 text-slate-600',
+};
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('el-GR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function getDueDateStyle(dueDateStr: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(dueDateStr);
+  due.setHours(0, 0, 0, 0);
+  const diffDays = Math.floor((due.getTime() - today.getTime()) / 86400000);
+  if (diffDays < 0) return 'text-red-600';
+  if (diffDays <= 7) return 'text-amber-600';
+  return 'text-slate-700';
+}
+
+// --- Create Reminder Dialog ---
+interface CreateReminderDialogProps {
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
+  const { patients } = usePatients();
+  const [form, setForm] = useState({
+    pet_id: '',
+    type: 'checkup' as ReminderType,
+    title: '',
+    message: '',
+    due_date: '',
+    reminder_days_before: 14,
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: name === 'reminder_days_before' ? Number(value) : value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.pet_id || !form.title || !form.due_date) {
+      setError('Συμπληρώστε τα υποχρεωτικά πεδία.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      await createReminder({
+        pet_id: form.pet_id,
+        type: form.type,
+        title: form.title,
+        message: form.message || undefined,
+        due_date: form.due_date,
+        reminder_days_before: form.reminder_days_before,
+      });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Σφάλμα κατά την αποθήκευση.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+          <h2 className="text-xl font-bold text-slate-900">Δημιουργία Υπενθύμισης</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {/* Pet */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">
+              Κατοικίδιο <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="pet_id"
+              value={form.pet_id}
+              onChange={handleChange}
+              required
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            >
+              <option value="">Επιλέξτε κατοικίδιο...</option>
+              {patients.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.owner?.name || 'Χωρίς ιδιοκτήτη'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Type */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">
+              Τύπος <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="type"
+              value={form.type}
+              onChange={handleChange}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            >
+              <option value="vaccination">Εμβολιασμός</option>
+              <option value="checkup">Έλεγχος</option>
+              <option value="medication">Φαρμακευτική Αγωγή</option>
+              <option value="custom">Γενικό</option>
+            </select>
+          </div>
+
+          {/* Title */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">
+              Τίτλος <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="title"
+              value={form.title}
+              onChange={handleChange}
+              required
+              placeholder="π.χ. Ετήσιος εμβολιασμός"
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+
+          {/* Message */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">
+              Μήνυμα <span className="text-slate-400 font-normal">(προαιρετικό)</span>
+            </label>
+            <textarea
+              name="message"
+              value={form.message}
+              onChange={handleChange}
+              rows={3}
+              placeholder="Επιπλέον πληροφορίες..."
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 resize-none"
+            />
+          </div>
+
+          {/* Due Date */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">
+              Ημερομηνία <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              name="due_date"
+              value={form.due_date}
+              onChange={handleChange}
+              required
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+
+          {/* Reminder days before */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">
+              Υπενθύμιση πριν (ημέρες)
+            </label>
+            <input
+              type="number"
+              name="reminder_days_before"
+              value={form.reminder_days_before}
+              onChange={handleChange}
+              min={1}
+              max={365}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all"
+            >
+              Ακύρωση
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 py-2.5 bg-indigo-600 rounded-xl text-sm font-bold text-white hover:bg-indigo-700 transition-all disabled:opacity-50"
+            >
+              {submitting ? 'Αποθήκευση...' : 'Δημιουργία'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// --- Main Page ---
+export default function VetRemindersPage() {
+  const [page, setPage] = useState(1);
+  const { reminders, totalPages, loading, error, refetch } = useVetReminders(page, 10);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Διαγραφή υπενθύμισης;')) return;
+    setDeletingId(id);
+    try {
+      await deleteVetReminder(id);
+      refetch();
+    } catch {
+      // silent
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const handleCreated = () => {
+    setShowCreate(false);
+    refetch();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-5xl mx-auto">
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+          <p className="text-red-700 font-medium">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      {showCreate && (
+        <CreateReminderDialog
+          onClose={() => setShowCreate(false)}
+          onSaved={handleCreated}
+        />
+      )}
+
+      {/* Header */}
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Υπενθυμίσεις</h1>
+          <p className="text-slate-500 mt-1">
+            Διαχείριση υπενθυμίσεων για τους ασθενείς σας
+          </p>
+        </div>
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Νέα Υπενθύμιση
+        </button>
+      </div>
+
+      {/* Table / List */}
+      {reminders.length > 0 ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">Κατοικίδιο</th>
+                  <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">Τύπος</th>
+                  <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">Τίτλος</th>
+                  <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">Ημ/νία</th>
+                  <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">Υπενθύμιση</th>
+                  <th className="text-left px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wide">Κατάσταση</th>
+                  <th className="px-5 py-3" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {reminders.map((reminder: VetReminder) => {
+                  const typeBadge = TYPE_BADGE_CLASSES[reminder.type] || TYPE_BADGE_CLASSES.custom;
+                  const typeLabel = TYPE_LABELS[reminder.type] || reminder.type;
+                  const dueDateColor = getDueDateStyle(reminder.due_date);
+
+                  return (
+                    <tr key={reminder.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 flex-shrink-0">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                          </div>
+                          <span className="text-sm font-semibold text-slate-800">
+                            {reminder.pet_name || '-'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${typeBadge}`}>
+                          {typeLabel}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="text-sm text-slate-800 font-medium">{reminder.title}</p>
+                        {reminder.message && (
+                          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{reminder.message}</p>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className={`text-sm font-semibold ${dueDateColor}`}>
+                          {formatDate(reminder.due_date)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-sm text-slate-600">
+                          {formatDate(reminder.reminder_date)}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        {reminder.is_dismissed ? (
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-500">
+                            Απορρίφθηκε
+                          </span>
+                        ) : reminder.is_sent ? (
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+                            Εστάλη
+                          </span>
+                        ) : (
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
+                            Εκκρεμεί
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          onClick={() => handleDelete(reminder.id)}
+                          disabled={deletingId === reminder.id}
+                          className="text-slate-400 hover:text-red-600 transition-colors disabled:opacity-40"
+                          title="Διαγραφή"
+                        >
+                          {deletingId === reminder.id ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-100 text-center">
+          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Δεν υπάρχουν υπενθυμίσεις</h3>
+          <p className="text-slate-500 mb-6">Δημιουργήστε την πρώτη σας υπενθύμιση.</p>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Νέα Υπενθύμιση
+          </button>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+      </div>
+    </div>
+  );
+}

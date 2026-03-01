@@ -45,6 +45,24 @@ const navItems = [
     ),
   },
   {
+    name: 'Υπηρεσίες',
+    href: '/vet/services',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Υπενθυμίσεις',
+    href: '/vet/reminders',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
     name: 'Πρόγραμμα',
     href: '/vet/schedule',
     icon: (
@@ -81,6 +99,15 @@ const navItems = [
     ),
     badgeKey: 'notifications' as const,
   },
+  {
+    name: 'AI Βοηθός',
+    href: '/vet/chat',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+    ),
+  },
 ];
 
 const bottomNavItems = [
@@ -96,7 +123,12 @@ const bottomNavItems = [
   },
 ];
 
-export default function VetSidebar() {
+interface VetSidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
@@ -132,11 +164,15 @@ export default function VetSidebar() {
     router.push('/vet/login');
   };
 
-  return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-100 flex flex-col z-40">
+  const handleNavClick = () => {
+    onClose();
+  };
+
+  const sidebarContent = (
+    <aside className="h-full w-64 bg-white border-r border-slate-100 flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-slate-100">
-        <Link href="/vet/dashboard" className="flex items-center gap-3">
+        <Link href="/vet/dashboard" className="flex items-center gap-3" onClick={handleNavClick}>
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -167,7 +203,8 @@ export default function VetSidebar() {
             </span>
           </div>
           <div className={`w-10 h-5 rounded-full transition-colors relative ${isOnCall ? 'bg-green-500' : 'bg-slate-300'}`}>
-            <div className={`w-4 h-4 bg-white rounded-full shadow absolute top-0.5 transition-transform ${isOnCall ? 'left-5.5 translate-x-0' : 'left-0.5 translate-x-0'}`}
+            <div
+              className="w-4 h-4 bg-white rounded-full shadow absolute top-0.5 transition-transform"
               style={{ left: isOnCall ? '22px' : '2px' }}
             />
           </div>
@@ -182,6 +219,7 @@ export default function VetSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleNavClick}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 isActive
                   ? 'bg-indigo-50 text-indigo-700'
@@ -215,6 +253,7 @@ export default function VetSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleNavClick}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 isActive
                   ? 'bg-indigo-50 text-indigo-700'
@@ -241,5 +280,30 @@ export default function VetSidebar() {
         </button>
       </div>
     </aside>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div className="hidden md:block fixed left-0 top-0 h-screen w-64 z-40">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/40"
+            onClick={onClose}
+            aria-hidden="true"
+          />
+          {/* Sidebar panel */}
+          <div className="relative w-64 h-full flex-shrink-0 z-10">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 }
