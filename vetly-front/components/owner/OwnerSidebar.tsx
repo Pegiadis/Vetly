@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -81,11 +82,29 @@ const navItems = [
     badgeKey: 'notifications' as const,
   },
   {
+    name: 'Υπενθυμίσεις',
+    href: '/owner/reminders',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+  {
     name: 'Αξιολογήσεις',
     href: '/owner/reviews',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+      </svg>
+    ),
+  },
+  {
+    name: 'AI Βοηθός',
+    href: '/owner/chat',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
       </svg>
     ),
   },
@@ -104,7 +123,12 @@ const bottomNavItems = [
   },
 ];
 
-export default function OwnerSidebar() {
+interface OwnerSidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
@@ -119,11 +143,15 @@ export default function OwnerSidebar() {
     router.push('/owner/login');
   };
 
-  return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-white border-r border-slate-100 flex flex-col z-40">
+  const handleNavClick = () => {
+    onClose();
+  };
+
+  const sidebarContent = (
+    <aside className="h-full w-64 bg-white border-r border-slate-100 flex flex-col">
       {/* Logo */}
       <div className="p-6 border-b border-slate-100">
-        <Link href="/owner/dashboard" className="flex items-center gap-3">
+        <Link href="/owner/dashboard" className="flex items-center gap-3" onClick={handleNavClick}>
           <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
@@ -143,6 +171,7 @@ export default function OwnerSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleNavClick}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 isActive
                   ? 'bg-teal-50 text-teal-700'
@@ -176,6 +205,7 @@ export default function OwnerSidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleNavClick}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                 isActive
                   ? 'bg-teal-50 text-teal-700'
@@ -202,5 +232,30 @@ export default function OwnerSidebar() {
         </button>
       </div>
     </aside>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <div className="hidden md:block fixed left-0 top-0 h-screen w-64 z-40">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/40"
+            onClick={onClose}
+            aria-hidden="true"
+          />
+          {/* Sidebar panel */}
+          <div className="relative w-64 h-full flex-shrink-0 z-10">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 }

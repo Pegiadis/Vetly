@@ -1,15 +1,17 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { getImageUrl } from '@/lib/api';
 
-export default function OwnerHeader() {
+interface OwnerHeaderProps {
+  unreadCount: number;
+}
+
+export default function OwnerHeader({ unreadCount }: OwnerHeaderProps) {
   const { user } = useAuth();
   const ownerName = user?.name || '';
   const ownerImage = getImageUrl(user?.image_url);
-  const [showNotifications, setShowNotifications] = useState(false);
 
   return (
     <header className="h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 sticky top-0 z-30">
@@ -46,45 +48,19 @@ export default function OwnerHeader() {
         </Link>
 
         {/* Notifications */}
-        <div className="relative">
-          <button
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all"
-          >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
-          </button>
-
-          {/* Notifications Dropdown */}
-          {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-lg border border-slate-100 py-2 z-50">
-              <div className="px-4 py-2 border-b border-slate-100">
-                <h3 className="font-bold text-slate-800">Ειδοποιήσεις</h3>
-              </div>
-              <div className="max-h-64 overflow-y-auto">
-                <div className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-50">
-                  <p className="text-sm text-slate-800 font-medium">Υπενθύμιση φαρμάκου</p>
-                  <p className="text-xs text-slate-500 mt-1">Χάπι για τον Μάξ σε 1 ώρα</p>
-                </div>
-                <div className="px-4 py-3 hover:bg-slate-50 cursor-pointer border-b border-slate-50">
-                  <p className="text-sm text-slate-800 font-medium">Επιβεβαίωση ραντεβού</p>
-                  <p className="text-xs text-slate-500 mt-1">Εμβολιασμός αύριο στις 10:00</p>
-                </div>
-                <div className="px-4 py-3 hover:bg-slate-50 cursor-pointer">
-                  <p className="text-sm text-slate-800 font-medium">Νέα απάντηση</p>
-                  <p className="text-xs text-slate-500 mt-1">Ο Δρ. Παπαδόπουλος απάντησε</p>
-                </div>
-              </div>
-              <div className="px-4 py-2 border-t border-slate-100">
-                <Link href="/owner/notifications" className="text-sm text-teal-600 font-medium hover:text-teal-700">
-                  Προβολή όλων
-                </Link>
-              </div>
-            </div>
+        <Link
+          href="/owner/notifications"
+          className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-all"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full px-1">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
           )}
-        </div>
+        </Link>
 
         {/* Profile */}
         <Link

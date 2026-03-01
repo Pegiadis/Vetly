@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMyPets, useUpcomingAppointments, useMyMedications } from '@/hooks/useOwnerData';
+import { useMyPets, useUpcomingAppointments, useMyMedications, useOwnerReminders } from '@/hooks/useOwnerData';
 import { getImageUrl } from '@/lib/api';
+import SkeletonStats from '@/components/skeletons/SkeletonStats';
+import SkeletonAppointmentCard from '@/components/skeletons/SkeletonAppointmentCard';
+import SkeletonPetCard from '@/components/skeletons/SkeletonPetCard';
 
 function formatDateTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -22,14 +25,28 @@ export default function OwnerDashboardPage() {
   const { pets, loading: petsLoading } = useMyPets();
   const { appointments, loading: appointmentsLoading } = useUpcomingAppointments();
   const { medications } = useMyMedications();
+  const { reminders } = useOwnerReminders(1, 3);
 
   const activeMedicationsCount = medications.filter(m => m.is_active).length;
+  const upcomingReminders = reminders.filter(r => !r.is_dismissed);
   const loading = petsLoading || appointmentsLoading;
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-8">
+          <div className="animate-pulse h-8 bg-gray-200 rounded w-64 mb-2" />
+          <div className="animate-pulse h-4 bg-gray-200 rounded w-80" />
+        </div>
+        <SkeletonStats count={4} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => <SkeletonAppointmentCard key={i} />)}
+          </div>
+          <div className="space-y-3">
+            {Array.from({ length: 3 }).map((_, i) => <SkeletonPetCard key={i} />)}
+          </div>
+        </div>
       </div>
     );
   }
@@ -236,6 +253,47 @@ export default function OwnerDashboardPage() {
               </svg>
               Προσθήκη Κατοικιδίου
             </Link>
+          </div>
+
+          {/* Upcoming Reminders Widget */}
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center justify-between">
+              Επερχόμενες Υπενθυμίσεις
+              <Link href="/owner/reminders" className="text-xs text-teal-600 font-bold hover:text-teal-800">
+                Δείτε όλες
+              </Link>
+            </h3>
+            {upcomingReminders.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingReminders.map((reminder) => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const due = new Date(reminder.due_date);
+                  due.setHours(0, 0, 0, 0);
+                  const diffDays = Math.floor((due.getTime() - today.getTime()) / 86400000);
+                  const dateColor = diffDays < 0 ? 'text-red-600' : diffDays <= 7 ? 'text-amber-600' : 'text-green-600';
+
+                  return (
+                    <div key={reminder.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="w-8 h-8 bg-teal-100 rounded-lg flex items-center justify-center text-teal-600 flex-shrink-0">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-slate-800 truncate">{reminder.title}</p>
+                        <p className="text-xs text-slate-500">{reminder.pet_name || 'Κατοικίδιο'}</p>
+                        <p className={`text-xs font-semibold mt-0.5 ${dateColor}`}>
+                          {new Date(reminder.due_date).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400 py-2">Δεν υπάρχουν επερχόμενες υπενθυμίσεις.</p>
+            )}
           </div>
 
           {/* Quick Actions */}

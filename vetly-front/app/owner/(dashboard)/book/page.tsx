@@ -23,8 +23,7 @@ export default function BookPage() {
   const { vets, loading: vetsLoading, refetch: refetchVets } = useVets();
 
   const [step, setStep] = useState<Step>(1);
-  const [selectedPet, setSelectedPet] = useState<string | null>(null);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedPets, setSelectedPets] = useState<Map<string, string>>(new Map());
   const [selectedVet, setSelectedVet] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -48,7 +47,7 @@ export default function BookPage() {
 
   const canProceed = () => {
     switch (step) {
-      case 1: return selectedPet && selectedType;
+      case 1: return selectedPets.size > 0 && Array.from(selectedPets.values()).every(t => t !== '');
       case 2: return selectedVet;
       case 3: return selectedDate && selectedTime;
       case 4: return true;
@@ -57,7 +56,7 @@ export default function BookPage() {
   };
 
   const handleConfirm = async () => {
-    if (!selectedPet || !selectedVet || !selectedDate || !selectedTime || !selectedType) return;
+    if (selectedPets.size === 0 || !selectedVet || !selectedDate || !selectedTime) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -65,15 +64,18 @@ export default function BookPage() {
     try {
       const scheduledAt = `${selectedDate}T${selectedTime}:00`;
 
-      await createAppointment({
-        vet_id: selectedVet,
-        pet_id: selectedPet,
-        scheduled_at: scheduledAt,
-        type: selectedType,
-        duration_minutes: 30,
-        notes: notes || undefined,
-      });
+      const promises = Array.from(selectedPets.entries()).map(([petId, type]) =>
+        createAppointment({
+          vet_id: selectedVet!,
+          pet_id: petId,
+          scheduled_at: scheduledAt,
+          type,
+          duration_minutes: 30,
+          notes: notes || undefined,
+        })
+      );
 
+      await Promise.all(promises);
       setStep(4);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -102,9 +104,7 @@ export default function BookPage() {
     return d;
   }, []);
 
-  const selectedPetData = pets.find(p => p.id === selectedPet);
   const selectedVetData = vets.find(v => v.id === selectedVet);
-  const selectedTypeData = appointmentTypes.find(t => t.id === selectedType);
 
   return (
     <div className={`mx-auto ${step === 2 ? 'max-w-6xl' : 'max-w-3xl'} transition-all duration-300`}>
@@ -140,11 +140,12 @@ export default function BookPage() {
 
       {/* Step Content */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        {/* Step 1: Select Pet & Type */}
+        {/* Step 1: Select Pets & Types */}
         {step === 1 && (
           <div className="space-y-6">
             <div>
-              <h3 className="font-bold text-slate-800 mb-4">Επιλέξτε κατοικίδιο</h3>
+              <h3 className="font-bold text-slate-800 mb-1">Επιλέξτε κατοικίδια</h3>
+              <p className="text-sm text-slate-500 mb-4">Μπορείτε να επιλέξετε πολλαπλά κατοικίδια για το ίδιο ραντεβού.</p>
               {petsLoading ? (
                 <div className="text-center py-8 text-slate-500">Φόρτωση κατοικιδίων...</div>
               ) : pets.length === 0 ? (
@@ -159,13 +160,30 @@ export default function BookPage() {
                   {pets.map((pet) => (
                     <button
                       key={pet.id}
-                      onClick={() => setSelectedPet(pet.id)}
-                      className={`p-4 rounded-xl border-2 transition-all text-center ${
-                        selectedPet === pet.id
+                      onClick={() => {
+                        setSelectedPets(prev => {
+                          const next = new Map(prev);
+                          if (next.has(pet.id)) {
+                            next.delete(pet.id);
+                          } else {
+                            next.set(pet.id, '');
+                          }
+                          return next;
+                        });
+                      }}
+                      className={`p-4 rounded-xl border-2 transition-all text-center relative ${
+                        selectedPets.has(pet.id)
                           ? 'border-teal-500 bg-teal-50'
                           : 'border-slate-100 hover:border-teal-200'
                       }`}
                     >
+                      {selectedPets.has(pet.id) && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-teal-600 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
                       <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 bg-slate-100 flex items-center justify-center">
                         {pet.image_url ? (
                           <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
@@ -181,25 +199,42 @@ export default function BookPage() {
               )}
             </div>
 
-            <div>
-              <h3 className="font-bold text-slate-800 mb-4">Τύπος ραντεβού</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {appointmentTypes.map((type) => (
-                  <button
-                    key={type.id}
-                    onClick={() => setSelectedType(type.id)}
-                    className={`p-4 rounded-xl border-2 transition-all text-center ${
-                      selectedType === type.id
-                        ? 'border-teal-500 bg-teal-50'
-                        : 'border-slate-100 hover:border-teal-200'
-                    }`}
-                  >
-                    <span className="text-2xl mb-2 block">{type.icon}</span>
-                    <p className="font-medium text-slate-800 text-sm">{type.name}</p>
-                  </button>
-                ))}
+            {selectedPets.size > 0 && (
+              <div>
+                <h3 className="font-bold text-slate-800 mb-4">Τύπος ραντεβού ανά κατοικίδιο</h3>
+                <div className="space-y-3">
+                  {Array.from(selectedPets.entries()).map(([petId, type]) => {
+                    const pet = pets.find(p => p.id === petId);
+                    return (
+                      <div key={petId} className="p-3 bg-slate-50 rounded-xl">
+                        <p className="font-bold text-slate-800 text-sm mb-2">{pet?.name}</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {appointmentTypes.map((t) => (
+                            <button
+                              key={t.id}
+                              onClick={() => {
+                                setSelectedPets(prev => {
+                                  const next = new Map(prev);
+                                  next.set(petId, t.id);
+                                  return next;
+                                });
+                              }}
+                              className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
+                                type === t.id
+                                  ? 'border-teal-500 bg-teal-100 text-teal-700'
+                                  : 'border-slate-200 hover:border-teal-200 text-slate-600'
+                              }`}
+                            >
+                              {t.icon} {t.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
@@ -378,19 +413,25 @@ export default function BookPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Το αίτημα στάλθηκε!</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              {selectedPets.size > 1 ? 'Τα αιτήματα στάλθηκαν!' : 'Το αίτημα στάλθηκε!'}
+            </h2>
             <p className="text-slate-500 mb-8">Θα ενημερωθείτε όταν επιβεβαιωθεί το ραντεβού.</p>
 
-            <div className="bg-slate-50 rounded-xl p-4 text-left mb-8">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-slate-500">Κατοικίδιο</p>
-                  <p className="font-bold text-slate-800">{selectedPetData?.name}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">Τύπος</p>
-                  <p className="font-bold text-slate-800">{selectedTypeData?.name}</p>
-                </div>
+            <div className="bg-slate-50 rounded-xl p-4 text-left mb-8 space-y-3 text-sm">
+              <div>
+                <p className="text-slate-500 mb-1">Κατοικίδια</p>
+                {Array.from(selectedPets.entries()).map(([petId, type]) => {
+                  const pet = pets.find(p => p.id === petId);
+                  const typeData = appointmentTypes.find(t => t.id === type);
+                  return (
+                    <p key={petId} className="font-bold text-slate-800">
+                      {pet?.name} — {typeData?.name}
+                    </p>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-slate-500">Κτηνίατρος</p>
                   <p className="font-bold text-slate-800">{selectedVetData?.name}</p>

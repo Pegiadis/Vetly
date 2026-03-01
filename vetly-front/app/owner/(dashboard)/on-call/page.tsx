@@ -14,7 +14,7 @@ export default function OnCallPage() {
   const { vets, loading: vetsLoading } = useOnCallVets();
 
   const [step, setStep] = useState<Step>(1);
-  const [selectedPet, setSelectedPet] = useState<string | null>(null);
+  const [selectedPets, setSelectedPets] = useState<Set<string>>(new Set());
   const [selectedVet, setSelectedVet] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function OnCallPage() {
 
   const canProceed = () => {
     switch (step) {
-      case 1: return selectedPet;
+      case 1: return selectedPets.size > 0;
       case 2: return selectedVet;
       case 3: return selectedDate && selectedTime;
       case 4: return true;
@@ -39,7 +39,7 @@ export default function OnCallPage() {
   };
 
   const handleConfirm = async () => {
-    if (!selectedPet || !selectedVet || !selectedDate || !selectedTime) return;
+    if (selectedPets.size === 0 || !selectedVet || !selectedDate || !selectedTime) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -47,15 +47,18 @@ export default function OnCallPage() {
     try {
       const scheduledAt = `${selectedDate}T${selectedTime}:00`;
 
-      await createAppointment({
-        vet_id: selectedVet,
-        pet_id: selectedPet,
-        scheduled_at: scheduledAt,
-        type: 'Emergency',
-        duration_minutes: 30,
-        notes: notes || undefined,
-      });
+      const promises = Array.from(selectedPets).map((petId) =>
+        createAppointment({
+          vet_id: selectedVet!,
+          pet_id: petId,
+          scheduled_at: scheduledAt,
+          type: 'Emergency',
+          duration_minutes: 30,
+          notes: notes || undefined,
+        })
+      );
 
+      await Promise.all(promises);
       setStep(4);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -84,7 +87,6 @@ export default function OnCallPage() {
     return d;
   }, []);
 
-  const selectedPetData = pets.find(p => p.id === selectedPet);
   const selectedVetData = vets.find(v => v.id === selectedVet);
 
   const mapMarkers = vets.map((v: OnCallVet) => ({
@@ -133,11 +135,12 @@ export default function OnCallPage() {
 
       {/* Step Content */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        {/* Step 1: Select Pet */}
+        {/* Step 1: Select Pets */}
         {step === 1 && (
           <div className="space-y-6">
             <div>
-              <h3 className="font-bold text-slate-800 mb-4">Επιλέξτε κατοικίδιο</h3>
+              <h3 className="font-bold text-slate-800 mb-1">Επιλέξτε κατοικίδια</h3>
+              <p className="text-sm text-slate-500 mb-4">Μπορείτε να επιλέξετε πολλαπλά κατοικίδια.</p>
               {petsLoading ? (
                 <div className="text-center py-8 text-slate-500">Φόρτωση κατοικιδίων...</div>
               ) : pets.length === 0 ? (
@@ -152,13 +155,30 @@ export default function OnCallPage() {
                   {pets.map((pet) => (
                     <button
                       key={pet.id}
-                      onClick={() => setSelectedPet(pet.id)}
-                      className={`p-4 rounded-xl border-2 transition-all text-center ${
-                        selectedPet === pet.id
+                      onClick={() => {
+                        setSelectedPets(prev => {
+                          const next = new Set(prev);
+                          if (next.has(pet.id)) {
+                            next.delete(pet.id);
+                          } else {
+                            next.add(pet.id);
+                          }
+                          return next;
+                        });
+                      }}
+                      className={`p-4 rounded-xl border-2 transition-all text-center relative ${
+                        selectedPets.has(pet.id)
                           ? 'border-red-500 bg-red-50'
                           : 'border-slate-100 hover:border-red-200'
                       }`}
                     >
+                      {selectedPets.has(pet.id) && (
+                        <div className="absolute top-2 right-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center">
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
                       <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 bg-slate-100 flex items-center justify-center">
                         {pet.image_url ? (
                           <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
@@ -362,19 +382,24 @@ export default function OnCallPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">Το αίτημα στάλθηκε!</h2>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+              {selectedPets.size > 1 ? 'Τα αιτήματα στάλθηκαν!' : 'Το αίτημα στάλθηκε!'}
+            </h2>
             <p className="text-slate-500 mb-8">Θα ενημερωθείτε όταν επιβεβαιωθεί το ραντεβού.</p>
 
-            <div className="bg-slate-50 rounded-xl p-4 text-left mb-8">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-slate-500">Κατοικίδιο</p>
-                  <p className="font-bold text-slate-800">{selectedPetData?.name}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">Τύπος</p>
-                  <p className="font-bold text-slate-800">🚨 Επείγον</p>
-                </div>
+            <div className="bg-slate-50 rounded-xl p-4 text-left mb-8 space-y-3 text-sm">
+              <div>
+                <p className="text-slate-500 mb-1">Κατοικίδια</p>
+                {Array.from(selectedPets).map((petId) => {
+                  const pet = pets.find(p => p.id === petId);
+                  return (
+                    <p key={petId} className="font-bold text-slate-800">
+                      {pet?.name} — 🚨 Επείγον
+                    </p>
+                  );
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-slate-500">Κτηνίατρος</p>
                   <p className="font-bold text-slate-800">{selectedVetData?.name}</p>

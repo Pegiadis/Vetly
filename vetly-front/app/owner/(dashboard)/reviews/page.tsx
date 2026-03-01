@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   useMyReviews,
-  useVets,
+  useReviewableVets,
   createReview,
   updateReview,
   deleteReview,
@@ -15,7 +15,7 @@ import Pagination from '@/components/Pagination';
 export default function ReviewsPage() {
   const [page, setPage] = useState(1);
   const { reviews, totalPages, loading, error, refetch } = useMyReviews(page, 10);
-  const { vets } = useVets();
+  const { vets, loading: vetsLoading } = useReviewableVets();
 
   // Create form state
   const [showForm, setShowForm] = useState(false);
@@ -144,7 +144,9 @@ export default function ReviewsPage() {
             setFormComment('');
             setShowForm(true);
           }}
-          className="px-5 py-2.5 bg-teal-600 text-white rounded-xl font-bold text-sm hover:bg-teal-700 transition-colors flex items-center gap-2"
+          disabled={vetsLoading || vets.length === 0}
+          title={!vetsLoading && vets.length === 0 ? 'Χρειάζεστε ολοκληρωμένο ραντεβού για να αφήσετε αξιολόγηση' : undefined}
+          className="px-5 py-2.5 bg-teal-600 text-white rounded-xl font-bold text-sm hover:bg-teal-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
