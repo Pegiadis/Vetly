@@ -711,6 +711,14 @@ export async function markAllVetNotificationsRead(): Promise<void> {
   return api.post<void>('/vet/notifications/mark-all-read', {});
 }
 
+export async function getVetUnreadCount(): Promise<{ count: number }> {
+  return api.get<{ count: number }>('/vet/notifications/unread-count');
+}
+
+export async function getVetLatestUnread(): Promise<VetNotification | null> {
+  return api.get<VetNotification | null>('/vet/notifications/latest-unread');
+}
+
 // --- Vet Clients ---
 
 export interface VetClientPet {
@@ -887,4 +895,263 @@ export async function updateClientPet(clientId: string, petId: string, data: {
 
 export async function deleteClientPet(clientId: string, petId: string): Promise<void> {
   return api.delete<void>(`/vet/clients/${clientId}/pets/${petId}`);
+}
+
+// --- Service Types ---
+
+export interface ServiceType {
+  id: string;
+  vet_id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  duration_minutes: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ServiceTypeListResponse {
+  items: ServiceType[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export function useServiceTypes(page = 1, pageSize = 20) {
+  const [services, setServices] = useState<ServiceType[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchServices = useCallback(async () => {
+    try {
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set('page', String(page));
+      params.set('page_size', String(pageSize));
+      const data = await api.get<ServiceTypeListResponse>(`/vet/services?${params.toString()}`);
+      setServices(data.items);
+      setTotal(data.total);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch services');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    fetchServices();
+  }, [fetchServices]);
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  return { services, total, totalPages, loading, error, refetch: fetchServices };
+}
+
+export async function createServiceType(data: {
+  name: string;
+  description?: string;
+  price: number;
+  duration_minutes?: number;
+}): Promise<ServiceType> {
+  return api.post<ServiceType>('/vet/services', data);
+}
+
+export async function updateServiceType(id: string, data: Partial<ServiceType>): Promise<ServiceType> {
+  return api.put<ServiceType>(`/vet/services/${id}`, data);
+}
+
+export async function deleteServiceType(id: string): Promise<void> {
+  return api.delete<void>(`/vet/services/${id}`);
+}
+
+// --- Revenue Analytics ---
+
+export interface RevenueStats {
+  total_revenue: number;
+  monthly_revenue: number;
+  avg_per_appointment: number;
+  total_appointments_with_price: number;
+}
+
+export interface RevenueByServiceItem {
+  service_name: string;
+  total_revenue: number;
+  appointment_count: number;
+}
+
+interface RevenueByServiceResponse {
+  items: RevenueByServiceItem[];
+  total_revenue: number;
+}
+
+export function useRevenueStats() {
+  const [stats, setStats] = useState<RevenueStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<RevenueStats>('/vet/analytics/revenue');
+      setStats(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch revenue stats');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  return { stats, loading, error, refetch: fetchStats };
+}
+
+export function useRevenueByService() {
+  const [data, setData] = useState<RevenueByServiceResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await api.get<RevenueByServiceResponse>('/vet/analytics/revenue/by-service');
+      setData(result);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch revenue by service');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, loading, error, refetch: fetchData };
+}
+
+// --- Document Downloads ---
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+function getStoredTokenForDownload(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
+}
+
+async function downloadBlob(url: string, filename: string): Promise<void> {
+  const token = getStoredTokenForDownload();
+  const response = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    throw new Error('Αποτυχία λήψης αρχείου');
+  }
+  const blob = await response.blob();
+  const objectUrl = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(objectUrl);
+}
+
+export async function downloadPrescription(appointmentId: string): Promise<void> {
+  await downloadBlob(
+    `${API_BASE_URL}/vet/documents/prescription/${appointmentId}`,
+    `prescription_${appointmentId}.pdf`
+  );
+}
+
+export async function downloadMedicalRecord(petId: string): Promise<void> {
+  await downloadBlob(
+    `${API_BASE_URL}/vet/documents/medical-record/${petId}`,
+    `medical_record_${petId}.pdf`
+  );
+}
+
+export async function downloadVaccinationCertificate(petId: string): Promise<void> {
+  await downloadBlob(
+    `${API_BASE_URL}/vet/documents/vaccination-certificate/${petId}`,
+    `vaccination_certificate_${petId}.pdf`
+  );
+}
+
+// --- Vet Reminders ---
+
+export interface VetReminder {
+  id: string;
+  pet_id: string;
+  pet_name: string | null;
+  vet_id: string;
+  vet_name: string | null;
+  pet_owner_id: string;
+  type: 'vaccination' | 'checkup' | 'medication' | 'custom';
+  title: string;
+  message: string | null;
+  due_date: string;
+  reminder_date: string;
+  is_sent: boolean;
+  is_dismissed: boolean;
+  created_at: string;
+}
+
+interface VetReminderListResponse {
+  items: VetReminder[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export function useVetReminders(page = 1, pageSize = 10) {
+  const [reminders, setReminders] = useState<VetReminder[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchReminders = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<VetReminderListResponse>(`/vet/reminders?page=${page}&page_size=${pageSize}`);
+      setReminders(data.items);
+      setTotal(data.total);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch reminders');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    fetchReminders();
+  }, [fetchReminders]);
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  return { reminders, total, totalPages, loading, error, refetch: fetchReminders };
+}
+
+export async function createReminder(data: {
+  pet_id: string;
+  type: string;
+  title: string;
+  message?: string;
+  due_date: string;
+  reminder_days_before?: number;
+}): Promise<VetReminder> {
+  return api.post<VetReminder>('/vet/reminders', data);
+}
+
+export async function deleteVetReminder(reminderId: string): Promise<void> {
+  return api.delete<void>(`/vet/reminders/${reminderId}`);
 }

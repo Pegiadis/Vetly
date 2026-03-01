@@ -124,3 +124,20 @@ export interface PaginatedResponse<T> {
   page: number;
   page_size: number;
 }
+
+export interface Reminder {
+  id: string;
+  pet_id: string;
+  pet_name: string | null;
+  vet_id: string;
+  vet_name: string | null;
+  pet_owner_id: string;
+  type: 'vaccination' | 'checkup' | 'medication' | 'custom';
+  title: string;
+  message: string | null;
+  due_date: string;
+  reminder_date: string;
+  is_sent: boolean;
+  is_dismissed: boolean;
+  created_at: string;
+}

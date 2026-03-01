@@ -134,6 +134,31 @@ export function useVets() {
   return { vets, loading, error, refetch: fetchVets };
 }
 
+export function useReviewableVets() {
+  const [vets, setVets] = useState<Vet[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchVets = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<Vet[]>('/owner/reviewable-vets');
+      setVets(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch reviewable vets');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchVets();
+  }, [fetchVets]);
+
+  return { vets, loading, error, refetch: fetchVets };
+}
+
 export interface OnCallVet {
   id: string;
   name: string;
@@ -534,6 +559,14 @@ export async function markAllNotificationsRead(): Promise<void> {
   return api.post<void>('/owner/notifications/mark-all-read', {});
 }
 
+export async function getOwnerUnreadCount(): Promise<{ count: number }> {
+  return api.get<{ count: number }>('/owner/notifications/unread-count');
+}
+
+export async function getOwnerLatestUnread(): Promise<OwnerNotification | null> {
+  return api.get<OwnerNotification | null>('/owner/notifications/latest-unread');
+}
+
 // --- Owner Profile ---
 
 export interface OwnerProfile {
@@ -646,4 +679,54 @@ export function useDeletedPets() {
 
 export async function restorePet(petId: string): Promise<Pet> {
   return api.post<Pet>(`/owner/pets/${petId}/restore`, {});
+}
+
+// --- Reminders ---
+
+export interface OwnerReminder {
+  id: string;
+  pet_id: string;
+  pet_name: string | null;
+  vet_id: string;
+  vet_name: string | null;
+  pet_owner_id: string;
+  type: 'vaccination' | 'checkup' | 'medication' | 'custom';
+  title: string;
+  message: string | null;
+  due_date: string;
+  reminder_date: string;
+  is_sent: boolean;
+  is_dismissed: boolean;
+  created_at: string;
+}
+
+export function useOwnerReminders(page = 1, pageSize = 10) {
+  const [reminders, setReminders] = useState<OwnerReminder[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchReminders = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await api.get<PaginatedResponse<OwnerReminder>>(`/owner/reminders?page=${page}&page_size=${pageSize}`);
+      setReminders(data.items);
+      setTotal(data.total);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch reminders');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    fetchReminders();
+  }, [fetchReminders]);
+
+  return { reminders, total, totalPages: Math.ceil(total / pageSize), loading, error, refetch: fetchReminders };
+}
+
+export async function dismissReminder(reminderId: string): Promise<OwnerReminder> {
+  return api.post<OwnerReminder>(`/owner/reminders/${reminderId}/dismiss`, {});
 }
