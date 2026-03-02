@@ -21,10 +21,10 @@ set -a
 source "$SCRIPT_DIR/.env"
 set +a
 
-# Pull latest code
+# Pull latest code (skip if running as root without SSH key)
 echo "[1/6] Pulling latest code..."
 cd "$PROJECT_DIR"
-git pull origin "$(git branch --show-current)"
+git pull origin "$(git branch --show-current)" || echo "  WARNING: git pull failed (run 'git pull' manually before deploying)"
 
 # Backup database (skip if postgres isn't running)
 echo "[2/6] Backing up database..."
