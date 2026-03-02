@@ -134,6 +134,58 @@ export function useVets() {
   return { vets, loading, error, refetch: fetchVets };
 }
 
+export interface PublicVetService {
+  name: string;
+  description: string | null;
+  price: number;
+  duration_minutes: number;
+}
+
+export function useVetServices(vetId: string | null) {
+  const [services, setServices] = useState<PublicVetService[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!vetId) {
+      setServices([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchServices = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await api.get<{ items: PublicVetService[] }>(
+          `/public/vets/${vetId}/services`
+        );
+        if (!cancelled) {
+          setServices(data.items);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to fetch services');
+          setServices([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchServices();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vetId]);
+
+  return { services, loading, error };
+}
+
 export function useReviewableVets() {
   const [vets, setVets] = useState<Vet[]>([]);
   const [loading, setLoading] = useState(true);

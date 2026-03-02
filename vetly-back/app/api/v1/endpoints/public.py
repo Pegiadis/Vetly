@@ -11,9 +11,12 @@ from app.core.deps import get_db
 from app.models.review import Review
 from app.models.vet import Vet
 from app.models.pet_owner import PetOwner
+from app.models.service_type import ServiceType
 from app.schemas.public import (
     PublicReviewListResponse,
     PublicReviewResponse,
+    PublicServiceListResponse,
+    PublicServiceResponse,
     PublicVetDetailResponse,
     PublicVetListResponse,
     PublicVetResponse,
@@ -170,4 +173,33 @@ def get_public_vet_reviews(
         total=total,
         page=page,
         page_size=page_size,
+    )
+
+
+@router.get("/vets/{slug_or_id}/services", response_model=PublicServiceListResponse)
+def get_public_vet_services(
+    slug_or_id: str,
+    db: Session = Depends(get_db),
+) -> PublicServiceListResponse:
+    """Get active services for a specific vet."""
+    vet = _resolve_vet(slug_or_id, db)
+
+    services = list(
+        db.scalars(
+            select(ServiceType)
+            .where(ServiceType.vet_id == vet.id, ServiceType.is_active == True)
+            .order_by(ServiceType.name)
+        ).all()
+    )
+
+    return PublicServiceListResponse(
+        items=[
+            PublicServiceResponse(
+                name=s.name,
+                description=s.description,
+                price=float(s.price),
+                duration_minutes=s.duration_minutes,
+            )
+            for s in services
+        ]
     )

@@ -52,3 +52,16 @@ class PublicReviewListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class PublicServiceResponse(BaseModel):
+    name: str
+    description: str | None = None
+    price: float
+    duration_minutes: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PublicServiceListResponse(BaseModel):
+    items: list[PublicServiceResponse]

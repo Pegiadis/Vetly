@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useMyPets, useVets, useAvailableSlots, createAppointment, Vet } from '@/hooks/useOwnerData';
+import { useMyPets, useVets, useAvailableSlots, useVetServices, createAppointment, Vet } from '@/hooks/useOwnerData';
 import { ApiError } from '@/lib/api';
 import CalendarPicker from '@/components/CalendarPicker';
 import { getImageUrl } from '@/lib/api';
@@ -32,6 +32,7 @@ export default function BookPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { slots: availableSlots, loading: slotsLoading, refetch: refetchSlots } = useAvailableSlots(selectedVet, selectedDate);
+  const { services: vetServices, loading: servicesLoading } = useVetServices(selectedVet);
 
   // Clear selected time when vet or date changes
   useEffect(() => {
@@ -248,6 +249,7 @@ export default function BookPage() {
             ) : vets.length === 0 ? (
               <div className="text-center py-8 text-slate-500">Δεν βρέθηκαν κτηνίατροι.</div>
             ) : (
+              <>
               <div className="flex flex-col lg:flex-row gap-4">
                 {/* Map — takes most of the width */}
                 <div className="lg:flex-1 relative">
@@ -332,6 +334,89 @@ export default function BookPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Vet Detail Card */}
+              {selectedVetData && (
+                <div className="mt-4 bg-teal-50/50 border border-teal-200 rounded-2xl p-5">
+                  {/* Vet Info Header */}
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-teal-100 flex items-center justify-center">
+                      {selectedVetData.image_url ? (
+                        <img src={getImageUrl(selectedVetData.image_url)} alt={selectedVetData.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-2xl">👨‍⚕️</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-slate-800 text-lg">{selectedVetData.name}</h4>
+                      <p className="text-sm text-teal-600 font-medium">{selectedVetData.specialty}</p>
+                      {selectedVetData.address && (
+                        <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          {selectedVetData.address}{selectedVetData.city ? `, ${selectedVetData.city}` : ''}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-1 mt-1">
+                        <svg className="w-3.5 h-3.5 fill-current text-amber-500" viewBox="0 0 20 20">
+                          <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                        </svg>
+                        <span className="font-bold text-slate-800 text-sm">{Number(selectedVetData.rating_average).toFixed(1)}</span>
+                        <span className="text-xs text-slate-400">({selectedVetData.reviews_count} αξιολ.)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Services Section */}
+                  <div className="border-t border-teal-200/60 pt-4">
+                    <h5 className="font-bold text-slate-700 text-sm mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      Υπηρεσίες & Τιμές
+                    </h5>
+
+                    {servicesLoading ? (
+                      <div className="space-y-2">
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="animate-pulse flex justify-between items-center p-2">
+                            <div className="flex-1">
+                              <div className="h-4 bg-teal-100 rounded w-32 mb-1" />
+                              <div className="h-3 bg-teal-100 rounded w-20" />
+                            </div>
+                            <div className="h-5 bg-teal-100 rounded w-16" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : vetServices.length === 0 ? (
+                      <p className="text-sm text-slate-400 italic">Δεν έχουν καταχωρηθεί υπηρεσίες.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {vetServices.map((service, idx) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between bg-white rounded-xl px-3 py-2 border border-slate-100"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-slate-800 text-sm">{service.name}</p>
+                              {service.description && (
+                                <p className="text-xs text-slate-400 truncate">{service.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+                              <span className="text-xs text-slate-400">{service.duration_minutes} λεπ.</span>
+                              <span className="font-bold text-teal-700 text-sm">{Number(service.price).toFixed(2)} €</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         )}
