@@ -24,7 +24,7 @@ set +a
 # Pull latest code
 echo "[1/6] Pulling latest code..."
 cd "$PROJECT_DIR"
-git pull origin main
+git pull origin "$(git branch --show-current)"
 
 # Backup database (skip if postgres isn't running)
 echo "[2/6] Backing up database..."
