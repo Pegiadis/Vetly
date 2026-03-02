@@ -52,7 +52,7 @@ docker compose -f "$COMPOSE_FILE" --env-file "$SCRIPT_DIR/.env" run --rm --entry
     rm -rf /etc/letsencrypt/renewal/$DOMAINS.conf
 "
 
-docker compose -f "$COMPOSE_FILE" --env-file "$SCRIPT_DIR/.env" run --rm certbot certonly \
+docker compose -f "$COMPOSE_FILE" --env-file "$SCRIPT_DIR/.env" run --rm --entrypoint "" certbot certbot certonly \
     --webroot \
     --webroot-path=/var/www/certbot \
     --email "$EMAIL" \
