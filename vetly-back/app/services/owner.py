@@ -2,7 +2,7 @@
 Service for pet owner related business logic
 """
 
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import date
 
 from fastapi import HTTPException, status
@@ -15,6 +15,7 @@ from app.schemas.owner import (
     PetResponse,
     PetPaginatedResponse,
     AppointmentCreateRequest,
+    AppointmentBatchCreateRequest,
     AppointmentRescheduleRequest,
     AppointmentResponse,
     AppointmentPaginatedResponse,
@@ -136,6 +137,88 @@ class OwnerService:
         )
 
         return AppointmentResponse.model_validate(appointment)
+
+    def create_batch_appointments(
+        self, owner_id: UUID, data: AppointmentBatchCreateRequest
+    ) -> list[AppointmentResponse]:
+        """Create grouped appointments for multiple pets in one booking"""
+        # Verify vet exists
+        vet = self.repository.get_vet_by_id(data.vet_id)
+        if not vet:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Vet not found",
+            )
+
+        # Verify all pets belong to owner
+        pets = []
+        for pet_id in data.pet_ids:
+            pet = self.repository.get_pet_by_id(pet_id, owner_id)
+            if not pet:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Pet not found or does not belong to you",
+                )
+            pets.append(pet)
+
+        # Check for conflicting vet appointments at that timeslot (once)
+        if self.repository.has_conflicting_appointment(
+            data.vet_id, data.scheduled_at, data.duration_minutes
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Η ώρα αυτή μόλις κρατήθηκε από κάποιον άλλο. Παρακαλώ επιλέξτε άλλη ώρα.",
+            )
+
+        # Check same-day duplicate for each pet
+        for pet in pets:
+            if self.repository.has_same_day_appointment(
+                pet.id, data.vet_id, data.scheduled_at
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Το {pet.name} έχει ήδη ραντεβού με αυτόν τον κτηνίατρο την ίδια ημέρα.",
+                )
+
+        # Generate group_id only for multi-pet bookings
+        group_id = uuid4() if len(data.pet_ids) > 1 else None
+
+        # Create all appointments in a single transaction
+        appointments = []
+        for pet in pets:
+            pet_id_str = str(pet.id)
+            appointment_type = data.types.get(pet_id_str, "Checkup")
+            appointment = self.repository.create_appointment(
+                pet_owner_id=owner_id,
+                vet_id=data.vet_id,
+                pet_id=pet.id,
+                scheduled_at=data.scheduled_at,
+                appointment_type=appointment_type,
+                duration_minutes=data.duration_minutes,
+                notes=data.notes,
+                service_type_id=data.service_type_id,
+                group_id=group_id,
+                auto_commit=False,
+            )
+            appointments.append(appointment)
+
+        self.db.commit()
+        for apt in appointments:
+            self.db.refresh(apt)
+
+        # Send one consolidated notification to vet
+        owner = self.repository.get_owner_by_id(owner_id)
+        owner_name = owner.name if owner else ""
+        pet_names = ", ".join(p.name for p in pets)
+        date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
+        self.notifications.notify_vet(
+            data.vet_id,
+            type="appointment_new",
+            title="Νέο αίτημα ραντεβού",
+            message=f"{owner_name} ζήτησε ραντεβού για {pet_names} στις {date_str}",
+        )
+
+        return [AppointmentResponse.model_validate(apt) for apt in appointments]
 
     def cancel_appointment(self, owner_id: UUID, appointment_id: UUID) -> AppointmentResponse:
         """Cancel an appointment owned by the owner"""

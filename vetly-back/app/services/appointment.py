@@ -174,6 +174,13 @@ class AppointmentService:
         new_status = AppointmentStatus(data.status)
         updated = self.repository.update_status(appointment, new_status, data.notes)
 
+        # Cascade cancellation to group members
+        if new_status == AppointmentStatus.CANCELLED and appointment.group_id:
+            group_apts = self.repository.get_group_appointments(appointment.group_id, vet_id)
+            for apt in group_apts:
+                if apt.id != appointment.id and apt.status != AppointmentStatus.CANCELLED:
+                    self.repository.update_status(apt, AppointmentStatus.CANCELLED, data.notes)
+
         return self._build_detail_response(updated)
 
     def approve_appointment(
@@ -196,14 +203,24 @@ class AppointmentService:
 
         updated = self.repository.update_status(appointment, AppointmentStatus.CONFIRMED)
 
+        # Cascade to group members
+        pet_names = [appointment.pet.name] if appointment.pet else []
+        if appointment.group_id:
+            group_apts = self.repository.get_group_appointments(appointment.group_id, vet_id)
+            for apt in group_apts:
+                if apt.id != appointment.id and apt.status == AppointmentStatus.PENDING:
+                    self.repository.update_status(apt, AppointmentStatus.CONFIRMED)
+                    if apt.pet and apt.pet.name not in pet_names:
+                        pet_names.append(apt.pet.name)
+
         # Notify owner
-        pet_name = appointment.pet.name if appointment.pet else ""
         vet_name = appointment.vet.name if appointment.vet else ""
+        pet_names_str = ", ".join(pet_names)
         self.notifications.notify_owner(
             appointment.pet_owner_id,
             type="appointment_confirm",
             title="Ραντεβού επιβεβαιώθηκε",
-            message=f"Το ραντεβού σας για {pet_name} με {vet_name} επιβεβαιώθηκε",
+            message=f"Το ραντεβού σας για {pet_names_str} με {vet_name} επιβεβαιώθηκε",
         )
 
         return self._build_detail_response(updated)
@@ -231,14 +248,24 @@ class AppointmentService:
             appointment, AppointmentStatus.CANCELLED, notes
         )
 
+        # Cascade to group members
+        pet_names = [appointment.pet.name] if appointment.pet else []
+        if appointment.group_id:
+            group_apts = self.repository.get_group_appointments(appointment.group_id, vet_id)
+            for apt in group_apts:
+                if apt.id != appointment.id and apt.status == AppointmentStatus.PENDING:
+                    self.repository.update_status(apt, AppointmentStatus.CANCELLED, notes)
+                    if apt.pet and apt.pet.name not in pet_names:
+                        pet_names.append(apt.pet.name)
+
         # Notify owner
-        pet_name = appointment.pet.name if appointment.pet else ""
         vet_name = appointment.vet.name if appointment.vet else ""
+        pet_names_str = ", ".join(pet_names)
         self.notifications.notify_owner(
             appointment.pet_owner_id,
             type="appointment_reject",
             title="Ραντεβού απορρίφθηκε",
-            message=f"Το ραντεβού σας για {pet_name} με {vet_name} απορρίφθηκε",
+            message=f"Το ραντεβού σας για {pet_names_str} με {vet_name} απορρίφθηκε",
         )
 
         return self._build_detail_response(updated)

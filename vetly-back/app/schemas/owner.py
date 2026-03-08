@@ -60,6 +60,17 @@ class AppointmentCreateRequest(BaseModel):
     service_type_id: UUID | None = None
 
 
+class AppointmentBatchCreateRequest(BaseModel):
+    """Request to create grouped appointments for multiple pets"""
+    vet_id: UUID
+    pet_ids: list[UUID] = Field(..., min_length=1, max_length=10)
+    scheduled_at: datetime
+    types: dict[str, str]
+    duration_minutes: int = Field(default=30, ge=15, le=180)
+    notes: str | None = Field(None, max_length=1000)
+    service_type_id: UUID | None = None
+
+
 class AppointmentRescheduleRequest(BaseModel):
     """Request to reschedule an appointment"""
     scheduled_at: datetime
@@ -103,6 +114,7 @@ class AppointmentResponse(BaseModel):
     notes: str | None = None
     price: Decimal | None = None
     service_type_id: UUID | None = None
+    group_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
     pet: AppointmentPetInfo | None = None

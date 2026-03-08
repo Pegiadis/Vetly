@@ -176,6 +176,8 @@ class OwnerRepository:
         duration_minutes: int,
         notes: str | None = None,
         service_type_id: UUID | None = None,
+        group_id: UUID | None = None,
+        auto_commit: bool = True,
     ) -> Appointment:
         """Create a new appointment"""
         appointment = Appointment(
@@ -187,11 +189,15 @@ class OwnerRepository:
             duration_minutes=duration_minutes,
             notes=notes,
             service_type_id=service_type_id,
+            group_id=group_id,
             status=AppointmentStatus.PENDING,
         )
         self.db.add(appointment)
-        self.db.commit()
-        self.db.refresh(appointment)
+        if auto_commit:
+            self.db.commit()
+            self.db.refresh(appointment)
+        else:
+            self.db.flush()
         return appointment
 
     def get_vet_by_id(self, vet_id: UUID) -> Vet | None:

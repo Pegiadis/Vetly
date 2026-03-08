@@ -69,6 +69,9 @@ class Appointment(BaseModel):
     # Additional Information
     notes = Column(Text, nullable=True)
 
+    # Grouping (multi-pet bookings share the same group_id)
+    group_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+
     # Relationships
     vet = relationship("Vet", back_populates="appointments")
     pet_owner = relationship("PetOwner", back_populates="appointments")

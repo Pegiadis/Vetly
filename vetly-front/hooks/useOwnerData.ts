@@ -65,6 +65,7 @@ export interface Appointment {
   type: string;
   status: string;
   notes: string | null;
+  group_id: string | null;
   created_at: string;
   updated_at: string;
   pet: AppointmentPetInfo | null;
@@ -374,6 +375,20 @@ export interface CreateAppointmentRequest {
 
 export async function createAppointment(data: CreateAppointmentRequest): Promise<Appointment> {
   return api.post<Appointment>('/owner/appointments', data);
+}
+
+export interface BatchCreateAppointmentRequest {
+  vet_id: string;
+  pet_ids: string[];
+  scheduled_at: string;
+  types: Record<string, string>;
+  duration_minutes?: number;
+  notes?: string;
+  service_type_id?: string;
+}
+
+export async function createBatchAppointments(data: BatchCreateAppointmentRequest): Promise<Appointment[]> {
+  return api.post<Appointment[]>('/owner/appointments/batch', data);
 }
 
 export async function cancelAppointment(appointmentId: string): Promise<Appointment> {

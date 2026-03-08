@@ -166,6 +166,18 @@ class AppointmentRepository:
         self.db.refresh(appointment)
         return appointment
 
+    def get_group_appointments(self, group_id: UUID, vet_id: UUID) -> list[Appointment]:
+        """Get all appointments in a group for a vet"""
+        query = (
+            select(Appointment)
+            .where(
+                Appointment.group_id == group_id,
+                Appointment.vet_id == vet_id,
+            )
+            .options(joinedload(Appointment.pet), joinedload(Appointment.pet_owner))
+        )
+        return list(self.db.scalars(query).unique().all())
+
     def update_status(
         self, appointment: Appointment, status: AppointmentStatus, notes: str | None = None
     ) -> Appointment:

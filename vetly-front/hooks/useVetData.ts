@@ -26,6 +26,7 @@ export interface VetAppointment {
   type: string;
   status: string;
   notes: string | null;
+  group_id: string | null;
   created_at: string;
   updated_at: string;
   pet: AppointmentPet | null;

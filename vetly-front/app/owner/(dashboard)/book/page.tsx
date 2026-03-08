@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useMyPets, useVets, useAvailableSlots, useVetServices, createAppointment, Vet } from '@/hooks/useOwnerData';
+import { useMyPets, useVets, useAvailableSlots, useVetServices, createAppointment, createBatchAppointments, Vet } from '@/hooks/useOwnerData';
 import { ApiError } from '@/lib/api';
 import CalendarPicker from '@/components/CalendarPicker';
 import { getImageUrl } from '@/lib/api';
@@ -65,18 +65,28 @@ export default function BookPage() {
     try {
       const scheduledAt = `${selectedDate}T${selectedTime}:00`;
 
-      const promises = Array.from(selectedPets.entries()).map(([petId, type]) =>
-        createAppointment({
+      if (selectedPets.size === 1) {
+        const [petId, type] = [...selectedPets.entries()][0];
+        await createAppointment({
           vet_id: selectedVet!,
           pet_id: petId,
           scheduled_at: scheduledAt,
           type,
           duration_minutes: 30,
           notes: notes || undefined,
-        })
-      );
-
-      await Promise.all(promises);
+        });
+      } else {
+        const types: Record<string, string> = {};
+        selectedPets.forEach((type, petId) => { types[petId] = type; });
+        await createBatchAppointments({
+          vet_id: selectedVet!,
+          pet_ids: [...selectedPets.keys()],
+          scheduled_at: scheduledAt,
+          types,
+          duration_minutes: 30,
+          notes: notes || undefined,
+        });
+      }
       setStep(4);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {

@@ -14,6 +14,7 @@ from app.schemas.owner import (
     PetPaginatedResponse,
     PetOwnerResponse,
     AppointmentCreateRequest,
+    AppointmentBatchCreateRequest,
     AppointmentRescheduleRequest,
     AppointmentResponse,
     AppointmentPaginatedResponse,
@@ -76,6 +77,17 @@ def get_upcoming_appointments(
     """Get upcoming appointments for the logged-in pet owner"""
     service = OwnerService(db)
     return service.get_upcoming_appointments(current_owner.id)
+
+
+@router.post("/appointments/batch", response_model=list[AppointmentResponse], status_code=201)
+def create_batch_appointments(
+    data: AppointmentBatchCreateRequest,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> list[AppointmentResponse]:
+    """Create grouped appointments for multiple pets in one booking"""
+    service = OwnerService(db)
+    return service.create_batch_appointments(current_owner.id, data)
 
 
 @router.post("/appointments", response_model=AppointmentResponse, status_code=201)

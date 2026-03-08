@@ -43,6 +43,7 @@ export interface Appointment {
   type: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
   notes: string | null;
+  group_id: string | null;
   created_at: string;
   updated_at: string;
 }

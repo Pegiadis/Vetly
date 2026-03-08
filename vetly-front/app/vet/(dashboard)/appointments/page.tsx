@@ -140,6 +140,25 @@ export default function VetAppointmentsPage() {
 
   const { appointments, total, totalPages, loading, error, refetch } = useAllAppointments(page, 10, filters);
 
+  // Group appointments by group_id
+  const grouped = useMemo(() => {
+    const groups: VetAppointment[][] = [];
+    const groupMap = new Map<string, VetAppointment[]>();
+    for (const apt of appointments) {
+      if (apt.group_id) {
+        if (!groupMap.has(apt.group_id)) {
+          const arr: VetAppointment[] = [];
+          groupMap.set(apt.group_id, arr);
+          groups.push(arr);
+        }
+        groupMap.get(apt.group_id)!.push(apt);
+      } else {
+        groups.push([apt]);
+      }
+    }
+    return groups;
+  }, [appointments]);
+
   const hasDateFilters = dateFrom || dateTo;
 
   const clearDateFilters = () => {
@@ -269,97 +288,221 @@ export default function VetAppointmentsPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {appointments.map((apt) => {
-              const cfg = statusConfig[apt.status] || statusConfig.confirmed;
-              return (
-                <div
-                  key={apt.id}
-                  className={`p-4 rounded-xl border transition-all ${cfg.bg}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-3">
-                      {/* Pet icon */}
-                      <div className="text-2xl mt-0.5">
-                        {apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}
+            {grouped.map((group) => {
+              const isGroup = group.length > 1;
+              const first = group[0];
+              const cfg = statusConfig[first.status] || statusConfig.confirmed;
+
+              if (!isGroup) {
+                // Single appointment — render as before
+                const apt = first;
+                return (
+                  <div
+                    key={apt.id}
+                    className={`p-4 rounded-xl border transition-all ${cfg.bg}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className="text-2xl mt-0.5">
+                          {apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold text-slate-800">{apt.pet?.name || 'Ασθενής'}</h4>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${cfg.text} ${apt.status === 'pending' ? 'bg-amber-200' : apt.status === 'completed' ? 'bg-green-200' : apt.status === 'cancelled' ? 'bg-red-200' : 'bg-indigo-200'}`}>
+                              {cfg.label}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-600">{apt.type}</p>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                            <span>{formatDate(apt.scheduled_at)}</span>
+                            <span>{formatTime(apt.scheduled_at)}</span>
+                            <span>{apt.duration_minutes} λεπτά</span>
+                          </div>
+                          {apt.pet_owner && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              Ιδιοκτήτης: {apt.pet_owner.name}
+                              {apt.pet_owner.phone && ` · ${apt.pet_owner.phone}`}
+                            </p>
+                          )}
+                          {apt.notes && (
+                            <p className="text-xs text-slate-500 mt-2 italic bg-white/50 rounded-lg px-2 py-1">
+                              {apt.notes}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-bold text-slate-800">{apt.pet?.name || 'Ασθενής'}</h4>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${cfg.text} ${apt.status === 'pending' ? 'bg-amber-200' : apt.status === 'completed' ? 'bg-green-200' : apt.status === 'cancelled' ? 'bg-red-200' : 'bg-indigo-200'}`}>
-                            {cfg.label}
-                          </span>
-                        </div>
-                        <p className="text-sm text-slate-600">{apt.type}</p>
-                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                          <span>{formatDate(apt.scheduled_at)}</span>
-                          <span>{formatTime(apt.scheduled_at)}</span>
-                          <span>{apt.duration_minutes} λεπτά</span>
-                        </div>
-                        {apt.pet_owner && (
-                          <p className="text-xs text-slate-500 mt-1">
-                            Ιδιοκτήτης: {apt.pet_owner.name}
-                            {apt.pet_owner.phone && ` · ${apt.pet_owner.phone}`}
-                          </p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {apt.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleReject(apt.id)}
+                              className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                            >
+                              Απόρριψη
+                            </button>
+                            <button
+                              onClick={() => handleApprove(apt.id)}
+                              className="px-3 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                            >
+                              Έγκριση
+                            </button>
+                          </>
                         )}
-                        {apt.notes && (
-                          <p className="text-xs text-slate-500 mt-2 italic bg-white/50 rounded-lg px-2 py-1">
-                            {apt.notes}
-                          </p>
+                        {apt.status === 'confirmed' && (
+                          <button
+                            onClick={() => setCancelDialog(apt)}
+                            className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                          >
+                            Ακύρωση
+                          </button>
+                        )}
+                        {apt.status === 'completed' && (
+                          <button
+                            onClick={() => handleDownloadPrescription(apt.id)}
+                            disabled={downloadingId === apt.id}
+                            className="px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                          >
+                            {downloadingId === apt.id ? (
+                              <>
+                                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                </svg>
+                                Λήψη...
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                Λήψη Συνταγής
+                              </>
+                            )}
+                          </button>
                         )}
                       </div>
                     </div>
+                  </div>
+                );
+              }
 
-                    {/* Actions */}
+              // Grouped appointment — multiple pets in one card
+              const groupKey = first.group_id || first.id;
+              const ownerName = first.pet_owner?.name || '';
+              const ownerPhone = first.pet_owner?.phone || '';
+              const allPending = group.every(a => a.status === 'pending');
+              const allConfirmed = group.every(a => a.status === 'confirmed');
+
+              return (
+                <div
+                  key={groupKey}
+                  className={`p-4 rounded-xl border transition-all ${cfg.bg}`}
+                >
+                  {/* Group header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
+                          {group.length} κατοικίδια
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${cfg.text} ${first.status === 'pending' ? 'bg-amber-200' : first.status === 'completed' ? 'bg-green-200' : first.status === 'cancelled' ? 'bg-red-200' : 'bg-indigo-200'}`}>
+                          {cfg.label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-slate-500">
+                        <span>{formatDate(first.scheduled_at)}</span>
+                        <span>{formatTime(first.scheduled_at)}</span>
+                        <span>{first.duration_minutes} λεπτά</span>
+                      </div>
+                      {ownerName && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Ιδιοκτήτης: {ownerName}
+                          {ownerPhone && ` · ${ownerPhone}`}
+                        </p>
+                      )}
+                      {first.notes && (
+                        <p className="text-xs text-slate-500 mt-2 italic bg-white/50 rounded-lg px-2 py-1">
+                          {first.notes}
+                        </p>
+                      )}
+                    </div>
+                    {/* Group-level actions */}
                     <div className="flex items-center gap-2 shrink-0">
-                      {apt.status === 'pending' && (
+                      {allPending && (
                         <>
                           <button
-                            onClick={() => handleReject(apt.id)}
+                            onClick={() => handleReject(first.id)}
                             className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
                           >
-                            Απόρριψη
+                            Απόρριψη Όλων
                           </button>
                           <button
-                            onClick={() => handleApprove(apt.id)}
+                            onClick={() => handleApprove(first.id)}
                             className="px-3 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
                           >
-                            Έγκριση
+                            Έγκριση Όλων
                           </button>
                         </>
                       )}
-                      {apt.status === 'confirmed' && (
+                      {allConfirmed && (
                         <button
-                          onClick={() => setCancelDialog(apt)}
+                          onClick={() => setCancelDialog(first)}
                           className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
                         >
-                          Ακύρωση
-                        </button>
-                      )}
-                      {apt.status === 'completed' && (
-                        <button
-                          onClick={() => handleDownloadPrescription(apt.id)}
-                          disabled={downloadingId === apt.id}
-                          className="px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                        >
-                          {downloadingId === apt.id ? (
-                            <>
-                              <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              Λήψη...
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              Λήψη Συνταγής
-                            </>
-                          )}
+                          Ακύρωση Όλων
                         </button>
                       )}
                     </div>
+                  </div>
+
+                  {/* Individual pets in the group */}
+                  <div className="space-y-2 border-t border-slate-200/50 pt-3">
+                    {group.map((apt) => {
+                      const petCfg = statusConfig[apt.status] || statusConfig.confirmed;
+                      return (
+                        <div key={apt.id} className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">
+                              {apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}
+                            </span>
+                            <div>
+                              <span className="font-bold text-sm text-slate-800">{apt.pet?.name || 'Ασθενής'}</span>
+                              <span className="text-xs text-slate-500 ml-2">{apt.type}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {apt.status === 'completed' && (
+                              <button
+                                onClick={() => handleDownloadPrescription(apt.id)}
+                                disabled={downloadingId === apt.id}
+                                className="px-2 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {downloadingId === apt.id ? (
+                                  <>
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                    </svg>
+                                    Λήψη...
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    Συνταγή
+                                  </>
+                                )}
+                              </button>
+                            )}
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${petCfg.text} ${apt.status === 'pending' ? 'bg-amber-200' : apt.status === 'completed' ? 'bg-green-200' : apt.status === 'cancelled' ? 'bg-red-200' : 'bg-indigo-200'}`}>
+                              {petCfg.label}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );

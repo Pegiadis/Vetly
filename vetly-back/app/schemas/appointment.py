@@ -46,6 +46,7 @@ class AppointmentResponse(BaseModel):
     notes: str | None = None
     price: Decimal | None = None
     service_type_id: UUID | None = None
+    group_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
