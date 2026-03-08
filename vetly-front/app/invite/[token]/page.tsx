@@ -36,6 +36,7 @@ export default function InviteRegisterPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchInviteInfo = async () => {
@@ -68,8 +69,19 @@ export default function InviteRegisterPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setTouched(prev => ({ ...prev, [e.target.name]: true }));
     setError('');
   };
+
+  const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+
+  const fieldErrors: Record<string, string> = {};
+  if (formData.name.length > 0 && formData.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+  if (formData.password.length > 0 && formData.password.length < 6) fieldErrors.password = 'Τουλάχιστον 6 χαρακτήρες.';
+  if (formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword) fieldErrors.confirmPassword = 'Οι κωδικοί δεν ταιριάζουν.';
+
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-300';
+  const inputBase = "appearance-none rounded-xl relative block w-full px-4 py-3 border placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-teal-500 focus:border-teal-500";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +94,11 @@ export default function InviteRegisterPage() {
 
     if (formData.password.length < 6) {
       setError('Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες.');
+      return;
+    }
+
+    if (formData.name.trim().length < 2) {
+      setError('Το όνομα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
       return;
     }
 
@@ -179,11 +196,15 @@ export default function InviteRegisterPage() {
                 type="text"
                 autoComplete="name"
                 required
+                minLength={2}
+                maxLength={255}
                 value={formData.name}
                 onChange={handleChange}
-                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-teal-500 focus:border-teal-500"
+                onBlur={() => handleBlur('name')}
+                className={`${inputBase} ${inputErr('name')}`}
                 placeholder="Ονοματεπώνυμο"
               />
+              {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
             </div>
             <div>
               <label htmlFor="email" className="sr-only">Email</label>
@@ -195,7 +216,7 @@ export default function InviteRegisterPage() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-teal-500 focus:border-teal-500"
+                className={`${inputBase} border-slate-300`}
                 placeholder="Email"
               />
             </div>
@@ -206,9 +227,10 @@ export default function InviteRegisterPage() {
                 name="phone"
                 type="tel"
                 autoComplete="tel"
+                maxLength={50}
                 value={formData.phone}
                 onChange={handleChange}
-                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-teal-500 focus:border-teal-500"
+                className={`${inputBase} border-slate-300`}
                 placeholder="Τηλέφωνο (προαιρετικό)"
               />
             </div>
@@ -220,11 +242,15 @@ export default function InviteRegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
+                minLength={6}
+                maxLength={128}
                 value={formData.password}
                 onChange={handleChange}
-                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-teal-500 focus:border-teal-500"
+                onBlur={() => handleBlur('password')}
+                className={`${inputBase} ${inputErr('password')}`}
                 placeholder="Κωδικός Πρόσβασης"
               />
+              {touched.password && fieldErrors.password && <p className="text-xs text-red-600 mt-1">{fieldErrors.password}</p>}
             </div>
             <div>
               <label htmlFor="confirmPassword" className="sr-only">Επιβεβαίωση Κωδικού</label>
@@ -234,11 +260,15 @@ export default function InviteRegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
+                minLength={6}
+                maxLength={128}
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-teal-500 focus:border-teal-500"
+                onBlur={() => handleBlur('confirmPassword')}
+                className={`${inputBase} ${inputErr('confirmPassword')}`}
                 placeholder="Επιβεβαίωση Κωδικού"
               />
+              {touched.confirmPassword && fieldErrors.confirmPassword && <p className="text-xs text-red-600 mt-1">{fieldErrors.confirmPassword}</p>}
             </div>
           </div>
 

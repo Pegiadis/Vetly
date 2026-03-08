@@ -5,13 +5,13 @@ Vet schemas for request/response validation
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 
 class DayHours(BaseModel):
     """Working hours for a single day"""
-    open: str | None = None
-    close: str | None = None
+    open: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
+    close: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
     closed: bool = False
 
 
@@ -65,15 +65,15 @@ class VetListResponse(BaseModel):
 
 class VetUpdateRequest(BaseModel):
     """Vet profile update request"""
-    name: str | None = None
-    specialty: str | None = None
-    phone: str | None = None
-    address: str | None = None
-    city: str | None = None
-    description: str | None = None
-    image_url: str | None = None
-    coordinates_lat: Decimal | None = None
-    coordinates_lng: Decimal | None = None
+    name: str | None = Field(None, min_length=2, max_length=255)
+    specialty: str | None = Field(None, min_length=2, max_length=255)
+    phone: str | None = Field(None, min_length=5, max_length=50)
+    address: str | None = Field(None, min_length=5, max_length=500)
+    city: str | None = Field(None, min_length=2, max_length=100)
+    description: str | None = Field(None, max_length=2000)
+    image_url: str | None = Field(None, max_length=500)
+    coordinates_lat: Decimal | None = Field(None, ge=-90, le=90)
+    coordinates_lng: Decimal | None = Field(None, ge=-180, le=180)
 
 
 class VetHoursUpdateRequest(BaseModel):

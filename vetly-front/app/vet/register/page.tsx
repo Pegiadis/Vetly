@@ -34,11 +34,27 @@ export default function VetRegisterPage() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setTouched(prev => ({ ...prev, [e.target.name]: true }));
     setError('');
   };
+
+  const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+
+  const fieldErrors: Record<string, string> = {};
+  if (formData.name.length > 0 && formData.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+  if (formData.specialty.length > 0 && formData.specialty.trim().length < 2) fieldErrors.specialty = 'Τουλάχιστον 2 χαρακτήρες.';
+  if (formData.license_number.length > 0 && formData.license_number.trim().length < 2) fieldErrors.license_number = 'Τουλάχιστον 2 χαρακτήρες.';
+  if (formData.phone.length > 0 && formData.phone.trim().length < 5) fieldErrors.phone = 'Τουλάχιστον 5 χαρακτήρες.';
+  if (formData.address.length > 0 && formData.address.trim().length < 5) fieldErrors.address = 'Τουλάχιστον 5 χαρακτήρες.';
+  if (formData.city.length > 0 && formData.city.trim().length < 2) fieldErrors.city = 'Τουλάχιστον 2 χαρακτήρες.';
+  if (formData.password.length > 0 && formData.password.length < 6) fieldErrors.password = 'Τουλάχιστον 6 χαρακτήρες.';
+  if (formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword) fieldErrors.confirmPassword = 'Οι κωδικοί δεν ταιριάζουν.';
+
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-300';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,6 +67,27 @@ export default function VetRegisterPage() {
 
     if (formData.password.length < 6) {
       setError('Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες.');
+      return;
+    }
+
+    if (formData.name.trim().length < 2) {
+      setError('Το όνομα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
+      return;
+    }
+    if (formData.specialty.trim().length < 2) {
+      setError('Η ειδικότητα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
+      return;
+    }
+    if (formData.phone.trim().length < 5) {
+      setError('Το τηλέφωνο πρέπει να έχει τουλάχιστον 5 χαρακτήρες.');
+      return;
+    }
+    if (formData.address.trim().length < 5) {
+      setError('Η διεύθυνση πρέπει να έχει τουλάχιστον 5 χαρακτήρες.');
+      return;
+    }
+    if (formData.city.trim().length < 2) {
+      setError('Η πόλη πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
       return;
     }
 
@@ -85,7 +122,7 @@ export default function VetRegisterPage() {
     }
   };
 
-  const inputClass = "appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-indigo-500 focus:border-indigo-500";
+  const inputBase = "appearance-none rounded-xl relative block w-full px-4 py-3 border placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-indigo-500 focus:border-indigo-500";
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-indigo-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
@@ -128,11 +165,15 @@ export default function VetRegisterPage() {
                   type="text"
                   autoComplete="name"
                   required
+                  minLength={2}
+                  maxLength={255}
                   value={formData.name}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={() => handleBlur('name')}
+                  className={`${inputBase} ${inputErr('name')}`}
                   placeholder="Ονοματεπώνυμο"
                 />
+                {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
               </div>
               <div>
                 <label htmlFor="specialty" className="sr-only">Ειδικότητα</label>
@@ -141,11 +182,15 @@ export default function VetRegisterPage() {
                   name="specialty"
                   type="text"
                   required
+                  minLength={2}
+                  maxLength={255}
                   value={formData.specialty}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={() => handleBlur('specialty')}
+                  className={`${inputBase} ${inputErr('specialty')}`}
                   placeholder="Ειδικότητα"
                 />
+                {touched.specialty && fieldErrors.specialty && <p className="text-xs text-red-600 mt-1">{fieldErrors.specialty}</p>}
               </div>
             </div>
             <div>
@@ -158,7 +203,7 @@ export default function VetRegisterPage() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className={inputClass}
+                className={`${inputBase} border-slate-300`}
                 placeholder="Επαγγελματικό Email"
               />
             </div>
@@ -170,11 +215,15 @@ export default function VetRegisterPage() {
                   name="license_number"
                   type="text"
                   required
+                  minLength={2}
+                  maxLength={100}
                   value={formData.license_number}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={() => handleBlur('license_number')}
+                  className={`${inputBase} ${inputErr('license_number')}`}
                   placeholder="Αριθμός Άδειας"
                 />
+                {touched.license_number && fieldErrors.license_number && <p className="text-xs text-red-600 mt-1">{fieldErrors.license_number}</p>}
               </div>
               <div>
                 <label htmlFor="phone" className="sr-only">Τηλέφωνο</label>
@@ -184,11 +233,15 @@ export default function VetRegisterPage() {
                   type="tel"
                   autoComplete="tel"
                   required
+                  minLength={5}
+                  maxLength={50}
                   value={formData.phone}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={() => handleBlur('phone')}
+                  className={`${inputBase} ${inputErr('phone')}`}
                   placeholder="Τηλέφωνο"
                 />
+                {touched.phone && fieldErrors.phone && <p className="text-xs text-red-600 mt-1">{fieldErrors.phone}</p>}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -200,11 +253,15 @@ export default function VetRegisterPage() {
                   type="text"
                   autoComplete="street-address"
                   required
+                  minLength={5}
+                  maxLength={500}
                   value={formData.address}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={() => handleBlur('address')}
+                  className={`${inputBase} ${inputErr('address')}`}
                   placeholder="Διεύθυνση"
                 />
+                {touched.address && fieldErrors.address && <p className="text-xs text-red-600 mt-1">{fieldErrors.address}</p>}
               </div>
               <div>
                 <label htmlFor="city" className="sr-only">Πόλη</label>
@@ -214,11 +271,15 @@ export default function VetRegisterPage() {
                   type="text"
                   autoComplete="address-level2"
                   required
+                  minLength={2}
+                  maxLength={100}
                   value={formData.city}
                   onChange={handleChange}
-                  className={inputClass}
+                  onBlur={() => handleBlur('city')}
+                  className={`${inputBase} ${inputErr('city')}`}
                   placeholder="Πόλη"
                 />
+                {touched.city && fieldErrors.city && <p className="text-xs text-red-600 mt-1">{fieldErrors.city}</p>}
               </div>
             </div>
             <div>
@@ -229,11 +290,15 @@ export default function VetRegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
+                minLength={6}
+                maxLength={128}
                 value={formData.password}
                 onChange={handleChange}
-                className={inputClass}
+                onBlur={() => handleBlur('password')}
+                className={`${inputBase} ${inputErr('password')}`}
                 placeholder="Κωδικός Πρόσβασης"
               />
+              {touched.password && fieldErrors.password && <p className="text-xs text-red-600 mt-1">{fieldErrors.password}</p>}
             </div>
             <div>
               <label htmlFor="confirmPassword" className="sr-only">Επιβεβαίωση Κωδικού</label>
@@ -243,11 +308,15 @@ export default function VetRegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
+                minLength={6}
+                maxLength={128}
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className={inputClass}
+                onBlur={() => handleBlur('confirmPassword')}
+                className={`${inputBase} ${inputErr('confirmPassword')}`}
                 placeholder="Επιβεβαίωση Κωδικού"
               />
+              {touched.confirmPassword && fieldErrors.confirmPassword && <p className="text-xs text-red-600 mt-1">{fieldErrors.confirmPassword}</p>}
             </div>
           </div>
 

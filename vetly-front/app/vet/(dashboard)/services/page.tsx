@@ -33,6 +33,16 @@ function ServiceDialog({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+
+  const fieldErrors: Record<string, string> = {};
+  if (form.name.length > 0 && form.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+  if (form.price && (isNaN(parseFloat(form.price)) || parseFloat(form.price) < 0)) fieldErrors.price = 'Εισάγετε έγκυρη τιμή.';
+  if (form.duration_minutes && parseInt(form.duration_minutes) < 5) fieldErrors.duration_minutes = 'Τουλάχιστον 5 λεπτά.';
+
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,11 +105,14 @@ function ServiceDialog({
             <input
               type="text"
               required
+              maxLength={255}
               value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setTouched(t => ({ ...t, name: true })); }}
+              onBlur={() => handleBlur('name')}
+              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('name')}`}
               placeholder="π.χ. Γενική Εξέταση"
             />
+            {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
           </div>
 
           <div>
@@ -108,9 +121,13 @@ function ServiceDialog({
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               rows={3}
+              maxLength={2000}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               placeholder="Περιγράψτε την υπηρεσία..."
             />
+            {form.description.length > 1800 && (
+              <p className="text-xs text-slate-400 mt-1 text-right">{form.description.length}/2000</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -123,24 +140,29 @@ function ServiceDialog({
                   min={0}
                   step={0.01}
                   value={form.price}
-                  onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-8"
+                  onChange={e => { setForm(f => ({ ...f, price: e.target.value })); setTouched(t => ({ ...t, price: true })); }}
+                  onBlur={() => handleBlur('price')}
+                  className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-8 ${inputErr('price')}`}
                   placeholder="0.00"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">€</span>
               </div>
+              {touched.price && fieldErrors.price && <p className="text-xs text-red-600 mt-1">{fieldErrors.price}</p>}
             </div>
 
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-1">Διάρκεια (λεπτά)</label>
               <input
                 type="number"
-                min={1}
+                min={5}
+                max={480}
                 value={form.duration_minutes}
-                onChange={e => setForm(f => ({ ...f, duration_minutes: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onChange={e => { setForm(f => ({ ...f, duration_minutes: e.target.value })); setTouched(t => ({ ...t, duration_minutes: true })); }}
+                onBlur={() => handleBlur('duration_minutes')}
+                className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('duration_minutes')}`}
                 placeholder="π.χ. 30"
               />
+              {touched.duration_minutes && fieldErrors.duration_minutes && <p className="text-xs text-red-600 mt-1">{fieldErrors.duration_minutes}</p>}
             </div>
           </div>
 
@@ -180,7 +202,7 @@ function ServiceDialog({
             </button>
             <button
               type="submit"
-              disabled={submitting || !form.name.trim() || !form.price}
+              disabled={submitting || !form.name.trim() || !form.price || Object.keys(fieldErrors).length > 0}
               className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
             >
               {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}

@@ -293,7 +293,7 @@ class OwnerProfileUpdateRequest(BaseModel):
 
 class PetCreateRequest(BaseModel):
     """Request to create a new pet"""
-    name: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=30)
     type: str = Field(..., min_length=1, max_length=20)
     breed: str = Field(..., min_length=1, max_length=100)
     age: int = Field(..., ge=0, le=50)
@@ -304,7 +304,7 @@ class PetCreateRequest(BaseModel):
 
 class PetUpdateRequest(BaseModel):
     """Request to update a pet"""
-    name: str | None = Field(None, min_length=1, max_length=100)
+    name: str | None = Field(None, min_length=1, max_length=30)
     breed: str | None = Field(None, min_length=1, max_length=100)
     age: int | None = Field(None, ge=0, le=50)
     weight: float | None = Field(None, gt=0, le=200)

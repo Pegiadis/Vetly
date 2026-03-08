@@ -49,6 +49,14 @@ function ClientDialog({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+
+  const fieldErrors: Record<string, string> = {};
+  if (form.name.length > 0 && form.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,11 +106,14 @@ function ClientDialog({
             <input
               type="text"
               required
+              maxLength={255}
               value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setTouched(t => ({ ...t, name: true })); }}
+              onBlur={() => handleBlur('name')}
+              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('name')}`}
               placeholder="π.χ. Μαρία Παπαδοπούλου"
             />
+            {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
           </div>
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
@@ -118,6 +129,7 @@ function ClientDialog({
             <label className="block text-sm font-bold text-slate-700 mb-1">Τηλέφωνο</label>
             <input
               type="tel"
+              maxLength={50}
               value={form.phone}
               onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -128,6 +140,7 @@ function ClientDialog({
             <label className="block text-sm font-bold text-slate-700 mb-1">Διεύθυνση</label>
             <input
               type="text"
+              maxLength={500}
               value={form.address}
               onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -140,9 +153,13 @@ function ClientDialog({
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               rows={2}
+              maxLength={2000}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               placeholder="Προσθέστε σημειώσεις..."
             />
+            {form.notes.length > 1800 && (
+              <p className="text-xs text-slate-400 mt-1 text-right">{form.notes.length}/2000</p>
+            )}
           </div>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
@@ -151,7 +168,7 @@ function ClientDialog({
             <button type="button" onClick={onClose} className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
               Ακύρωση
             </button>
-            <button type="submit" disabled={submitting || !form.name.trim()} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={submitting || !form.name.trim() || Object.keys(fieldErrors).length > 0} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
               {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
             </button>
           </div>
@@ -184,6 +201,14 @@ function PetDialog({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [petTouched, setPetTouched] = useState<Record<string, boolean>>({});
+
+  const handlePetBlur = (field: string) => setPetTouched(prev => ({ ...prev, [field]: true }));
+
+  const petFieldErrors: Record<string, string> = {};
+  if (form.name.length > 0 && form.name.trim().length < 2) petFieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+
+  const petInputErr = (field: string) => petTouched[field] && petFieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,10 +260,13 @@ function PetDialog({
             <input
               type="text"
               required
+              maxLength={30}
               value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setPetTouched(t => ({ ...t, name: true })); }}
+              onBlur={() => handlePetBlur('name')}
+              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${petInputErr('name')}`}
             />
+            {petTouched.name && petFieldErrors.name && <p className="text-xs text-red-600 mt-1">{petFieldErrors.name}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -270,6 +298,7 @@ function PetDialog({
             <label className="block text-sm font-bold text-slate-700 mb-1">Ράτσα</label>
             <input
               type="text"
+              maxLength={100}
               value={form.breed}
               onChange={e => setForm(f => ({ ...f, breed: e.target.value }))}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -304,8 +333,12 @@ function PetDialog({
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               rows={2}
+              maxLength={2000}
               className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
             />
+            {form.notes.length > 1800 && (
+              <p className="text-xs text-slate-400 mt-1 text-right">{form.notes.length}/2000</p>
+            )}
           </div>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
@@ -314,7 +347,7 @@ function PetDialog({
             <button type="button" onClick={onClose} className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
               Ακύρωση
             </button>
-            <button type="submit" disabled={submitting || !form.name.trim()} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+            <button type="submit" disabled={submitting || !form.name.trim() || Object.keys(petFieldErrors).length > 0} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
               {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
             </button>
           </div>

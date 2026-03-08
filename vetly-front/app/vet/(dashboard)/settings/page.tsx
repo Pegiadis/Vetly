@@ -68,6 +68,27 @@ export default function VetSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+
+  const fieldErrors: Record<string, string> = {};
+  if (formData.name.trim().length > 0 && formData.name.trim().length < 2)
+    fieldErrors.name = 'Το όνομα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.';
+  else if (formData.name.length > 255)
+    fieldErrors.name = 'Το όνομα δεν μπορεί να υπερβαίνει τους 255 χαρακτήρες.';
+  if (formData.specialty.trim().length > 0 && formData.specialty.trim().length < 2)
+    fieldErrors.specialty = 'Η ειδικότητα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.';
+  if (formData.phone.trim().length > 0 && formData.phone.trim().length < 5)
+    fieldErrors.phone = 'Το τηλέφωνο πρέπει να έχει τουλάχιστον 5 χαρακτήρες.';
+  if (formData.address.trim().length > 0 && formData.address.trim().length < 5)
+    fieldErrors.address = 'Η διεύθυνση πρέπει να έχει τουλάχιστον 5 χαρακτήρες.';
+  if (formData.city.trim().length > 0 && formData.city.trim().length < 2)
+    fieldErrors.city = 'Η πόλη πρέπει να έχει τουλάχιστον 2 χαρακτήρες.';
+  if (formData.description.length > 2000)
+    fieldErrors.description = 'Η περιγραφή δεν μπορεί να υπερβαίνει τους 2000 χαρακτήρες.';
+
+  const hasErrors = Object.keys(fieldErrors).length > 0;
 
   useEffect(() => {
     if (!profile) return;
@@ -99,6 +120,44 @@ export default function VetSettingsPage() {
     setSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
+
+    if (!formData.name.trim() || formData.name.trim().length < 2) {
+      setSaveError('Το όνομα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
+      setSaving(false);
+      return;
+    }
+    if (!formData.specialty.trim() || formData.specialty.trim().length < 2) {
+      setSaveError('Η ειδικότητα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
+      setSaving(false);
+      return;
+    }
+    if (!formData.phone.trim() || formData.phone.trim().length < 5) {
+      setSaveError('Το τηλέφωνο πρέπει να έχει τουλάχιστον 5 χαρακτήρες.');
+      setSaving(false);
+      return;
+    }
+    if (!formData.address.trim() || formData.address.trim().length < 5) {
+      setSaveError('Η διεύθυνση πρέπει να έχει τουλάχιστον 5 χαρακτήρες.');
+      setSaving(false);
+      return;
+    }
+    if (!formData.city.trim() || formData.city.trim().length < 2) {
+      setSaveError('Η πόλη πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
+      setSaving(false);
+      return;
+    }
+
+    // Convert empty hour strings to null for backend pattern validation
+    const sanitizedHours: Record<string, DayHours> = {};
+    for (const day of dayOrder) {
+      const h = hours[day];
+      sanitizedHours[day] = {
+        open: h.closed ? null : (h.open || null),
+        close: h.closed ? null : (h.close || null),
+        closed: h.closed,
+      };
+    }
+
     try {
       await updateVetProfile({
         name: formData.name,
@@ -110,7 +169,7 @@ export default function VetSettingsPage() {
         coordinates_lat: formData.coordinates_lat,
         coordinates_lng: formData.coordinates_lng,
       });
-      await updateVetHours(hours);
+      await updateVetHours(sanitizedHours);
       refetch();
       refreshUser();
       setSaveSuccess(true);
@@ -190,19 +249,29 @@ export default function VetSettingsPage() {
               <label className="block text-sm font-bold text-slate-600 mb-1">Ονοματεπώνυμο</label>
               <input
                 type="text"
+                required
+                minLength={2}
+                maxLength={255}
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onBlur={() => handleBlur('name')}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${touched.name && fieldErrors.name ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}
               />
+              {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-600 mb-1">Ειδικότητα</label>
               <input
                 type="text"
+                required
+                minLength={2}
+                maxLength={255}
                 value={formData.specialty}
                 onChange={e => setFormData({ ...formData, specialty: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onBlur={() => handleBlur('specialty')}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${touched.specialty && fieldErrors.specialty ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}
               />
+              {touched.specialty && fieldErrors.specialty && <p className="text-xs text-red-600 mt-1">{fieldErrors.specialty}</p>}
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-600 mb-1">Email</label>
@@ -217,37 +286,58 @@ export default function VetSettingsPage() {
               <label className="block text-sm font-bold text-slate-600 mb-1">Τηλέφωνο</label>
               <input
                 type="tel"
+                required
+                minLength={5}
+                maxLength={50}
                 value={formData.phone}
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onBlur={() => handleBlur('phone')}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${touched.phone && fieldErrors.phone ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}
               />
+              {touched.phone && fieldErrors.phone && <p className="text-xs text-red-600 mt-1">{fieldErrors.phone}</p>}
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-600 mb-1">Διεύθυνση</label>
               <input
                 type="text"
+                required
+                minLength={5}
+                maxLength={500}
                 value={formData.address}
                 onChange={e => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onBlur={() => handleBlur('address')}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${touched.address && fieldErrors.address ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}
               />
+              {touched.address && fieldErrors.address && <p className="text-xs text-red-600 mt-1">{fieldErrors.address}</p>}
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-600 mb-1">Πόλη</label>
               <input
                 type="text"
+                required
+                minLength={2}
+                maxLength={100}
                 value={formData.city}
                 onChange={e => setFormData({ ...formData, city: e.target.value })}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onBlur={() => handleBlur('city')}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${touched.city && fieldErrors.city ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}
               />
+              {touched.city && fieldErrors.city && <p className="text-xs text-red-600 mt-1">{fieldErrors.city}</p>}
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-bold text-slate-600 mb-1">Περιγραφή</label>
               <textarea
                 value={formData.description}
                 onChange={e => setFormData({ ...formData, description: e.target.value })}
+                onBlur={() => handleBlur('description')}
                 rows={3}
-                className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                maxLength={2000}
+                className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 ${touched.description && fieldErrors.description ? 'border-red-300 bg-red-50/30' : 'border-slate-200'}`}
               />
+              <div className="flex justify-between mt-1">
+                {touched.description && fieldErrors.description ? <p className="text-xs text-red-600">{fieldErrors.description}</p> : <span />}
+                <span className="text-xs text-slate-400">{formData.description.length}/2000</span>
+              </div>
             </div>
             <div>
               <label className="block text-sm font-bold text-slate-600 mb-1">Αριθμός Άδειας</label>
@@ -343,7 +433,7 @@ export default function VetSettingsPage() {
         <div className="flex justify-end">
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || hasErrors}
             className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-lg disabled:opacity-50"
           >
             {saving ? 'Αποθήκευση...' : 'Αποθήκευση Αλλαγών'}

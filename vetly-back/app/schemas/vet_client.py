@@ -25,23 +25,23 @@ class VetClientPetResponse(BaseModel):
 
 
 class VetClientPetCreateRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=30)
     type: str = Field(..., description="Dog, Cat, or Other")
     breed: str | None = Field(None, max_length=100)
     age: int | None = Field(None, ge=0)
     weight: float | None = Field(None, ge=0)
-    gender: str | None = Field(None, description="Male or Female")
-    notes: str | None = None
+    gender: str | None = Field(None, max_length=10)
+    notes: str | None = Field(None, max_length=2000)
 
 
 class VetClientPetUpdateRequest(BaseModel):
-    name: str | None = Field(None, min_length=1, max_length=100)
-    type: str | None = None
-    breed: str | None = None
+    name: str | None = Field(None, min_length=1, max_length=30)
+    type: str | None = Field(None, max_length=20)
+    breed: str | None = Field(None, max_length=100)
     age: int | None = Field(None, ge=0)
     weight: float | None = Field(None, ge=0)
-    gender: str | None = None
-    notes: str | None = None
+    gender: str | None = Field(None, max_length=10)
+    notes: str | None = Field(None, max_length=2000)
 
 
 # --- Linked pet schema (real Pet records for linked clients) ---
@@ -105,7 +105,7 @@ class VetClientCreateRequest(BaseModel):
     email: EmailStr | None = None
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)
-    notes: str | None = None
+    notes: str | None = Field(None, max_length=2000)
 
 
 class VetClientUpdateRequest(BaseModel):
@@ -113,7 +113,7 @@ class VetClientUpdateRequest(BaseModel):
     email: EmailStr | None = None
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)
-    notes: str | None = None
+    notes: str | None = Field(None, max_length=2000)
 
 
 # --- Invite schemas ---
@@ -132,6 +132,6 @@ class InviteInfoResponse(BaseModel):
 class InviteRegisterRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     email: EmailStr
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=6, max_length=128)
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)

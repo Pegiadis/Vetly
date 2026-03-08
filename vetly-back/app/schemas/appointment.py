@@ -78,12 +78,12 @@ class VetCreateAppointmentRequest(BaseModel):
 class AppointmentStatusUpdate(BaseModel):
     """Appointment status update request"""
     status: str = Field(..., pattern="^(confirmed|completed|cancelled)$")
-    notes: str | None = None
+    notes: str | None = Field(None, max_length=2000)
 
 
 class AppointmentRejectRequest(BaseModel):
     """Appointment rejection request"""
-    reason: str | None = None
+    reason: str | None = Field(None, max_length=1000)
 
 
 class ExaminationMedicationItem(BaseModel):

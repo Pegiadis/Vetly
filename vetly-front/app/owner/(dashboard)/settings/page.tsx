@@ -36,6 +36,8 @@ export default function SettingsPage() {
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const [notifications, setNotifications] = useState({
     appointments: true,
@@ -59,8 +61,18 @@ export default function SettingsPage() {
       ...prev,
       [e.target.name]: e.target.value,
     }));
+    setTouched(prev => ({ ...prev, [e.target.name]: true }));
     setSaveSuccess(false);
+    setSaveError('');
   };
+
+  const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+
+  const fieldErrors: Record<string, string> = {};
+  if (formData.name.length > 0 && formData.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
+  const hasErrors = Object.keys(fieldErrors).length > 0;
 
   const handleNotificationChange = (key: keyof typeof notifications) => {
     setNotifications(prev => ({
@@ -70,8 +82,17 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
+    if (hasErrors) {
+      setSaveError('Διορθώστε τα σφάλματα πριν αποθηκεύσετε.');
+      return;
+    }
+    if (formData.name && formData.name.trim().length < 2) {
+      setSaveError('Το όνομα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
+      return;
+    }
     setSaving(true);
     setSaveSuccess(false);
+    setSaveError('');
     try {
       await updateOwnerProfile({
         name: formData.name || undefined,
@@ -160,10 +181,14 @@ export default function SettingsPage() {
             <input
               type="text"
               name="name"
+              maxLength={255}
+              minLength={2}
               value={formData.name}
               onChange={handleChange}
-              className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+              onBlur={() => handleBlur('name')}
+              className={`w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 ${inputErr('name')}`}
             />
+            {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
           </div>
 
           <div>
@@ -182,6 +207,7 @@ export default function SettingsPage() {
             <input
               type="tel"
               name="phone"
+              maxLength={50}
               value={formData.phone}
               onChange={handleChange}
               className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -193,6 +219,7 @@ export default function SettingsPage() {
             <input
               type="text"
               name="address"
+              maxLength={500}
               value={formData.address}
               onChange={handleChange}
               className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
@@ -203,13 +230,16 @@ export default function SettingsPage() {
         <div className="flex items-center gap-4 mt-6">
           <button
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || hasErrors}
             className="px-6 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50"
           >
             {saving ? 'Αποθήκευση...' : 'Αποθήκευση Αλλαγών'}
           </button>
           {saveSuccess && (
             <span className="text-sm text-green-600 font-medium">Οι αλλαγές αποθηκεύτηκαν!</span>
+          )}
+          {saveError && (
+            <span className="text-sm text-red-600 font-medium">{saveError}</span>
           )}
         </div>
       </div>

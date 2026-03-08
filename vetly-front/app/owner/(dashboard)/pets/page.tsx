@@ -90,10 +90,12 @@ export default function PetsPage() {
   const [createForm, setCreateForm] = useState(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [createTouched, setCreateTouched] = useState<Record<string, boolean>>({});
 
   // Edit modal
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [editForm, setEditForm] = useState({ name: '', breed: '', age: '', weight: '', chip_number: '' });
+  const [editTouched, setEditTouched] = useState<Record<string, boolean>>({});
 
   // Delete confirmation dialog
   const [deleteDialog, setDeleteDialog] = useState<{
@@ -174,11 +176,24 @@ export default function PetsPage() {
     }
   };
 
+  // Create form validation
+  const createFieldErrors: Record<string, string> = {};
+  if (createForm.name.length > 0 && createForm.name.trim().length < 2) createFieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+  if (createForm.breed.length > 0 && createForm.breed.trim().length < 2) createFieldErrors.breed = 'Τουλάχιστον 2 χαρακτήρες.';
+  const createInputErr = (field: string) => createTouched[field] && createFieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
+
+  // Edit form validation
+  const editFieldErrors: Record<string, string> = {};
+  if (editForm.name.length > 0 && editForm.name.trim().length < 2) editFieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+  if (editForm.breed.length > 0 && editForm.breed.trim().length < 2) editFieldErrors.breed = 'Τουλάχιστον 2 χαρακτήρες.';
+  const editInputErr = (field: string) => editTouched[field] && editFieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
+
   const openEdit = (pet: Pet) => {
     setEditingPet(pet);
+    setEditTouched({});
     setEditForm({
-      name: pet.name,
-      breed: pet.breed || '',
+      name: (pet.name || '').slice(0, 30),
+      breed: (pet.breed || '').slice(0, 100),
       age: pet.age != null ? String(pet.age) : '',
       weight: pet.weight != null ? String(pet.weight) : '',
       chip_number: pet.chip_number || '',
@@ -284,6 +299,7 @@ export default function PetsPage() {
           <button
             onClick={() => {
               setCreateForm(EMPTY_FORM);
+              setCreateTouched({});
               setShowCreate(true);
             }}
             className="bg-teal-600 text-white px-4 py-2 rounded-xl font-bold hover:bg-teal-700 transition-colors flex items-center gap-2"
@@ -594,10 +610,13 @@ export default function PetsPage() {
                 <label className="block text-sm font-bold text-slate-700 mb-2">Όνομα</label>
                 <input
                   type="text"
+                  maxLength={30}
                   value={createForm.name}
-                  onChange={e => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  onChange={e => { setCreateForm(prev => ({ ...prev, name: e.target.value })); setCreateTouched(t => ({ ...t, name: true })); }}
+                  onBlur={() => setCreateTouched(t => ({ ...t, name: true }))}
+                  className={`w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 ${createInputErr('name')}`}
                 />
+                {createTouched.name && createFieldErrors.name && <p className="text-xs text-red-600 mt-1">{createFieldErrors.name}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -630,10 +649,13 @@ export default function PetsPage() {
                 <label className="block text-sm font-bold text-slate-700 mb-2">Ράτσα</label>
                 <input
                   type="text"
+                  maxLength={100}
                   value={createForm.breed}
-                  onChange={e => setCreateForm(prev => ({ ...prev, breed: e.target.value }))}
-                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  onChange={e => { setCreateForm(prev => ({ ...prev, breed: e.target.value })); setCreateTouched(t => ({ ...t, breed: true })); }}
+                  onBlur={() => setCreateTouched(t => ({ ...t, breed: true }))}
+                  className={`w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 ${createInputErr('breed')}`}
                 />
+                {createTouched.breed && createFieldErrors.breed && <p className="text-xs text-red-600 mt-1">{createFieldErrors.breed}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -702,7 +724,7 @@ export default function PetsPage() {
               </button>
               <button
                 onClick={handleCreate}
-                disabled={submitting || !createForm.name || !createForm.breed || !createForm.age || !createForm.weight || !isChipValid(createForm.chip_number)}
+                disabled={submitting || !createForm.name || !createForm.breed || !createForm.age || !createForm.weight || !isChipValid(createForm.chip_number) || Object.keys(createFieldErrors).length > 0}
                 className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Αποθήκευση...' : 'Προσθήκη'}
@@ -733,20 +755,26 @@ export default function PetsPage() {
                 <label className="block text-sm font-bold text-slate-700 mb-2">Όνομα</label>
                 <input
                   type="text"
+                  maxLength={30}
                   value={editForm.name}
-                  onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  onChange={e => { setEditForm(prev => ({ ...prev, name: e.target.value })); setEditTouched(t => ({ ...t, name: true })); }}
+                  onBlur={() => setEditTouched(t => ({ ...t, name: true }))}
+                  className={`w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 ${editInputErr('name')}`}
                 />
+                {editTouched.name && editFieldErrors.name && <p className="text-xs text-red-600 mt-1">{editFieldErrors.name}</p>}
               </div>
 
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Ράτσα</label>
                 <input
                   type="text"
+                  maxLength={100}
                   value={editForm.breed}
-                  onChange={e => setEditForm(prev => ({ ...prev, breed: e.target.value }))}
-                  className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  onChange={e => { setEditForm(prev => ({ ...prev, breed: e.target.value })); setEditTouched(t => ({ ...t, breed: true })); }}
+                  onBlur={() => setEditTouched(t => ({ ...t, breed: true }))}
+                  className={`w-full p-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 ${editInputErr('breed')}`}
                 />
+                {editTouched.breed && editFieldErrors.breed && <p className="text-xs text-red-600 mt-1">{editFieldErrors.breed}</p>}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -815,7 +843,7 @@ export default function PetsPage() {
               </button>
               <button
                 onClick={handleUpdate}
-                disabled={submitting || !isChipValid(editForm.chip_number)}
+                disabled={submitting || !isChipValid(editForm.chip_number) || Object.keys(editFieldErrors).length > 0}
                 className="flex-1 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
