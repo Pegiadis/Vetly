@@ -49,24 +49,6 @@ export interface ServiceType {
   updated_at: string;
 }
 
-export interface RevenueStats {
-  total_revenue: number;
-  monthly_revenue: number;
-  avg_per_appointment: number;
-  total_appointments_with_price: number;
-}
-
-export interface RevenueByServiceItem {
-  service_name: string;
-  total_revenue: number;
-  appointment_count: number;
-}
-
-export interface RevenueByServiceResponse {
-  items: RevenueByServiceItem[];
-  total_revenue: number;
-}
-
 // Public vet types (no auth required)
 export interface PublicVet {
   id: string;

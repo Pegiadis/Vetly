@@ -3,7 +3,6 @@ Analytics schemas for request/response validation
 """
 
 from datetime import date
-from decimal import Decimal
 from pydantic import BaseModel
 
 
@@ -81,22 +80,3 @@ class FullAnalyticsResponse(BaseModel):
     patient_types: PatientTypeResponse
 
 
-class RevenueStatsResponse(BaseModel):
-    """Revenue statistics for a vet"""
-    total_revenue: Decimal
-    monthly_revenue: Decimal
-    avg_per_appointment: Decimal
-    total_appointments_with_price: int
-
-
-class RevenueByServiceItem(BaseModel):
-    """Revenue breakdown for a single service"""
-    service_name: str
-    total_revenue: Decimal
-    appointment_count: int
-
-
-class RevenueByServiceResponse(BaseModel):
-    """Revenue breakdown by service type"""
-    items: list[RevenueByServiceItem]
-    total_revenue: Decimal

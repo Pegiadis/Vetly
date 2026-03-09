@@ -11,7 +11,6 @@ import {
   completeExamination,
   useVetProfile,
   toggleOnCall,
-  useRevenueStats,
   VetAppointment,
   ExaminationMedication,
 } from '@/hooks/useVetData';
@@ -298,7 +297,6 @@ export default function VetDashboardPage() {
   const { appointments: todayAppointments, loading: todayLoading, refetch: refetchToday } = useTodayAppointments();
   const { appointments: pendingAppointments, loading: pendingLoading } = usePendingAppointments();
   const { patients: recentPatients, loading: patientsLoading } = usePatients();
-  const { stats: revenueStats, loading: revenueLoading } = useRevenueStats();
   const [examAppointment, setExamAppointment] = useState<VetAppointment | null>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const { profile } = useVetProfile();
@@ -323,7 +321,7 @@ export default function VetDashboardPage() {
     }
   };
 
-  const loading = statsLoading || todayLoading || pendingLoading || patientsLoading || revenueLoading;
+  const loading = statsLoading || todayLoading || pendingLoading || patientsLoading;
 
   const handleExamSuccess = () => {
     setExamAppointment(null);
@@ -356,47 +354,6 @@ export default function VetDashboardPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Dashboard Ιατρείου</h1>
         <p className="text-slate-500 mt-1">Καλώς ήρθατε, {user?.name || 'Κτηνίατρε'}</p>
-      </div>
-
-      {/* Revenue Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <Link
-          href="/vet/analytics"
-          className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all text-white"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-white/20 p-3 rounded-xl">
-              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-emerald-100 text-xs font-bold uppercase">Μηνιαία Έσοδα</p>
-              <h3 className="text-2xl font-bold text-white">
-                {Number(revenueStats?.monthly_revenue ?? 0).toFixed(2)} €
-              </h3>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          href="/vet/analytics"
-          className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-emerald-100 p-3 rounded-xl text-emerald-600">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs font-bold uppercase">Συνολικά Έσοδα</p>
-              <h3 className="text-2xl font-bold text-slate-800">
-                {Number(revenueStats?.total_revenue ?? 0).toFixed(2)} €
-              </h3>
-            </div>
-          </div>
-        </Link>
       </div>
 
       {/* Stats Cards */}

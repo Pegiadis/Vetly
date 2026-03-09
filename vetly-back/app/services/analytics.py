@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.base import Appointment, Pet, Review
 from app.models.appointment import AppointmentStatus
-from app.models.service_type import ServiceType
+
 from app.schemas.analytics import (
     DashboardStatsResponse,
     AppointmentTrendResponse,
@@ -21,9 +21,6 @@ from app.schemas.analytics import (
     PatientTypeResponse,
     PatientTypeItem,
     FullAnalyticsResponse,
-    RevenueStatsResponse,
-    RevenueByServiceItem,
-    RevenueByServiceResponse,
 )
 
 
@@ -255,81 +252,3 @@ class AnalyticsService:
             patient_types=self.get_patient_types(vet_id),
         )
 
-    def get_revenue_stats(self, vet_id: UUID) -> RevenueStatsResponse:
-        """Get revenue statistics for a vet"""
-        today = date.today()
-        month_start = today.replace(day=1)
-
-        # Total revenue across all time (appointments with a price)
-        total_revenue = self.db.scalar(
-            select(func.coalesce(func.sum(Appointment.price), 0))
-            .where(
-                Appointment.vet_id == vet_id,
-                Appointment.price.isnot(None),
-            )
-        ) or 0
-
-        # Revenue this month
-        monthly_revenue = self.db.scalar(
-            select(func.coalesce(func.sum(Appointment.price), 0))
-            .where(
-                Appointment.vet_id == vet_id,
-                Appointment.price.isnot(None),
-                Appointment.scheduled_at >= datetime.combine(month_start, datetime.min.time()),
-            )
-        ) or 0
-
-        # Count of appointments that have a price set
-        total_with_price = self.db.scalar(
-            select(func.count(Appointment.id))
-            .where(
-                Appointment.vet_id == vet_id,
-                Appointment.price.isnot(None),
-            )
-        ) or 0
-
-        avg_per_appointment = (
-            total_revenue / total_with_price if total_with_price > 0 else 0
-        )
-
-        return RevenueStatsResponse(
-            total_revenue=round(total_revenue, 2),
-            monthly_revenue=round(monthly_revenue, 2),
-            avg_per_appointment=round(avg_per_appointment, 2),
-            total_appointments_with_price=total_with_price,
-        )
-
-    def get_revenue_by_service(self, vet_id: UUID) -> RevenueByServiceResponse:
-        """Get revenue breakdown by service type"""
-        query = (
-            select(
-                ServiceType.name.label("service_name"),
-                func.coalesce(func.sum(Appointment.price), 0).label("total_revenue"),
-                func.count(Appointment.id).label("appointment_count"),
-            )
-            .join(Appointment, Appointment.service_type_id == ServiceType.id)
-            .where(
-                ServiceType.vet_id == vet_id,
-                Appointment.price.isnot(None),
-            )
-            .group_by(ServiceType.id, ServiceType.name)
-            .order_by(func.sum(Appointment.price).desc())
-        )
-
-        results = self.db.execute(query).all()
-
-        items = [
-            RevenueByServiceItem(
-                service_name=row.service_name,
-                total_revenue=round(row.total_revenue, 2),
-                appointment_count=row.appointment_count,
-            )
-            for row in results
-        ]
-
-        total_revenue = sum(item.total_revenue for item in items)
-
-        return RevenueByServiceResponse(
-            items=items,
-            total_revenue=round(total_revenue, 2),
-        )
