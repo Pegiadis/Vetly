@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePendingAppointments, useVetNotifications, useVetProfile, toggleOnCall } from '@/hooks/useVetData';
+import { usePendingAppointments, useVetNotifications, useOnCall } from '@/hooks/useVetData';
 
 const navItems = [
   {
@@ -134,28 +133,7 @@ export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
   const { logout } = useAuth();
   const { appointments: pendingAppointments } = usePendingAppointments();
   const { notifications } = useVetNotifications();
-  const { profile } = useVetProfile();
-
-  const [isOnCall, setIsOnCall] = useState(false);
-  const [toggling, setToggling] = useState(false);
-
-  useEffect(() => {
-    if (profile) setIsOnCall(profile.is_on_call);
-  }, [profile]);
-
-  const handleToggleOnCall = async () => {
-    if (toggling) return;
-    const newValue = !isOnCall;
-    setIsOnCall(newValue);
-    setToggling(true);
-    try {
-      await toggleOnCall(newValue);
-    } catch {
-      setIsOnCall(!newValue);
-    } finally {
-      setToggling(false);
-    }
-  };
+  const { isOnCall, toggling, handleToggle: handleToggleOnCall } = useOnCall();
 
   const unreadNotifCount = notifications.filter(n => !n.is_read).length;
 

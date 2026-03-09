@@ -572,6 +572,46 @@ export async function toggleOnCall(is_on_call: boolean): Promise<VetProfile> {
   return api.patch<VetProfile>('/vets/me/on-call', { is_on_call });
 }
 
+// --- Shared On-Call Hook ---
+
+const ON_CALL_EVENT = 'vetly:oncall-changed';
+
+export function useOnCall() {
+  const { profile } = useVetProfile();
+  const [isOnCall, setIsOnCall] = useState(false);
+  const [toggling, setToggling] = useState(false);
+
+  useEffect(() => {
+    if (profile) setIsOnCall(profile.is_on_call);
+  }, [profile]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setIsOnCall((e as CustomEvent<boolean>).detail);
+    };
+    window.addEventListener(ON_CALL_EVENT, handler);
+    return () => window.removeEventListener(ON_CALL_EVENT, handler);
+  }, []);
+
+  const handleToggle = async () => {
+    if (toggling) return;
+    const newValue = !isOnCall;
+    setIsOnCall(newValue);
+    setToggling(true);
+    window.dispatchEvent(new CustomEvent(ON_CALL_EVENT, { detail: newValue }));
+    try {
+      await toggleOnCall(newValue);
+    } catch {
+      setIsOnCall(!newValue);
+      window.dispatchEvent(new CustomEvent(ON_CALL_EVENT, { detail: !newValue }));
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  return { isOnCall, toggling, handleToggle };
+}
+
 // --- Vet Create Appointment ---
 
 export interface VetCreateAppointmentData {

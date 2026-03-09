@@ -1,14 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   useVetReminders,
   deleteVetReminder,
   createReminder,
-  usePatients,
+  useVetClients,
+  useVetClient,
   type VetReminder,
+  type VetClientListItem,
+  type LinkedPet,
 } from '@/hooks/useVetData';
 import Pagination from '@/components/Pagination';
+import DatePicker from '@/components/DatePicker';
 
 type ReminderType = 'vaccination' | 'checkup' | 'medication' | 'custom';
 
@@ -51,10 +55,27 @@ interface CreateReminderDialogProps {
   onSaved: () => void;
 }
 
+function petEmoji(type: string) {
+  if (type === 'Dog') return '🐕';
+  if (type === 'Cat') return '🐈';
+  return '🐾';
+}
+
 function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
-  const { patients } = usePatients();
+  // Client search state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Client & pet selection
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedClientName, setSelectedClientName] = useState('');
+  const [selectedPet, setSelectedPet] = useState<LinkedPet | null>(null);
+
+  // Form state
   const [form, setForm] = useState({
-    pet_id: '',
     type: 'checkup' as ReminderType,
     title: '',
     message: '',
@@ -64,6 +85,58 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Data hooks
+  const { clients, loading: clientsLoading } = useVetClients(1, 20, debouncedSearch || undefined);
+  const { client: clientDetail, loading: clientDetailLoading } = useVetClient(selectedClientId);
+  const availablePets = clientDetail?.linked_pets ?? [];
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // Show dropdown when results exist
+  useEffect(() => {
+    if (debouncedSearch.length >= 2 && clients.length > 0 && !selectedClientId) {
+      setShowDropdown(true);
+    } else {
+      setShowDropdown(false);
+    }
+  }, [debouncedSearch, clients, selectedClientId]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
+          inputRef.current && !inputRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Reset pet when client changes
+  useEffect(() => {
+    setSelectedPet(null);
+  }, [selectedClientId]);
+
+  const handleSelectClient = (client: VetClientListItem) => {
+    setSelectedClientId(client.id);
+    setSelectedClientName(client.name);
+    setSearchTerm('');
+    setShowDropdown(false);
+  };
+
+  const handleClearClient = () => {
+    setSelectedClientId(null);
+    setSelectedClientName('');
+    setSelectedPet(null);
+    setSearchTerm('');
+    setDebouncedSearch('');
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: name === 'reminder_days_before' ? Number(value) : value }));
@@ -71,7 +144,7 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.pet_id || !form.title || !form.due_date) {
+    if (!selectedPet || !form.title || !form.due_date) {
       setError('Συμπληρώστε τα υποχρεωτικά πεδία.');
       return;
     }
@@ -79,7 +152,7 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
     setError('');
     try {
       await createReminder({
-        pet_id: form.pet_id,
+        pet_id: selectedPet.id,
         type: form.type,
         title: form.title,
         message: form.message || undefined,
@@ -96,7 +169,7 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-slate-100">
           <h2 className="text-xl font-bold text-slate-900">Δημιουργία Υπενθύμισης</h2>
           <button
@@ -116,25 +189,156 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
             </div>
           )}
 
-          {/* Pet */}
+          {/* Client (Owner) Search */}
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">
+              Κάτοχος <span className="text-red-500">*</span>
+            </label>
+
+            {selectedClientId ? (
+              <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+                <div className="w-9 h-9 bg-indigo-200 rounded-full flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
+                  {selectedClientName.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-indigo-900 text-sm truncate">{selectedClientName}</p>
+                  {clientDetail && (
+                    <p className="text-xs text-indigo-600 truncate">
+                      {clientDetail.email || clientDetail.phone || ''}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleClearClient}
+                  className="text-indigo-400 hover:text-indigo-600 transition-colors p-0.5 shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <div className="relative">
+                <div className="relative">
+                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    ref={inputRef}
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Αναζήτηση κατόχου..."
+                    className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800"
+                  />
+                  {clientsLoading && searchTerm.length >= 2 && (
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600" />
+                    </div>
+                  )}
+                </div>
+
+                {showDropdown && (
+                  <div
+                    ref={dropdownRef}
+                    className="absolute z-10 w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-200 max-h-80 overflow-y-auto"
+                  >
+                    {clients.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleSelectClient(c)}
+                        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-indigo-50 transition-colors text-left first:rounded-t-xl last:rounded-b-xl border-b border-slate-100 last:border-b-0"
+                      >
+                        <div className="w-11 h-11 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-bold text-base shrink-0">
+                          {c.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-800">{c.name}</p>
+                          <p className="text-sm text-slate-500 truncate mt-0.5">
+                            {c.email || c.phone || ''}
+                            {c.pet_count > 0 && ` · ${c.pet_count} κατοικίδια`}
+                          </p>
+                        </div>
+                        {c.status === 'linked' && (
+                          <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full shrink-0">Vetly</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Pet Selection */}
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">
               Κατοικίδιο <span className="text-red-500">*</span>
             </label>
-            <select
-              name="pet_id"
-              value={form.pet_id}
-              onChange={handleChange}
-              required
-              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            >
-              <option value="">Επιλέξτε κατοικίδιο...</option>
-              {patients.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.owner?.name || 'Χωρίς ιδιοκτήτη'})
-                </option>
-              ))}
-            </select>
+
+            {!selectedClientId ? (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 text-sm">
+                <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Επιλέξτε πρώτα κάτοχο
+              </div>
+            ) : clientDetailLoading ? (
+              <div className="flex items-center justify-center py-3 rounded-xl border border-slate-200">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
+              </div>
+            ) : availablePets.length === 0 ? (
+              <div className="px-4 py-3 rounded-xl border border-dashed border-slate-200 bg-slate-50">
+                <p className="text-slate-400 text-sm">Δεν υπάρχουν κατοικίδια</p>
+              </div>
+            ) : availablePets.length === 1 ? (
+              (() => {
+                const pet = availablePets[0];
+                if (!selectedPet) setSelectedPet(pet);
+                return (
+                  <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+                    <span className="text-xl">{petEmoji(pet.type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-indigo-900 text-sm">{pet.name}</p>
+                      <p className="text-xs text-indigo-600">{pet.breed || pet.type}</p>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="space-y-1.5">
+                {availablePets.map((pet) => (
+                  <button
+                    key={pet.id}
+                    type="button"
+                    onClick={() => setSelectedPet(selectedPet?.id === pet.id ? null : pet)}
+                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all ${
+                      selectedPet?.id === pet.id
+                        ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className="text-lg">{petEmoji(pet.type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-bold text-sm ${selectedPet?.id === pet.id ? 'text-indigo-900' : 'text-slate-800'}`}>
+                        {pet.name}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {pet.breed || pet.type}
+                        {pet.age != null && ` · ${pet.age} ετών`}
+                      </p>
+                    </div>
+                    {selectedPet?.id === pet.id && (
+                      <svg className="w-5 h-5 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Type */}
@@ -191,13 +395,10 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
             <label className="block text-sm font-bold text-slate-700 mb-1">
               Ημερομηνία <span className="text-red-500">*</span>
             </label>
-            <input
-              type="date"
-              name="due_date"
+            <DatePicker
               value={form.due_date}
-              onChange={handleChange}
-              required
-              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              onChange={(v) => setForm(f => ({ ...f, due_date: v }))}
+              placeholder="Επιλέξτε ημερομηνία"
             />
           </div>
 
@@ -239,24 +440,106 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
   );
 }
 
+// --- Delete Reminder Dialog ---
+function DeleteReminderDialog({
+  reminder,
+  onClose,
+  onSuccess,
+}: {
+  reminder: VetReminder;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const typeLabel = TYPE_LABELS[reminder.type] || reminder.type;
+
+  const handleDelete = async () => {
+    try {
+      setSubmitting(true);
+      setError(null);
+      await deleteVetReminder(reminder.id);
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Αποτυχία διαγραφής');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+          <div className="p-6">
+            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 text-center mb-2">Διαγραφή Υπενθύμισης</h3>
+            <p className="text-sm text-slate-500 text-center mb-4">
+              Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την υπενθύμιση;
+            </p>
+
+            <div className="bg-slate-50 rounded-xl p-4 mb-4 space-y-1 text-sm">
+              <p className="text-slate-700"><span className="font-bold">Τίτλος:</span> {reminder.title}</p>
+              <p className="text-slate-700"><span className="font-bold">Κατοικίδιο:</span> {reminder.pet_name || '-'}</p>
+              <p className="text-slate-700"><span className="font-bold">Τύπος:</span> {typeLabel}</p>
+              <p className="text-slate-700"><span className="font-bold">Ημερομηνία:</span> {formatDate(reminder.due_date)}</p>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm font-medium mb-4">
+                {error}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                disabled={submitting}
+                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+              >
+                Πίσω
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={submitting}
+                className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Διαγραφή...
+                  </span>
+                ) : (
+                  'Διαγραφή'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // --- Main Page ---
 export default function VetRemindersPage() {
   const [page, setPage] = useState(1);
   const { reminders, totalPages, loading, error, refetch } = useVetReminders(page, 10);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<VetReminder | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Διαγραφή υπενθύμισης;')) return;
-    setDeletingId(id);
-    try {
-      await deleteVetReminder(id);
-      refetch();
-    } catch {
-      // silent
-    } finally {
-      setDeletingId(null);
-    }
+  const handleDeleteSuccess = () => {
+    setDeleteDialog(null);
+    refetch();
   };
 
   const handleCreated = () => {
@@ -288,6 +571,14 @@ export default function VetRemindersPage() {
         <CreateReminderDialog
           onClose={() => setShowCreate(false)}
           onSaved={handleCreated}
+        />
+      )}
+
+      {deleteDialog && (
+        <DeleteReminderDialog
+          reminder={deleteDialog}
+          onClose={() => setDeleteDialog(null)}
+          onSuccess={handleDeleteSuccess}
         />
       )}
 
@@ -384,21 +675,13 @@ export default function VetRemindersPage() {
                       </td>
                       <td className="px-5 py-4 text-right">
                         <button
-                          onClick={() => handleDelete(reminder.id)}
-                          disabled={deletingId === reminder.id}
-                          className="text-slate-400 hover:text-red-600 transition-colors disabled:opacity-40"
+                          onClick={() => setDeleteDialog(reminder)}
+                          className="text-slate-400 hover:text-red-600 transition-colors"
                           title="Διαγραφή"
                         >
-                          {deletingId === reminder.id ? (
-                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          )}
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
                         </button>
                       </td>
                     </tr>

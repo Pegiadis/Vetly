@@ -20,6 +20,7 @@ import {
   type LinkedPet,
 } from '@/hooks/useVetData';
 import Pagination from '@/components/Pagination';
+import DatePicker from '@/components/DatePicker';
 
 const statusConfig: Record<string, { label: string; bg: string }> = {
   managed: { label: 'Χωρίς λογαριασμό', bg: 'bg-slate-100 text-slate-600' },
@@ -852,11 +853,10 @@ export default function VetClientsPage() {
                                 onChange={e => setReminderForm(f => ({ ...f, title: e.target.value }))}
                                 className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
                               />
-                              <input
-                                type="date"
+                              <DatePicker
                                 value={reminderForm.due_date}
-                                onChange={e => setReminderForm(f => ({ ...f, due_date: e.target.value }))}
-                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                onChange={(v) => setReminderForm(f => ({ ...f, due_date: v }))}
+                                placeholder="Ημερομηνία"
                               />
                               <div className="flex gap-2">
                                 <button
@@ -996,11 +996,10 @@ export default function VetClientsPage() {
                                   onChange={e => setReminderForm(f => ({ ...f, title: e.target.value }))}
                                   className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
                                 />
-                                <input
-                                  type="date"
+                                <DatePicker
                                   value={reminderForm.due_date}
-                                  onChange={e => setReminderForm(f => ({ ...f, due_date: e.target.value }))}
-                                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                  onChange={(v) => setReminderForm(f => ({ ...f, due_date: v }))}
+                                  placeholder="Ημερομηνία"
                                 />
                                 <div className="flex gap-2">
                                   <button

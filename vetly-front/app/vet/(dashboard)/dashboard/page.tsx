@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -9,8 +9,7 @@ import {
   usePendingAppointments,
   usePatients,
   completeExamination,
-  useVetProfile,
-  toggleOnCall,
+  useOnCall,
   VetAppointment,
   ExaminationMedication,
 } from '@/hooks/useVetData';
@@ -299,29 +298,12 @@ export default function VetDashboardPage() {
   const { patients: recentPatients, loading: patientsLoading } = usePatients();
   const [examAppointment, setExamAppointment] = useState<VetAppointment | null>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
-  const { profile } = useVetProfile();
-  const [isOnCall, setIsOnCall] = useState(false);
-  const [togglingOnCall, setTogglingOnCall] = useState(false);
-
-  useEffect(() => {
-    if (profile) setIsOnCall(profile.is_on_call);
-  }, [profile]);
-
-  const handleToggleOnCall = async () => {
-    if (togglingOnCall) return;
-    const newValue = !isOnCall;
-    setIsOnCall(newValue);
-    setTogglingOnCall(true);
-    try {
-      await toggleOnCall(newValue);
-    } catch {
-      setIsOnCall(!newValue);
-    } finally {
-      setTogglingOnCall(false);
-    }
-  };
+  const { isOnCall, toggling: togglingOnCall, handleToggle: handleToggleOnCall } = useOnCall();
 
   const loading = statsLoading || todayLoading || pendingLoading || patientsLoading;
+
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   const handleExamSuccess = () => {
     setExamAppointment(null);
@@ -359,7 +341,7 @@ export default function VetDashboardPage() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
         <Link
-          href="/vet/appointments"
+          href={`/vet/appointments?dateFrom=${todayStr}&dateTo=${todayStr}`}
           className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-indigo-300 hover:shadow-md transition-all"
         >
           <div className="flex items-center gap-4">
@@ -443,13 +425,11 @@ export default function VetDashboardPage() {
           </div>
         </Link>
 
-        <button
-          onClick={handleToggleOnCall}
-          disabled={togglingOnCall}
-          className={`rounded-2xl p-5 shadow-sm border transition-all text-left ${
+        <div
+          className={`rounded-2xl p-5 shadow-sm border transition-all ${
             isOnCall
-              ? 'bg-green-50 border-green-200 hover:border-green-300'
-              : 'bg-white border-slate-100 hover:border-green-300'
+              ? 'bg-green-50 border-green-200'
+              : 'bg-white border-slate-100'
           }`}
         >
           <div className="flex items-center gap-4">
@@ -458,14 +438,25 @@ export default function VetDashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
               </svg>
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-slate-500 text-xs font-bold uppercase">Εφημερία</p>
               <h3 className={`text-lg font-bold ${isOnCall ? 'text-green-700' : 'text-slate-400'}`}>
                 {isOnCall ? 'Ενεργή' : 'Ανενεργή'}
               </h3>
             </div>
+            <button
+              onClick={handleToggleOnCall}
+              disabled={togglingOnCall}
+              className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                isOnCall ? 'bg-green-500' : 'bg-slate-300'
+              } ${togglingOnCall ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                isOnCall ? 'translate-x-5' : 'translate-x-0'
+              }`} />
+            </button>
           </div>
-        </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

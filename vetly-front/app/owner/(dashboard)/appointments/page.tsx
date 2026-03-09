@@ -2,11 +2,12 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useMyAppointments, cancelAppointment, rescheduleAppointment } from '@/hooks/useOwnerData';
+import { useMyAppointments, cancelAppointment, rescheduleAppointment, useAvailableSlots } from '@/hooks/useOwnerData';
 import type { Appointment, AppointmentFilters } from '@/hooks/useOwnerData';
 import { getImageUrl, ApiError } from '@/lib/api';
 import Pagination from '@/components/Pagination';
 import DatePicker from '@/components/DatePicker';
+import CalendarPicker from '@/components/CalendarPicker';
 
 type TabType = 'upcoming' | 'past';
 
@@ -28,11 +29,6 @@ function formatTime(dateStr: string): string {
   });
 }
 
-function toDatetimeLocal(dateStr: string): string {
-  const d = new Date(dateStr);
-  const pad = (n: number) => n.toString().padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -154,21 +150,31 @@ function RescheduleDialog({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [newDate, setNewDate] = useState(toDatetimeLocal(appointment.scheduled_at));
+  const initDate = appointment.scheduled_at.slice(0, 10);
+  const [selectedDate, setSelectedDate] = useState(initDate);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const { slots, loading: slotsLoading } = useAvailableSlots(appointment.vet_id, selectedDate);
 
   const petName = appointment.pet?.name || 'Κατοικίδιο';
   const vetName = appointment.vet?.name || 'Κτηνίατρος';
 
-  const isValid = newDate && new Date(newDate) > new Date();
+  const isValid = selectedDate && selectedTime;
+
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+    setSelectedTime(null);
+  };
 
   const handleReschedule = async () => {
     if (!isValid) return;
     try {
       setSubmitting(true);
       setError(null);
-      await rescheduleAppointment(appointment.id, new Date(newDate).toISOString());
+      const scheduledAt = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
+      await rescheduleAppointment(appointment.id, scheduledAt);
       onSuccess();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Αποτυχία αναπρογραμματισμού');
@@ -177,14 +183,14 @@ function RescheduleDialog({
     }
   };
 
-  const now = new Date();
-  const minDate = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')}T${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  const maxDate = new Date();
+  maxDate.setMonth(maxDate.getMonth() + 3);
 
   return (
     <>
       <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
           <div className="p-6">
             <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -203,18 +209,52 @@ function RescheduleDialog({
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-bold text-slate-700 mb-2">Νέα ημερομηνία & ώρα</label>
-              <input
-                type="datetime-local"
-                value={newDate}
-                min={minDate}
-                onChange={(e) => setNewDate(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-teal-400 focus:ring-2 focus:ring-teal-100 outline-none text-slate-800"
+              <label className="block text-sm font-bold text-slate-700 mb-2">Ημερομηνία</label>
+              <CalendarPicker
+                value={selectedDate}
+                onChange={handleDateChange}
+                minDate={new Date()}
+                maxDate={maxDate}
+                accentColor="teal"
               />
-              {newDate && new Date(newDate) <= new Date() && (
-                <p className="text-xs text-red-500 mt-1">Η ημερομηνία πρέπει να είναι στο μέλλον.</p>
-              )}
             </div>
+
+            {selectedDate && (
+              <div className="mb-4">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Διαθέσιμες ώρες</label>
+                {slotsLoading ? (
+                  <div className="text-center py-6 text-slate-500">
+                    <svg className="animate-spin h-6 w-6 mx-auto mb-2 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Φόρτωση διαθέσιμων ωρών...
+                  </div>
+                ) : slots.length === 0 ? (
+                  <div className="text-center py-6 text-slate-500">
+                    <p className="font-medium">Δεν υπάρχουν διαθέσιμες ώρες</p>
+                    <p className="text-sm mt-1">Δοκιμάστε διαφορετική ημερομηνία.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {slots.map((time) => (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => setSelectedTime(time)}
+                        className={`p-3 rounded-xl border-2 font-medium text-sm transition-all ${
+                          selectedTime === time
+                            ? 'border-teal-500 bg-teal-50 text-teal-700'
+                            : 'border-slate-100 hover:border-teal-200 text-slate-600'
+                        }`}
+                      >
+                        {time}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <p className="text-xs text-slate-400 text-center mb-4">Ο κτηνίατρος θα πρέπει να επιβεβαιώσει το νέο ραντεβού.</p>
 
@@ -375,6 +415,26 @@ export default function AppointmentsPage() {
   const [page, setPage] = useState(1);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+
+  const handleDateFrom = (v: string) => {
+    if (v && dateTo && v > dateTo) {
+      setDateFrom(dateTo);
+      setDateTo(v);
+    } else {
+      setDateFrom(v);
+    }
+    setPage(1);
+  };
+
+  const handleDateTo = (v: string) => {
+    if (v && dateFrom && v < dateFrom) {
+      setDateTo(dateFrom);
+      setDateFrom(v);
+    } else {
+      setDateTo(v);
+    }
+    setPage(1);
+  };
   const [petName, setPetName] = useState('');
 
   const filters = useMemo<AppointmentFilters>(() => ({
@@ -460,7 +520,7 @@ export default function AppointmentsPage() {
         {/* Date From */}
         <DatePicker
           value={dateFrom}
-          onChange={(v) => { setDateFrom(v); setPage(1); }}
+          onChange={handleDateFrom}
           placeholder="Από"
         />
 
@@ -469,7 +529,7 @@ export default function AppointmentsPage() {
         {/* Date To */}
         <DatePicker
           value={dateTo}
-          onChange={(v) => { setDateTo(v); setPage(1); }}
+          onChange={handleDateTo}
           placeholder="Έως"
         />
 

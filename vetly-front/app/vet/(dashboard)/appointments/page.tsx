@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   useAllAppointments,
   approveAppointment,
@@ -125,10 +126,31 @@ function VetCancelDialog({
 }
 
 export default function VetAppointmentsPage() {
+  const searchParams = useSearchParams();
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [page, setPage] = useState(1);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
+  const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
+
+  const handleDateFrom = (v: string) => {
+    if (v && dateTo && v > dateTo) {
+      setDateFrom(dateTo);
+      setDateTo(v);
+    } else {
+      setDateFrom(v);
+    }
+    setPage(1);
+  };
+
+  const handleDateTo = (v: string) => {
+    if (v && dateFrom && v < dateFrom) {
+      setDateTo(dateFrom);
+      setDateFrom(v);
+    } else {
+      setDateTo(v);
+    }
+    setPage(1);
+  };
   const [cancelDialog, setCancelDialog] = useState<VetAppointment | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
@@ -244,12 +266,12 @@ export default function VetAppointmentsPage() {
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <DatePicker
           value={dateFrom}
-          onChange={(v) => { setDateFrom(v); setPage(1); }}
+          onChange={handleDateFrom}
           placeholder="Από"
         />
         <DatePicker
           value={dateTo}
-          onChange={(v) => { setDateTo(v); setPage(1); }}
+          onChange={handleDateTo}
           placeholder="Έως"
         />
         {hasDateFilters && (
