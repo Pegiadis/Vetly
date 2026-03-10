@@ -164,10 +164,6 @@ class VetClientRepository:
         self.db.refresh(client)
         return client
 
-    def delete(self, client: VetClient) -> None:
-        self.db.delete(client)
-        self.db.commit()
-
     # --- Pet CRUD ---
 
     def add_pet(self, vet_client_id: UUID, name: str, pet_type: PetType,

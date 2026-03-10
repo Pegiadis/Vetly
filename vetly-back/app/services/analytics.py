@@ -7,7 +7,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select, func, distinct, extract, cast, Date
 from sqlalchemy.orm import Session
 
-from app.db.base import Appointment, Pet, Review
+from app.db.base import Appointment, Pet, Review, VetClient
 from app.models.appointment import AppointmentStatus
 
 from app.schemas.analytics import (
@@ -40,6 +40,12 @@ class AnalyticsService:
         total_patients = self.db.scalar(
             select(func.count(distinct(Appointment.pet_id)))
             .where(Appointment.vet_id == vet_id)
+        ) or 0
+
+        # Total clients
+        total_clients = self.db.scalar(
+            select(func.count(VetClient.id))
+            .where(VetClient.vet_id == vet_id)
         ) or 0
 
         # Total appointments
@@ -90,6 +96,7 @@ class AnalyticsService:
 
         return DashboardStatsResponse(
             total_patients=total_patients,
+            total_clients=total_clients,
             total_appointments=total_appointments,
             pending_appointments=pending_appointments,
             today_appointments=today_appointments,

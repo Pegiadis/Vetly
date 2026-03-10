@@ -173,6 +173,7 @@ export function useAllAppointments(page = 1, pageSize = 10, filters: VetAppointm
 
 export interface DashboardStats {
   total_patients: number;
+  total_clients: number;
   total_appointments: number;
   pending_appointments: number;
   today_appointments: number;
@@ -892,19 +893,6 @@ export async function createVetClient(data: {
   return api.post<VetClient>('/vet/clients', data);
 }
 
-export async function updateVetClient(id: string, data: {
-  name?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  notes?: string;
-}): Promise<VetClient> {
-  return api.put<VetClient>(`/vet/clients/${id}`, data);
-}
-
-export async function deleteVetClient(id: string): Promise<void> {
-  return api.delete<void>(`/vet/clients/${id}`);
-}
 
 export async function generateClientInvite(clientId: string): Promise<{ invite_url: string; expires_at: string }> {
   return api.post<{ invite_url: string; expires_at: string }>(`/vet/clients/${clientId}/invite`, {});

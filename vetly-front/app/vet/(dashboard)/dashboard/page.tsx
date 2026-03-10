@@ -385,6 +385,23 @@ export default function VetDashboardPage() {
               </svg>
             </div>
             <div>
+              <p className="text-slate-500 text-xs font-bold uppercase">Πελάτες</p>
+              <h3 className="text-2xl font-bold text-slate-800">{stats?.total_clients ?? 0}</h3>
+            </div>
+          </div>
+        </Link>
+
+        <Link
+          href="/vet/clients"
+          className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-purple-300 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center gap-4">
+            <div className="bg-purple-100 p-3 rounded-xl text-purple-600">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </div>
+            <div>
               <p className="text-slate-500 text-xs font-bold uppercase">Κατοικίδια</p>
               <h3 className="text-2xl font-bold text-slate-800">{stats?.total_patients ?? 0}</h3>
             </div>
@@ -404,23 +421,6 @@ export default function VetDashboardPage() {
             <div>
               <p className="text-slate-500 text-xs font-bold uppercase">Rating</p>
               <h3 className="text-2xl font-bold text-slate-800">{Number(stats?.average_rating ?? 0).toFixed(1)}</h3>
-            </div>
-          </div>
-        </Link>
-
-        <Link
-          href="/vet/analytics"
-          className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-emerald-100 p-3 rounded-xl text-emerald-600">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-slate-500 text-xs font-bold uppercase">Analytics</p>
-              <p className="text-sm font-bold text-slate-800 mt-1">Προβολή</p>
             </div>
           </div>
         </Link>

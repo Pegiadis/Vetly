@@ -29,11 +29,85 @@ const dayNames: Record<string, string> = {
 
 const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
+function LocationDialog({
+  lat,
+  lng,
+  onSave,
+  onClose,
+}: {
+  lat: number | null;
+  lng: number | null;
+  onSave: (lat: number | null, lng: number | null) => void;
+  onClose: () => void;
+}) {
+  const [pickedLat, setPickedLat] = useState<number | null>(lat);
+  const [pickedLng, setPickedLng] = useState<number | null>(lng);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">Τοποθεσία Ιατρείου</h2>
+            <button onClick={onClose} className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <p className="text-white/80 text-sm mt-1">Κάντε κλικ στον χάρτη για να ορίσετε τη θέση του ιατρείου σας.</p>
+        </div>
+        <div className="p-5">
+          <div className="h-[400px] rounded-xl overflow-hidden border border-slate-200">
+            <VetMapPicker
+              lat={pickedLat}
+              lng={pickedLng}
+              onChange={(newLat, newLng) => { setPickedLat(newLat); setPickedLng(newLng); }}
+            />
+          </div>
+          {pickedLat && pickedLng && (
+            <p className="text-xs text-slate-400 mt-2">
+              Συντεταγμένες: {Number(pickedLat).toFixed(6)}, {Number(pickedLng).toFixed(6)}
+            </p>
+          )}
+          <div className="flex gap-3 mt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+            >
+              Ακύρωση
+            </button>
+            {pickedLat && pickedLng && (
+              <button
+                type="button"
+                onClick={() => { setPickedLat(null); setPickedLng(null); }}
+                className="py-3 px-4 border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors text-sm"
+              >
+                Καθαρισμός
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => onSave(pickedLat, pickedLng)}
+              className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors"
+            >
+              Αποθήκευση
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VetSettingsPage() {
   const { profile, loading, error, refetch } = useVetProfile();
   const { refreshUser } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [showLocationDialog, setShowLocationDialog] = useState(false);
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -351,22 +425,34 @@ export default function VetSettingsPage() {
           </div>
         </div>
 
-        {/* Location Picker */}
+        {/* Location */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h2 className="text-lg font-bold text-slate-800 mb-2">Τοποθεσία Ιατρείου</h2>
-          <p className="text-sm text-slate-500 mb-4">Κάντε κλικ στον χάρτη για να ορίσετε τη θέση του ιατρείου σας.</p>
-          <div className="h-[300px] rounded-xl overflow-hidden border border-slate-200">
-            <VetMapPicker
-              lat={formData.coordinates_lat}
-              lng={formData.coordinates_lng}
-              onChange={(lat, lng) => setFormData({ ...formData, coordinates_lat: lat, coordinates_lng: lng })}
-            />
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-slate-800">Τοποθεσία Ιατρείου</h2>
+              {formData.coordinates_lat && formData.coordinates_lng ? (
+                <p className="text-sm text-slate-500 mt-1 flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Ορισμένη ({Number(formData.coordinates_lat).toFixed(4)}, {Number(formData.coordinates_lng).toFixed(4)})
+                </p>
+              ) : (
+                <p className="text-sm text-slate-400 mt-1">Δεν έχει οριστεί τοποθεσία.</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowLocationDialog(true)}
+              className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {formData.coordinates_lat ? 'Αλλαγή Τοποθεσίας' : 'Ορισμός Τοποθεσίας'}
+            </button>
           </div>
-          {formData.coordinates_lat && formData.coordinates_lng && (
-            <p className="text-xs text-slate-400 mt-2">
-              Συντεταγμένες: {Number(formData.coordinates_lat).toFixed(6)}, {Number(formData.coordinates_lng).toFixed(6)}
-            </p>
-          )}
         </div>
 
         {/* Working Hours */}
@@ -440,6 +526,18 @@ export default function VetSettingsPage() {
           </button>
         </div>
       </div>
+
+      {showLocationDialog && (
+        <LocationDialog
+          lat={formData.coordinates_lat}
+          lng={formData.coordinates_lng}
+          onSave={(lat, lng) => {
+            setFormData({ ...formData, coordinates_lat: lat, coordinates_lng: lng });
+            setShowLocationDialog(false);
+          }}
+          onClose={() => setShowLocationDialog(false)}
+        />
+      )}
     </div>
   );
 }

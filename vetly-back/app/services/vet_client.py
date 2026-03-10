@@ -28,7 +28,6 @@ from app.schemas.vet_client import (
     VetClientPetResponse,
     VetClientPetUpdateRequest,
     VetClientResponse,
-    VetClientUpdateRequest,
 )
 
 
@@ -99,30 +98,6 @@ class VetClientService:
             notes=data.notes,
         )
         return VetClientResponse.model_validate(client)
-
-    def update_client(self, client_id: UUID, vet_id: UUID, data: VetClientUpdateRequest) -> VetClientResponse:
-        client = self.repo.get_by_id_for_vet(client_id, vet_id)
-        if not client:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
-
-        update_data = data.model_dump(exclude_unset=True)
-
-        if "email" in update_data and update_data["email"] and update_data["email"] != client.email:
-            existing = self.repo.get_by_email_for_vet(vet_id, update_data["email"])
-            if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="A client with this email already exists",
-                )
-
-        updated = self.repo.update(client, **update_data)
-        return VetClientResponse.model_validate(updated)
-
-    def delete_client(self, client_id: UUID, vet_id: UUID) -> None:
-        client = self.repo.get_by_id_for_vet(client_id, vet_id)
-        if not client:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
-        self.repo.delete(client)
 
     # --- Invite ---
 

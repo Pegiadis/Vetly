@@ -108,14 +108,6 @@ class VetClientCreateRequest(BaseModel):
     notes: str | None = Field(None, max_length=2000)
 
 
-class VetClientUpdateRequest(BaseModel):
-    name: str | None = Field(None, min_length=1, max_length=255)
-    email: EmailStr | None = None
-    phone: str | None = Field(None, max_length=50)
-    address: str | None = Field(None, max_length=500)
-    notes: str | None = Field(None, max_length=2000)
-
-
 # --- Invite schemas ---
 
 class InviteLinkResponse(BaseModel):

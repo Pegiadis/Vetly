@@ -6,8 +6,6 @@ import {
   useVetClients,
   useVetClient,
   createVetClient,
-  updateVetClient,
-  deleteVetClient,
   generateClientInvite,
   addClientPet,
   updateClientPet,
@@ -31,22 +29,20 @@ const statusConfig: Record<string, { label: string; bg: string }> = {
 const petTypeLabels: Record<string, string> = { Dog: 'Σκύλος', Cat: 'Γάτα', Other: 'Άλλο' };
 const genderLabels: Record<string, string> = { Male: 'Αρσενικό', Female: 'Θηλυκό' };
 
-// --- Add/Edit Client Dialog ---
+// --- Add Client Dialog ---
 function ClientDialog({
-  client,
   onClose,
   onSaved,
 }: {
-  client?: VetClient | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [form, setForm] = useState({
-    name: client?.name || '',
-    email: client?.email || '',
-    phone: client?.phone || '',
-    address: client?.address || '',
-    notes: client?.notes || '',
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    notes: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -65,18 +61,13 @@ function ClientDialog({
     setSubmitting(true);
     setError('');
     try {
-      const payload = {
+      await createVetClient({
         name: form.name.trim(),
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
         address: form.address.trim() || undefined,
         notes: form.notes.trim() || undefined,
-      };
-      if (client) {
-        await updateVetClient(client.id, payload);
-      } else {
-        await createVetClient(payload);
-      }
+      });
       onSaved();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Αποτυχία αποθήκευσης');
@@ -92,7 +83,7 @@ function ClientDialog({
         <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-t-2xl">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-white">
-              {client ? 'Επεξεργασία Πελάτη' : 'Νέος Πελάτης'}
+              Νέος Πελάτης
             </h2>
             <button onClick={onClose} className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -478,12 +469,11 @@ export default function VetClientsPage() {
 
   // Dialogs
   const [showAddClient, setShowAddClient] = useState(false);
-  const [editingClient, setEditingClient] = useState<VetClient | null>(null);
   const [showAddPet, setShowAddPet] = useState(false);
   const [editingPet, setEditingPet] = useState<VetClientPet | null>(null);
   const [inviteData, setInviteData] = useState<{ invite_url: string; expires_at: string } | null>(null);
   const [historyPetId, setHistoryPetId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'client' | 'pet'; id: string; petId?: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'pet'; id: string; name: string } | null>(null);
   const [showReminderPetId, setShowReminderPetId] = useState<string | null>(null);
   const [reminderForm, setReminderForm] = useState({ type: 'checkup', title: '', message: '', due_date: '', reminder_days_before: 14 });
   const [reminderSubmitting, setReminderSubmitting] = useState(false);
@@ -511,7 +501,6 @@ export default function VetClientsPage() {
 
   const handleClientSaved = () => {
     setShowAddClient(false);
-    setEditingClient(null);
     refetch();
     if (selectedClientId) refetchClient();
   };
@@ -535,17 +524,11 @@ export default function VetClientsPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || !selectedClientId) return;
     try {
-      if (deleteTarget.type === 'client') {
-        await deleteVetClient(deleteTarget.id);
-        setSelectedClientId(null);
-        refetch();
-      } else if (deleteTarget.type === 'pet' && selectedClientId) {
-        await deleteClientPet(selectedClientId, deleteTarget.id);
-        refetchClient();
-        refetch();
-      }
+      await deleteClientPet(selectedClientId, deleteTarget.id);
+      refetchClient();
+      refetch();
     } catch {
       // silent
     }
@@ -1043,21 +1026,7 @@ export default function VetClientsPage() {
                     Πρόσκληση στο Vetly
                   </button>
                 )}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setEditingClient(selectedClient)}
-                    className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-100 transition-colors text-sm"
-                  >
-                    Επεξεργασία
-                  </button>
-                  <button
-                    onClick={() => setDeleteTarget({ type: 'client', id: selectedClient.id, name: selectedClient.name })}
-                    className="flex-1 py-2.5 border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors text-sm"
-                  >
-                    Διαγραφή
-                  </button>
                 </div>
-              </div>
             )}
           </div>
         )}
@@ -1072,10 +1041,9 @@ export default function VetClientsPage() {
       )}
 
       {/* Dialogs */}
-      {(showAddClient || editingClient) && (
+      {showAddClient && (
         <ClientDialog
-          client={editingClient}
-          onClose={() => { setShowAddClient(false); setEditingClient(null); }}
+          onClose={() => setShowAddClient(false)}
           onSaved={handleClientSaved}
         />
       )}
@@ -1099,7 +1067,7 @@ export default function VetClientsPage() {
 
       {deleteTarget && (
         <DeleteConfirmDialog
-          title={deleteTarget.type === 'client' ? 'Διαγραφή Πελάτη' : 'Διαγραφή Κατοικιδίου'}
+          title="Διαγραφή Κατοικιδίου"
           message={`Είστε σίγουροι ότι θέλετε να διαγράψετε "${deleteTarget.name}";`}
           onConfirm={handleDelete}
           onClose={() => setDeleteTarget(null)}

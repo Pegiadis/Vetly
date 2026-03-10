@@ -9,6 +9,7 @@ from pydantic import BaseModel
 class DashboardStatsResponse(BaseModel):
     """Dashboard summary statistics"""
     total_patients: int
+    total_clients: int
     total_appointments: int
     pending_appointments: int
     today_appointments: int
