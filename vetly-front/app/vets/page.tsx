@@ -1,5 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 import PublicVetCard from '@/components/PublicVetCard';
 import { PublicVetListResponse } from '@/types/vet';
 
@@ -64,7 +66,9 @@ export default async function VetsPage({ searchParams }: PageProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <>
+    <Navbar />
+    <main className="min-h-screen bg-gray-50 pt-16">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -219,5 +223,7 @@ export default async function VetsPage({ searchParams }: PageProps) {
         )}
       </div>
     </main>
+    <Footer />
+    </>
   );
 }

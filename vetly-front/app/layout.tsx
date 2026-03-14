@@ -6,8 +6,11 @@ import { AuthProvider } from '@/contexts/AuthContext'
 const inter = Inter({ subsets: ['latin', 'greek'] })
 
 export const metadata: Metadata = {
-  title: 'Vetly - Είσοδος',
-  description: 'Συνδεθείτε στο Vetly',
+  title: {
+    default: 'Vetly - Κτηνιατρική Φροντίδα',
+    template: '%s | Vetly',
+  },
+  description: 'Βρείτε κτηνιάτρους, κλείστε ραντεβού και διαχειριστείτε την υγεία του κατοικιδίου σας.',
 }
 
 export default function RootLayout({

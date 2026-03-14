@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 import { PublicVetDetail, PublicReviewListResponse } from '@/types/vet';
 import { getImageUrl } from '@/lib/api';
 
@@ -22,6 +24,23 @@ async function getPublicVet(idOrSlug: string): Promise<PublicVetDetail | null> {
   if (res.status === 404) return null;
   if (!res.ok) return null;
 
+  return res.json();
+}
+
+interface VetService {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  duration_minutes: number;
+  is_active: boolean;
+}
+
+async function getVetServices(idOrSlug: string): Promise<{ items: VetService[] }> {
+  const res = await fetch(`${API_URL}/public/vets/${idOrSlug}/services`, {
+    cache: 'no-store',
+  });
+  if (!res.ok) return { items: [] };
   return res.json();
 }
 
@@ -113,9 +132,10 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
   const { review_page } = await searchParams;
   const reviewPage = review_page ? parseInt(review_page, 10) : 1;
 
-  const [vet, reviewsData] = await Promise.all([
+  const [vet, reviewsData, servicesData] = await Promise.all([
     getPublicVet(id),
     getVetReviews(id, reviewPage),
+    getVetServices(id),
   ]);
 
   if (!vet) {
@@ -162,7 +182,8 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
-      <main className="min-h-screen bg-gray-50">
+      <Navbar />
+      <main className="min-h-screen bg-gray-50 pt-16">
         <div className="max-w-4xl mx-auto px-4 py-8">
           {/* Back link */}
           <Link
@@ -281,6 +302,29 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
             </div>
           </div>
 
+          {/* Services & Pricing */}
+          {servicesData.items.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-md p-6 mb-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Υπηρεσίες & Τιμές</h2>
+              <div className="divide-y divide-gray-100">
+                {servicesData.items.map((service) => (
+                  <div key={service.id} className="flex items-center justify-between py-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900">{service.name}</p>
+                      {service.description && (
+                        <p className="text-sm text-gray-500 mt-0.5">{service.description}</p>
+                      )}
+                      <p className="text-xs text-gray-400 mt-0.5">{service.duration_minutes} λεπτά</p>
+                    </div>
+                    <div className="ml-4 text-right flex-shrink-0">
+                      <span className="text-lg font-semibold text-teal-600">{service.price}€</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Working hours */}
           {vet.working_hours && (
             <div className="bg-white rounded-2xl shadow-md p-6 mb-6">
@@ -380,6 +424,7 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
           </div>
         </div>
       </main>
+      <Footer />
     </>
   );
 }

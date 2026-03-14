@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogoIcon, BookOpenIcon, MenuIcon, XIcon, StethoscopeIcon } from './Icons';
+import { LogoIcon, MenuIcon, XIcon, StethoscopeIcon } from './Icons';
 
 const Navbar: React.FC = () => {
     const router = useRouter();
@@ -56,18 +56,11 @@ const Navbar: React.FC = () => {
                         >
                             Αρχική
                         </button>
-                        <button 
-                            onClick={() => console.log('Navigate to About')}
+                        <button
+                            onClick={() => router.push('/vets')}
                             className="text-sm font-medium hover:text-teal-600 transition-colors text-slate-600"
                         >
-                            Σχετικά με εμάς
-                        </button>
-                        <button 
-                            onClick={() => console.log('Navigate to Blog')}
-                            className="text-sm font-medium hover:text-teal-600 transition-colors flex items-center gap-1 text-slate-600"
-                        >
-                            <BookOpenIcon className="w-4 h-4" />
-                            Blog
+                            Κτηνίατροι
                         </button>
                     </div>
 
@@ -115,24 +108,14 @@ const Navbar: React.FC = () => {
                         >
                             Αρχική
                         </button>
-                        <button 
+                        <button
                             onClick={() => {
-                                console.log('Navigate to About');
+                                router.push('/vets');
                                 setMobileMenuOpen(false);
                             }}
                             className="block w-full text-left px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
                         >
-                            Σχετικά με εμάς
-                        </button>
-                        <button 
-                            onClick={() => {
-                                console.log('Navigate to Blog');
-                                setMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2"
-                        >
-                            <BookOpenIcon className="w-4 h-4" />
-                            Blog
+                            Κτηνίατροι
                         </button>
                         <div className="pt-3 border-t border-slate-200 space-y-2">
                             <button

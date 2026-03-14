@@ -3,10 +3,11 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from './Navbar';
-import { 
-    SearchIcon, 
-    UserIcon, 
-    ActivityIcon, 
+import Footer from './Footer';
+import {
+    SearchIcon,
+    UserIcon,
+    ActivityIcon,
     ArrowRightIcon,
     CalendarIcon,
     ShieldCheckIcon,
@@ -22,14 +23,12 @@ const HomePage: React.FC = () => {
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (searchText.trim()) {
-            // Navigate to find vet page (to be implemented later)
-            console.log('Search for:', searchText);
+            router.push(`/vets?search=${encodeURIComponent(searchText.trim())}`);
         }
     };
 
     const handleQuickTag = (tag: string) => {
-        setSearchText(tag);
-        console.log('Quick search:', tag);
+        router.push(`/vets?search=${encodeURIComponent(tag)}`);
     };
 
     return (
@@ -122,7 +121,7 @@ const HomePage: React.FC = () => {
                             Αναζητήστε πιστοποιημένους κτηνιάτρους στην περιοχή σας, διαβάστε κριτικές και κλείστε ραντεβού άμεσα.
                         </p>
                         <button 
-                            onClick={() => console.log('Navigate to Find Vet')}
+                            onClick={() => router.push('/vets')}
                             className="flex items-center gap-2 text-teal-600 font-bold hover:gap-3 transition-all group-hover:text-teal-700"
                         >
                             Αναζήτηση <ArrowRightIcon className="w-4 h-4" />
@@ -140,7 +139,7 @@ const HomePage: React.FC = () => {
                             Δείτε ποια ιατρεία και κλινικές εφημερεύουν τώρα κοντά σας για άμεση εξυπηρέτηση.
                         </p>
                         <button 
-                            onClick={() => console.log('Navigate to Emergency')}
+                            onClick={() => router.push('/vets')}
                             className="flex items-center gap-2 text-red-600 font-bold hover:gap-3 transition-all relative z-10"
                         >
                             Εύρεση Βοήθειας SOS <ArrowRightIcon className="w-4 h-4" />
@@ -157,7 +156,7 @@ const HomePage: React.FC = () => {
                             Διαχειριστείτε το ιατρικό ιστορικό, τα ραντεβού και τις υπενθυμίσεις εμβολιασμών σε ένα μέρος.
                         </p>
                         <button 
-                            onClick={() => router.push('/login')}
+                            onClick={() => router.push('/owner/login')}
                             className="flex items-center gap-2 text-indigo-600 font-bold hover:gap-3 transition-all group-hover:text-indigo-700"
                         >
                             Διαχείριση Προφίλ <ArrowRightIcon className="w-4 h-4" />
@@ -210,12 +209,12 @@ const HomePage: React.FC = () => {
                             </div>
                         </div>
                         
-                        <div className="order-1 lg:order-2 relative">
-                            <div className="absolute top-0 right-0 w-full h-full bg-teal-100 rounded-[3rem] rotate-3 scale-95 -z-10"></div>
-                            <img 
-                                src="https://images.unsplash.com/photo-1623366302587-b38b1ddaefd9?auto=format&fit=crop&w=800&q=80" 
-                                alt="Veterinarian with dog" 
-                                className="rounded-[3rem] shadow-2xl border-4 border-white w-full object-cover h-[600px]" 
+                        <div className="order-1 lg:order-2 relative flex items-center justify-center">
+                            <div className="absolute w-80 h-80 bg-gradient-to-br from-teal-200 to-teal-400 rounded-full opacity-30 blur-2xl"></div>
+                            <img
+                                src="/images/hero-puppy.png"
+                                alt="Χαρούμενο κουτάβι"
+                                className="relative z-10 w-full max-w-md object-contain drop-shadow-2xl"
                             />
                         </div>
                     </div>
@@ -265,13 +264,13 @@ const HomePage: React.FC = () => {
                     </p>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center">
                         <button 
-                            onClick={() => router.push('/login')}
+                            onClick={() => router.push('/vet/register')}
                             className="px-8 py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-bold text-lg transition-all shadow-lg shadow-indigo-900/50"
                         >
                             Είσοδος / Εγγραφή Ιατρού
                         </button>
                         <button 
-                            onClick={() => console.log('Learn more')}
+                            onClick={() => router.push('/vets')}
                             className="px-8 py-4 bg-transparent border border-slate-700 hover:bg-slate-800 text-white rounded-2xl font-bold text-lg transition-all"
                         >
                             Μάθετε Περισσότερα
@@ -288,14 +287,14 @@ const HomePage: React.FC = () => {
                             <h3 className="text-3xl font-bold text-slate-900 mb-2">Vetly Magazine</h3>
                             <p className="text-slate-500">Συμβουλές και νέα από τους ειδικούς.</p>
                         </div>
-                        <button onClick={() => console.log('View all blog')} className="hidden md:flex items-center gap-2 text-teal-600 font-bold hover:gap-3 transition-all">
+                        <span className="hidden md:flex items-center gap-2 text-teal-600 font-bold">
                             Όλα τα άρθρα <ArrowRightIcon className="w-4 h-4" />
-                        </button>
+                        </span>
                      </div>
                      
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                          {MOCK_BLOG_POSTS.slice(0, 3).map(post => (
-                             <div key={post.id} onClick={() => console.log('View post:', post.id)} className="cursor-pointer group">
+                             <div key={post.id} className="group">
                                  <div className="rounded-2xl overflow-hidden mb-4 h-56 relative">
                                      <img src={post.image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                                      <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-lg text-xs font-bold text-slate-800 shadow-sm">
@@ -315,6 +314,8 @@ const HomePage: React.FC = () => {
                      </div>
                 </div>
             </div>
+
+            <Footer />
             </div>
         </div>
     );
