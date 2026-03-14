@@ -37,13 +37,17 @@ export default function VetLoginPage() {
         password,
       });
 
-      await login(response.access_token, 'vet');
+      await login(response.access_token, 'vet', rememberMe);
       router.push('/vet/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.status === 403) {
+          router.push(`/verify-email/pending?email=${encodeURIComponent(email)}&userType=vet`);
+          return;
+        }
         setError(err.message);
       } else {
-        setError('An unexpected error occurred');
+        setError('Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.');
       }
       setLoading(false);
     }
@@ -111,26 +115,18 @@ export default function VetLoginPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 border-slate-300 rounded text-indigo-600 focus:ring-indigo-500"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
-                Απομνημόνευση
-              </label>
-            </div>
-
-            <div className="text-sm">
-              <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
-                Ξεχάσατε τον κωδικό;
-              </a>
-            </div>
+          <div className="flex items-center">
+            <input
+              id="remember-me"
+              name="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 border-slate-300 rounded text-indigo-600 focus:ring-indigo-500"
+            />
+            <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
+              Απομνημόνευση
+            </label>
           </div>
 
           <div>

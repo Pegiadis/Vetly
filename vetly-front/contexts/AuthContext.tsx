@@ -10,6 +10,7 @@ interface User {
   name: string;
   type: UserType;
   image_url: string | null;
+  email_verified: boolean;
 }
 
 interface AuthContextType {
@@ -17,7 +18,7 @@ interface AuthContextType {
   token: string | null;
   userType: UserType;
   isLoading: boolean;
-  login: (token: string, userType: 'vet' | 'pet_owner') => Promise<void>;
+  login: (token: string, userType: 'vet' | 'pet_owner', rememberMe?: boolean) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
@@ -28,6 +29,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TOKEN_KEY_VET = 'vetly_token_vet';
 const TOKEN_KEY_OWNER = 'vetly_token_pet_owner';
 const USER_TYPE_KEY = 'vetly_user_type';
+const SESSION_FLAG = 'vetly_session_storage';
 
 function getTokenKey(type: UserType): string {
   return type === 'vet' ? TOKEN_KEY_VET : TOKEN_KEY_OWNER;
@@ -39,6 +41,20 @@ function detectUserTypeFromPath(): UserType {
   if (path.startsWith('/vet')) return 'vet';
   if (path.startsWith('/owner')) return 'pet_owner';
   return null;
+}
+
+function decodeTokenType(token: string): 'vet' | 'pet_owner' | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.type === 'vet' || payload.type === 'pet_owner' ? payload.type : null;
+  } catch {
+    return null;
+  }
+}
+
+function getStoredTokenForType(type: 'vet' | 'pet_owner'): string | null {
+  const key = getTokenKey(type);
+  return sessionStorage.getItem(key) || localStorage.getItem(key);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -60,18 +76,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Detect user type from URL path first, fallback to stored type
     const detectedType = detectUserTypeFromPath();
-    const resolvedType = detectedType || (localStorage.getItem(USER_TYPE_KEY) as UserType);
-    const storedToken = resolvedType
-      ? localStorage.getItem(getTokenKey(resolvedType))
-      : null;
+    const storedType = localStorage.getItem(USER_TYPE_KEY) as UserType;
+    const resolvedType = detectedType || storedType;
 
-    if (storedToken && resolvedType) {
-      setToken(storedToken);
-      setUserType(resolvedType);
-      fetchUser(storedToken, resolvedType);
-    } else {
-      setIsLoading(false);
+    let storedToken: string | null = null;
+    if (resolvedType) {
+      storedToken = getStoredTokenForType(resolvedType);
+      // Validate the token's type matches what we expect
+      if (storedToken) {
+        const decodedType = decodeTokenType(storedToken);
+        if (decodedType && decodedType !== resolvedType) {
+          // Token type mismatch — try the other type
+          storedToken = getStoredTokenForType(decodedType);
+        }
+      }
     }
+
+    // If no token found via path, try both keys
+    if (!storedToken) {
+      for (const type of ['vet', 'pet_owner'] as const) {
+        const t = getStoredTokenForType(type);
+        if (t) {
+          const decoded = decodeTokenType(t);
+          if (decoded === type) {
+            storedToken = t;
+            break;
+          }
+        }
+      }
+    }
+
+    if (storedToken) {
+      const finalType = decodeTokenType(storedToken) || resolvedType;
+      if (finalType) {
+        setToken(storedToken);
+        setUserType(finalType);
+        fetchUser(storedToken, finalType);
+        return;
+      }
+    }
+
+    setIsLoading(false);
   }, []);
 
   const fetchUser = async (authToken: string, type: UserType) => {
@@ -91,9 +136,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: userData.name,
           type,
           image_url: userData.image_url || null,
+          email_verified: userData.email_verified ?? true,
         });
       } else {
-        // Token is invalid, clear it
         logout();
       }
     } catch (error) {
@@ -104,12 +149,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const login = async (authToken: string, type: 'vet' | 'pet_owner') => {
-    localStorage.setItem(getTokenKey(type), authToken);
-    localStorage.setItem(USER_TYPE_KEY, type);
+  const login = async (authToken: string, type: 'vet' | 'pet_owner', rememberMe: boolean = true) => {
+    const decodedType = decodeTokenType(authToken);
+    const resolvedType = decodedType || type;
+    const key = getTokenKey(resolvedType);
+
+    if (rememberMe) {
+      localStorage.setItem(key, authToken);
+      sessionStorage.removeItem(key);
+      sessionStorage.removeItem(SESSION_FLAG);
+    } else {
+      sessionStorage.setItem(key, authToken);
+      sessionStorage.setItem(SESSION_FLAG, 'true');
+      localStorage.removeItem(key);
+    }
+
+    localStorage.setItem(USER_TYPE_KEY, resolvedType);
     setToken(authToken);
-    setUserType(type);
-    await fetchUser(authToken, type);
+    setUserType(resolvedType);
+    await fetchUser(authToken, resolvedType);
   };
 
   const refreshUser = async () => {
@@ -119,10 +177,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
-    if (userType) {
-      localStorage.removeItem(getTokenKey(userType));
+    // Clear from both storages for both types
+    for (const key of [TOKEN_KEY_VET, TOKEN_KEY_OWNER]) {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
     }
     localStorage.removeItem(USER_TYPE_KEY);
+    sessionStorage.removeItem(SESSION_FLAG);
     setToken(null);
     setUser(null);
     setUserType(null);
@@ -156,9 +217,10 @@ export function useAuth() {
 
 export function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
-  // Detect from URL path which token to use — prevents cross-tab interference
   const detectedType = detectUserTypeFromPath();
   const resolvedType = detectedType || (localStorage.getItem(USER_TYPE_KEY) as UserType);
   if (!resolvedType) return null;
-  return localStorage.getItem(getTokenKey(resolvedType));
+  // Check sessionStorage first, then localStorage
+  const key = getTokenKey(resolvedType);
+  return sessionStorage.getItem(key) || localStorage.getItem(key);
 }

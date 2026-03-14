@@ -1,19 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
-
-interface TokenResponse {
-  access_token: string;
-  token_type: string;
-}
+import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator';
 
 export default function VetRegisterPage() {
   const router = useRouter();
-  const { login, isAuthenticated, userType, isLoading } = useAuth();
+  const { isAuthenticated, userType, isLoading } = useAuth();
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && userType === 'vet') {
@@ -35,17 +31,37 @@ export default function VetRegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [emailTaken, setEmailTaken] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+
+  const checkEmailAvailability = useCallback(async (email: string) => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+    setCheckingEmail(true);
+    try {
+      const result = await api.get<{ available: boolean }>(`/auth/check-email?email=${encodeURIComponent(email)}&user_type=vet`);
+      setEmailTaken(!result.available);
+    } catch {
+      // Silently fail — server-side validation is the fallback
+    } finally {
+      setCheckingEmail(false);
+    }
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setTouched(prev => ({ ...prev, [e.target.name]: true }));
+    if (e.target.name === 'email') setEmailTaken(false);
     setError('');
   };
 
-  const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+  const handleBlur = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+    if (field === 'email') checkEmailAvailability(formData.email);
+  };
 
   const fieldErrors: Record<string, string> = {};
   if (formData.name.length > 0 && formData.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+  if (emailTaken) fieldErrors.email = 'Αυτό το email χρησιμοποιείται ήδη.';
   if (formData.specialty.length > 0 && formData.specialty.trim().length < 2) fieldErrors.specialty = 'Τουλάχιστον 2 χαρακτήρες.';
   if (formData.license_number.length > 0 && formData.license_number.trim().length < 2) fieldErrors.license_number = 'Τουλάχιστον 2 χαρακτήρες.';
   if (formData.phone.length > 0 && formData.phone.trim().length < 5) fieldErrors.phone = 'Τουλάχιστον 5 χαρακτήρες.';
@@ -94,7 +110,7 @@ export default function VetRegisterPage() {
     setLoading(true);
 
     try {
-      await api.post('/auth/vet/register', {
+      await api.post<{ message: string; email: string }>('/auth/vet/register', {
         name: formData.name,
         email: formData.email,
         password: formData.password,
@@ -105,13 +121,7 @@ export default function VetRegisterPage() {
         city: formData.city,
       });
 
-      const tokenResponse = await api.post<TokenResponse>('/auth/vet/login', {
-        email: formData.email,
-        password: formData.password,
-      });
-
-      await login(tokenResponse.access_token, 'vet');
-      router.push('/vet/dashboard');
+      router.push(`/verify-email/pending?email=${encodeURIComponent(formData.email)}&userType=vet`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -203,9 +213,12 @@ export default function VetRegisterPage() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className={`${inputBase} border-slate-300`}
+                onBlur={() => handleBlur('email')}
+                className={`${inputBase} ${inputErr('email')}`}
                 placeholder="Επαγγελματικό Email"
               />
+              {checkingEmail && <p className="text-xs text-slate-500 mt-1">Έλεγχος email...</p>}
+              {touched.email && fieldErrors.email && <p className="text-xs text-red-600 mt-1">{fieldErrors.email}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -299,6 +312,7 @@ export default function VetRegisterPage() {
                 placeholder="Κωδικός Πρόσβασης"
               />
               {touched.password && fieldErrors.password && <p className="text-xs text-red-600 mt-1">{fieldErrors.password}</p>}
+              <PasswordStrengthIndicator password={formData.password} colorScheme="indigo" />
             </div>
             <div>
               <label htmlFor="confirmPassword" className="sr-only">Επιβεβαίωση Κωδικού</label>

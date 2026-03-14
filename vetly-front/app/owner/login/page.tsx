@@ -37,13 +37,17 @@ export default function OwnerLoginPage() {
         password,
       });
 
-      await login(response.access_token, 'pet_owner');
+      await login(response.access_token, 'pet_owner', rememberMe);
       router.push('/owner/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
+        if (err.status === 403) {
+          router.push(`/verify-email/pending?email=${encodeURIComponent(email)}&userType=pet_owner`);
+          return;
+        }
         setError(err.message);
       } else {
-        setError('An unexpected error occurred');
+        setError('Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.');
       }
       setLoading(false);
     }
@@ -111,26 +115,18 @@ export default function OwnerLoginPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 border-slate-300 rounded text-teal-600 focus:ring-teal-500"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
-                Απομνημόνευση
-              </label>
-            </div>
-
-            <div className="text-sm">
-              <a href="#" className="font-medium text-teal-600 hover:text-teal-500">
-                Ξεχάσατε τον κωδικό;
-              </a>
-            </div>
+          <div className="flex items-center">
+            <input
+              id="remember-me"
+              name="remember-me"
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 border-slate-300 rounded text-teal-600 focus:ring-teal-500"
+            />
+            <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
+              Απομνημόνευση
+            </label>
           </div>
 
           <div>
