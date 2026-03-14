@@ -49,6 +49,7 @@ class VetResponse(VetBase):
     hours: dict | None = None
     is_on_call: bool
     is_verified: bool
+    email_verified: bool
     rating_average: Decimal
     reviews_count: int
     created_at: datetime

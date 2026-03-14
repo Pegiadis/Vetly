@@ -4,6 +4,9 @@ Authentication schemas for request/response validation
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.schemas.vet import VetResponse
+from app.schemas.owner import PetOwnerResponse
+
 
 class LoginRequest(BaseModel):
     """Login request schema"""
@@ -38,3 +41,27 @@ class PetOwnerRegisterRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)
+
+
+class RegisterResponse(BaseModel):
+    """Registration response - instructs user to verify email"""
+    message: str
+    email: str
+
+
+class VerifyEmailRequest(BaseModel):
+    """Email verification request"""
+    token: str
+
+
+class VerifyEmailResponse(BaseModel):
+    """Email verification response with access token"""
+    access_token: str
+    token_type: str = "bearer"
+    message: str
+
+
+class ResendVerificationRequest(BaseModel):
+    """Resend verification email request"""
+    email: EmailStr
+    user_type: str = Field(..., pattern="^(vet|pet_owner)$")

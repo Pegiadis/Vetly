@@ -45,6 +45,7 @@ class Vet(BaseModel):
     # Status
     is_on_call = Column(Boolean, default=False, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
+    email_verified = Column(Boolean, default=False, nullable=False)
     
     # Ratings
     rating_average = Column(Numeric(3, 2), default=0.0, nullable=False)

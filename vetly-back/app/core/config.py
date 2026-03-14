@@ -29,7 +29,17 @@ class Settings(BaseSettings):
 
     # CORS
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
-    
+
+    # Email / SMTP
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = "noreply@vetly.gr"
+    SMTP_TLS: bool = True
+    FRONTEND_URL: str = "http://localhost:3000"
+    EMAIL_VERIFY_EXPIRE_HOURS: int = 24
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=True,

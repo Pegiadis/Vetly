@@ -21,6 +21,7 @@ class TokenData(BaseModel):
     """Decoded token data"""
     sub: str
     type: str = "vet"
+    purpose: str | None = None
     exp: datetime | None = None
 
 
@@ -97,3 +98,30 @@ def get_password_hash(password: str) -> str:
         The hashed password
     """
     return pwd_context.hash(password)
+
+
+def create_email_verification_token(user_id: str, user_type: str) -> str:
+    expire = datetime.utcnow() + timedelta(hours=settings.EMAIL_VERIFY_EXPIRE_HOURS)
+    to_encode = {
+        "sub": str(user_id),
+        "type": user_type,
+        "purpose": "email_verify",
+        "exp": expire,
+        "iat": datetime.utcnow(),
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decode_email_verification_token(token: str) -> TokenData | None:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        if payload.get("purpose") != "email_verify":
+            return None
+        return TokenData(
+            sub=payload.get("sub"),
+            type=payload.get("type", "vet"),
+            purpose=payload.get("purpose"),
+            exp=payload.get("exp"),
+        )
+    except JWTError:
+        return None

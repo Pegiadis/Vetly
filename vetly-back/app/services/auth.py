@@ -10,10 +10,16 @@ from sqlalchemy.orm import Session
 from app.db.base import Vet, PetOwner
 from app.core.security import (
     create_access_token,
+    create_email_verification_token,
+    decode_email_verification_token,
     verify_password,
     get_password_hash,
 )
-from app.schemas.auth import LoginRequest, TokenResponse, VetRegisterRequest, PetOwnerRegisterRequest
+from app.core.email import send_verification_email
+from app.schemas.auth import (
+    LoginRequest, TokenResponse, VetRegisterRequest, PetOwnerRegisterRequest,
+    RegisterResponse, VerifyEmailRequest, VerifyEmailResponse,
+)
 from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
 from app.utils.slug import generate_unique_slug
@@ -26,19 +32,6 @@ class AuthService:
         self.db = db
 
     def login_vet(self, credentials: LoginRequest) -> TokenResponse:
-        """
-        Authenticate a vet and return access token
-
-        Args:
-            credentials: Login credentials (email, password)
-
-        Returns:
-            TokenResponse with access token
-
-        Raises:
-            HTTPException: If credentials are invalid
-        """
-        # Find vet by email
         query = select(Vet).where(Vet.email == credentials.email)
         vet = self.db.scalar(query)
 
@@ -49,7 +42,6 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Check if vet has a password set
         if not vet.password_hash:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -57,7 +49,6 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Verify password
         if not verify_password(credentials.password, vet.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -65,25 +56,16 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Create access token
-        access_token = create_access_token(subject=str(vet.id), token_type="vet")
+        if not vet.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email not verified",
+            )
 
+        access_token = create_access_token(subject=str(vet.id), token_type="vet")
         return TokenResponse(access_token=access_token)
 
-    def register_vet(self, data: VetRegisterRequest) -> VetResponse:
-        """
-        Register a new vet account
-
-        Args:
-            data: Registration data
-
-        Returns:
-            Created vet response
-
-        Raises:
-            HTTPException: If email or license already exists
-        """
-        # Check if email already exists
+    def register_vet(self, data: VetRegisterRequest) -> RegisterResponse:
         existing_email = self.db.scalar(select(Vet).where(Vet.email == data.email))
         if existing_email:
             raise HTTPException(
@@ -91,7 +73,6 @@ class AuthService:
                 detail="Email already registered",
             )
 
-        # Check if license number already exists
         existing_license = self.db.scalar(
             select(Vet).where(Vet.license_number == data.license_number)
         )
@@ -101,10 +82,8 @@ class AuthService:
                 detail="License number already registered",
             )
 
-        # Generate unique slug from name
         slug = generate_unique_slug(self.db, data.name)
 
-        # Create new vet
         vet = Vet(
             email=data.email,
             password_hash=get_password_hash(data.password),
@@ -119,41 +98,26 @@ class AuthService:
             image_url=data.image_url,
             is_verified=False,
             is_on_call=False,
+            email_verified=False,
         )
 
         self.db.add(vet)
         self.db.commit()
         self.db.refresh(vet)
 
-        return VetResponse.model_validate(vet)
+        token = create_email_verification_token(str(vet.id), "vet")
+        send_verification_email(data.email, token, "vet")
+
+        return RegisterResponse(
+            message="Ελέγξτε το email σας για επιβεβαίωση.",
+            email=data.email,
+        )
 
     def get_vet_by_id(self, vet_id: UUID) -> Vet | None:
-        """
-        Get a vet by ID
-
-        Args:
-            vet_id: The vet's UUID
-
-        Returns:
-            Vet model or None
-        """
         query = select(Vet).where(Vet.id == vet_id)
         return self.db.scalar(query)
 
     def login_pet_owner(self, credentials: LoginRequest) -> TokenResponse:
-        """
-        Authenticate a pet owner and return access token
-
-        Args:
-            credentials: Login credentials (email, password)
-
-        Returns:
-            TokenResponse with access token
-
-        Raises:
-            HTTPException: If credentials are invalid
-        """
-        # Find pet owner by email
         query = select(PetOwner).where(PetOwner.email == credentials.email)
         pet_owner = self.db.scalar(query)
 
@@ -164,7 +128,6 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Check if pet owner has a password set
         if not pet_owner.password_hash:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -172,7 +135,6 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Verify password
         if not verify_password(credentials.password, pet_owner.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -180,25 +142,16 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        # Create access token
-        access_token = create_access_token(subject=str(pet_owner.id), token_type="pet_owner")
+        if not pet_owner.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Email not verified",
+            )
 
+        access_token = create_access_token(subject=str(pet_owner.id), token_type="pet_owner")
         return TokenResponse(access_token=access_token)
 
-    def register_pet_owner(self, data: PetOwnerRegisterRequest) -> PetOwnerResponse:
-        """
-        Register a new pet owner account
-
-        Args:
-            data: Registration data
-
-        Returns:
-            Created pet owner response
-
-        Raises:
-            HTTPException: If email already exists
-        """
-        # Check if email already exists
+    def register_pet_owner(self, data: PetOwnerRegisterRequest) -> RegisterResponse:
         existing_email = self.db.scalar(select(PetOwner).where(PetOwner.email == data.email))
         if existing_email:
             raise HTTPException(
@@ -206,7 +159,6 @@ class AuthService:
                 detail="Email already registered",
             )
 
-        # Create new pet owner
         pet_owner = PetOwner(
             email=data.email,
             password_hash=get_password_hash(data.password),
@@ -220,4 +172,54 @@ class AuthService:
         self.db.commit()
         self.db.refresh(pet_owner)
 
-        return PetOwnerResponse.model_validate(pet_owner)
+        token = create_email_verification_token(str(pet_owner.id), "pet_owner")
+        send_verification_email(data.email, token, "pet_owner")
+
+        return RegisterResponse(
+            message="Ελέγξτε το email σας για επιβεβαίωση.",
+            email=data.email,
+        )
+
+    def verify_email(self, data: VerifyEmailRequest) -> VerifyEmailResponse:
+        token_data = decode_email_verification_token(data.token)
+        if not token_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification token",
+            )
+
+        user_id = token_data.sub
+        user_type = token_data.type
+
+        if user_type == "vet":
+            user = self.db.scalar(select(Vet).where(Vet.id == user_id))
+        else:
+            user = self.db.scalar(select(PetOwner).where(PetOwner.id == user_id))
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found",
+            )
+
+        user.email_verified = True
+        self.db.commit()
+
+        access_token = create_access_token(subject=str(user.id), token_type=user_type)
+        return VerifyEmailResponse(
+            access_token=access_token,
+            message="Email verified successfully",
+        )
+
+    def resend_verification(self, email: str, user_type: str) -> dict:
+        if user_type == "vet":
+            user = self.db.scalar(select(Vet).where(Vet.email == email))
+        else:
+            user = self.db.scalar(select(PetOwner).where(PetOwner.email == email))
+
+        # Generic response to avoid revealing whether the email exists
+        if user and not user.email_verified:
+            token = create_email_verification_token(str(user.id), user_type)
+            send_verification_email(email, token, user_type)
+
+        return {"message": "Αν το email υπάρχει στο σύστημα, θα λάβετε ένα νέο email επιβεβαίωσης."}
