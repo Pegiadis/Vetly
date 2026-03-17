@@ -99,7 +99,7 @@ class AuthService:
             city=data.city,
             description=data.description,
             image_url=data.image_url,
-            is_verified=False,
+            is_verified=True,
             is_on_call=False,
             email_verified=False,
         )
