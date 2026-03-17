@@ -6,7 +6,7 @@ from datetime import datetime, date, time
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 
 
 class PetOwnerResponse(BaseModel):
@@ -59,6 +59,13 @@ class AppointmentCreateRequest(BaseModel):
     notes: str | None = Field(None, max_length=1000)
     service_type_id: UUID | None = None
 
+    @field_validator('scheduled_at')
+    @classmethod
+    def must_be_future(cls, v: datetime) -> datetime:
+        if v.replace(tzinfo=None) <= datetime.utcnow():
+            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
+        return v
+
 
 class AppointmentBatchCreateRequest(BaseModel):
     """Request to create grouped appointments for multiple pets"""
@@ -70,10 +77,24 @@ class AppointmentBatchCreateRequest(BaseModel):
     notes: str | None = Field(None, max_length=1000)
     service_type_id: UUID | None = None
 
+    @field_validator('scheduled_at')
+    @classmethod
+    def must_be_future(cls, v: datetime) -> datetime:
+        if v.replace(tzinfo=None) <= datetime.utcnow():
+            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
+        return v
+
 
 class AppointmentRescheduleRequest(BaseModel):
     """Request to reschedule an appointment"""
     scheduled_at: datetime
+
+    @field_validator('scheduled_at')
+    @classmethod
+    def must_be_future(cls, v: datetime) -> datetime:
+        if v.replace(tzinfo=None) <= datetime.utcnow():
+            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
+        return v
 
 
 class AppointmentPetInfo(BaseModel):

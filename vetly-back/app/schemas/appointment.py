@@ -5,7 +5,7 @@ Appointment schemas for request/response validation
 from uuid import UUID
 from decimal import Decimal
 from datetime import datetime, date, time as TimeType
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.pet import PetResponse, PetOwnerResponse
 
@@ -74,6 +74,13 @@ class VetCreateAppointmentRequest(BaseModel):
     notes: str | None = Field(None, max_length=2000)
     service_type_id: UUID | None = None
     price: Decimal | None = Field(None, gt=0)
+
+    @field_validator('scheduled_at')
+    @classmethod
+    def must_be_future(cls, v: datetime) -> datetime:
+        if v.replace(tzinfo=None) <= datetime.utcnow():
+            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
+        return v
 
 
 class AppointmentStatusUpdate(BaseModel):
