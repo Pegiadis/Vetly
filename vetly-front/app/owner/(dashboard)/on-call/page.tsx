@@ -22,6 +22,16 @@ export default function OnCallPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const emergencyTypes = [
+    { id: 'Τραυματισμός', name: 'Τραυματισμός', icon: '🩹' },
+    { id: 'Δηλητηρίαση', name: 'Δηλητηρίαση', icon: '☠️' },
+    { id: 'Δύσπνοια', name: 'Δύσπνοια', icon: '🫁' },
+    { id: 'Σπασμοί', name: 'Σπασμοί', icon: '⚡' },
+    { id: 'Άλλο Επείγον', name: 'Άλλο Επείγον', icon: '🚨' },
+  ];
+
+  const [emergencyType, setEmergencyType] = useState('');
+
   const { slots: availableSlots, loading: slotsLoading, refetch: refetchSlots } = useAvailableSlots(selectedVet, selectedDate);
 
   useEffect(() => {
@@ -30,7 +40,7 @@ export default function OnCallPage() {
 
   const canProceed = () => {
     switch (step) {
-      case 1: return selectedPets.size > 0;
+      case 1: return selectedPets.size > 0 && emergencyType !== '';
       case 2: return selectedVet;
       case 3: return selectedDate && selectedTime;
       case 4: return true;
@@ -52,7 +62,7 @@ export default function OnCallPage() {
           vet_id: selectedVet!,
           pet_id: petId,
           scheduled_at: scheduledAt,
-          type: 'Emergency',
+          type: emergencyType,
           duration_minutes: 30,
           notes: notes || undefined,
         })
@@ -146,7 +156,7 @@ export default function OnCallPage() {
               ) : pets.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-slate-500 mb-4">Δεν έχετε καταχωρημένα κατοικίδια.</p>
-                  <Link href="/owner/pets" className="text-teal-600 font-medium hover:underline">
+                  <Link href="/owner/pets" className="text-red-600 font-medium hover:underline">
                     Προσθέστε κατοικίδιο
                   </Link>
                 </div>
@@ -197,10 +207,20 @@ export default function OnCallPage() {
             <div>
               <h3 className="font-bold text-slate-800 mb-4">Τύπος ραντεβού</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div className="p-4 rounded-xl border-2 border-red-500 bg-red-50 text-center">
-                  <span className="text-2xl mb-2 block">🚨</span>
-                  <p className="font-medium text-slate-800 text-sm">Επείγον</p>
-                </div>
+                {emergencyTypes.map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setEmergencyType(type.id)}
+                    className={`p-4 rounded-xl border-2 transition-all text-center ${
+                      emergencyType === type.id
+                        ? 'bg-red-50 border-red-500'
+                        : 'border-slate-100 hover:border-red-200'
+                    }`}
+                  >
+                    <span className="text-2xl mb-2 block">{type.icon}</span>
+                    <p className="font-medium text-slate-800 text-sm">{type.name}</p>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -315,7 +335,7 @@ export default function OnCallPage() {
                 onChange={setSelectedDate}
                 minDate={new Date()}
                 maxDate={maxDate}
-                accentColor="teal"
+                accentColor="red"
               />
             </div>
 
@@ -324,7 +344,7 @@ export default function OnCallPage() {
                 <h3 className="font-bold text-slate-800 mb-4">Επιλέξτε ώρα</h3>
                 {slotsLoading ? (
                   <div className="text-center py-8 text-slate-500">
-                    <svg className="animate-spin h-6 w-6 mx-auto mb-2 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-6 w-6 mx-auto mb-2 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
@@ -343,8 +363,8 @@ export default function OnCallPage() {
                         onClick={() => setSelectedTime(time)}
                         className={`p-3 rounded-xl border-2 font-medium text-sm transition-all ${
                           selectedTime === time
-                            ? 'border-teal-500 bg-teal-50 text-teal-700'
-                            : 'border-slate-100 hover:border-teal-200 text-slate-600'
+                            ? 'border-red-500 bg-red-50 text-red-700'
+                            : 'border-slate-100 hover:border-red-200 text-slate-600'
                         }`}
                       >
                         {time}
@@ -362,7 +382,7 @@ export default function OnCallPage() {
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Περιγράψτε τα συμπτώματα ή οποιαδήποτε άλλη πληροφορία..."
                 rows={3}
-                className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 resize-none"
               />
             </div>
 
@@ -394,7 +414,7 @@ export default function OnCallPage() {
                   const pet = pets.find(p => p.id === petId);
                   return (
                     <p key={petId} className="font-bold text-slate-800">
-                      {pet?.name} — 🚨 Επείγον
+                      {pet?.name} — {emergencyTypes.find(t => t.id === emergencyType)?.icon} {emergencyTypes.find(t => t.id === emergencyType)?.name}
                     </p>
                   );
                 })}
@@ -413,7 +433,7 @@ export default function OnCallPage() {
 
             <Link
               href="/owner/appointments"
-              className="inline-flex items-center gap-2 bg-teal-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-teal-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition-colors"
             >
               Δείτε τα ραντεβού σας
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
