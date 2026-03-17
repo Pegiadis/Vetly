@@ -115,18 +115,26 @@ export default function VetLoginPage() {
             </div>
           </div>
 
-          <div className="flex items-center">
-            <input
-              id="remember-me"
-              name="remember-me"
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 border-slate-300 rounded text-indigo-600 focus:ring-indigo-500"
-            />
-            <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
-              Απομνημόνευση
-            </label>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 border-slate-300 rounded text-indigo-600 focus:ring-indigo-500"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
+                Απομνημόνευση
+              </label>
+            </div>
+            <Link
+              href="/forgot-password?userType=vet"
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+            >
+              Ξεχάσατε τον κωδικό;
+            </Link>
           </div>
 
           <div>

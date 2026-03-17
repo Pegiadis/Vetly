@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     SMTP_TLS: bool = True
     FRONTEND_URL: str = "http://localhost:3000"
     EMAIL_VERIFY_EXPIRE_HOURS: int = 24
+    PASSWORD_RESET_EXPIRE_HOURS: int = 1
 
     model_config = SettingsConfigDict(
         env_file=".env",

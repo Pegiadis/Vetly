@@ -65,3 +65,15 @@ class ResendVerificationRequest(BaseModel):
     """Resend verification email request"""
     email: EmailStr
     user_type: str = Field(..., pattern="^(vet|pet_owner)$")
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Forgot password request"""
+    email: EmailStr
+    user_type: str = Field(..., pattern="^(vet|pet_owner)$")
+
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password with token"""
+    token: str
+    new_password: str = Field(..., min_length=6, max_length=128)

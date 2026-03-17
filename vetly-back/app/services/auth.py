@@ -12,13 +12,16 @@ from app.core.security import (
     create_access_token,
     create_email_verification_token,
     decode_email_verification_token,
+    create_password_reset_token,
+    decode_password_reset_token,
     verify_password,
     get_password_hash,
 )
-from app.core.email import send_verification_email
+from app.core.email import send_verification_email, send_password_reset_email
 from app.schemas.auth import (
     LoginRequest, TokenResponse, VetRegisterRequest, PetOwnerRegisterRequest,
     RegisterResponse, VerifyEmailRequest, VerifyEmailResponse,
+    ForgotPasswordRequest, ResetPasswordRequest,
 )
 from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
@@ -223,3 +226,46 @@ class AuthService:
             send_verification_email(email, token, user_type)
 
         return {"message": "Αν το email υπάρχει στο σύστημα, θα λάβετε ένα νέο email επιβεβαίωσης."}
+
+    def request_password_reset(self, data: ForgotPasswordRequest) -> dict:
+        if data.user_type == "vet":
+            user = self.db.scalar(select(Vet).where(Vet.email == data.email))
+        else:
+            user = self.db.scalar(select(PetOwner).where(PetOwner.email == data.email))
+
+        if user and user.email_verified:
+            token = create_password_reset_token(str(user.id), data.user_type)
+            send_password_reset_email(data.email, token, data.user_type)
+
+        return {"message": "Αν το email υπάρχει στο σύστημα, θα λάβετε email για επαναφορά κωδικού."}
+
+    def reset_password(self, data: ResetPasswordRequest) -> VerifyEmailResponse:
+        token_data = decode_password_reset_token(data.token)
+        if not token_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Μη έγκυρος ή ληγμένος σύνδεσμος επαναφοράς.",
+            )
+
+        user_id = token_data.sub
+        user_type = token_data.type
+
+        if user_type == "vet":
+            user = self.db.scalar(select(Vet).where(Vet.id == user_id))
+        else:
+            user = self.db.scalar(select(PetOwner).where(PetOwner.id == user_id))
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Ο χρήστης δεν βρέθηκε.",
+            )
+
+        user.password_hash = get_password_hash(data.new_password)
+        self.db.commit()
+
+        access_token = create_access_token(subject=str(user.id), token_type=user_type)
+        return VerifyEmailResponse(
+            access_token=access_token,
+            message="Ο κωδικός ενημερώθηκε επιτυχώς.",
+        )

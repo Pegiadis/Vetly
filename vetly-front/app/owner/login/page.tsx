@@ -115,18 +115,26 @@ export default function OwnerLoginPage() {
             </div>
           </div>
 
-          <div className="flex items-center">
-            <input
-              id="remember-me"
-              name="remember-me"
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 border-slate-300 rounded text-teal-600 focus:ring-teal-500"
-            />
-            <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
-              Απομνημόνευση
-            </label>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <input
+                id="remember-me"
+                name="remember-me"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 border-slate-300 rounded text-teal-600 focus:ring-teal-500"
+              />
+              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
+                Απομνημόνευση
+              </label>
+            </div>
+            <Link
+              href="/forgot-password?userType=pet_owner"
+              className="text-sm font-medium text-teal-600 hover:text-teal-500"
+            >
+              Ξεχάσατε τον κωδικό;
+            </Link>
           </div>
 
           <div>

@@ -73,3 +73,45 @@ def send_verification_email(to_email: str, token: str, user_type: str) -> None:
     """
 
     send_email(to_email, f"Επιβεβαίωση Email - {app_name}", html)
+
+
+def send_password_reset_email(to_email: str, token: str, user_type: str) -> None:
+    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+    color = "#0d9488" if user_type == "pet_owner" else "#4f46e5"
+    color_light = "#f0fdfa" if user_type == "pet_owner" else "#eef2ff"
+    app_name = "Vetly" if user_type == "pet_owner" else "Vetly Pro"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f8fafc;">
+      <div style="max-width:480px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+        <div style="background:{color};padding:32px;text-align:center;">
+          <h1 style="color:white;margin:0;font-size:24px;">{app_name}</h1>
+        </div>
+        <div style="padding:32px;">
+          <h2 style="color:#1e293b;margin:0 0 16px;">Επαναφορά Κωδικού</h2>
+          <p style="color:#475569;line-height:1.6;margin:0 0 24px;">
+            Λάβαμε αίτημα επαναφοράς κωδικού πρόσβασης. Πατήστε το παρακάτω κουμπί για να ορίσετε νέο κωδικό.
+          </p>
+          <div style="text-align:center;margin:32px 0;">
+            <a href="{reset_url}" style="display:inline-block;background:{color};color:white;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:bold;font-size:16px;">
+              Επαναφορά Κωδικού
+            </a>
+          </div>
+          <p style="color:#94a3b8;font-size:13px;line-height:1.5;margin:24px 0 0;">
+            Αν δεν ζητήσατε επαναφορά κωδικού, αγνοήστε αυτό το email. Ο σύνδεσμος λήγει σε 1 ώρα.
+          </p>
+          <div style="margin-top:24px;padding:16px;background:{color_light};border-radius:8px;">
+            <p style="color:#64748b;font-size:12px;margin:0;word-break:break-all;">
+              Αν το κουμπί δεν λειτουργεί, αντιγράψτε αυτόν τον σύνδεσμο:<br>{reset_url}
+            </p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    send_email(to_email, f"Επαναφορά Κωδικού - {app_name}", html)

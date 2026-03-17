@@ -13,6 +13,7 @@ from app.services.auth import AuthService
 from app.schemas.auth import (
     LoginRequest, TokenResponse, VetRegisterRequest, PetOwnerRegisterRequest,
     RegisterResponse, VerifyEmailRequest, VerifyEmailResponse, ResendVerificationRequest,
+    ForgotPasswordRequest, ResetPasswordRequest,
 )
 from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
@@ -97,6 +98,26 @@ def resend_verification(
     """Resend verification email"""
     service = AuthService(db)
     return service.resend_verification(data.email, data.user_type)
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    data: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Request a password reset email"""
+    service = AuthService(db)
+    return service.request_password_reset(data)
+
+
+@router.post("/reset-password", response_model=VerifyEmailResponse)
+def reset_password(
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> VerifyEmailResponse:
+    """Reset password using token"""
+    service = AuthService(db)
+    return service.reset_password(data)
 
 
 @router.get("/check-email")
