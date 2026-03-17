@@ -7,7 +7,7 @@ interface CalendarPickerProps {
   onChange: (date: string) => void;
   minDate?: Date;
   maxDate?: Date;
-  accentColor?: 'teal' | 'indigo';
+  accentColor?: 'teal' | 'indigo' | 'red';
 }
 
 const DAYS_GR = ['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ'];
@@ -43,25 +43,24 @@ export default function CalendarPicker({
   const min = minDate ? stripTime(minDate) : null;
   const max = maxDate ? stripTime(maxDate) : null;
 
-  const accent = accentColor === 'indigo'
-    ? {
-        bg: 'bg-indigo-600',
-        bgLight: 'bg-indigo-50',
-        text: 'text-indigo-600',
-        ring: 'ring-indigo-200',
-        hoverBg: 'hover:bg-indigo-50',
-        selectedText: 'text-white',
-        todayRing: 'ring-indigo-300',
-      }
-    : {
-        bg: 'bg-teal-600',
-        bgLight: 'bg-teal-50',
-        text: 'text-teal-600',
-        ring: 'ring-teal-200',
-        hoverBg: 'hover:bg-teal-50',
-        selectedText: 'text-white',
-        todayRing: 'ring-teal-300',
-      };
+  const accentMap = {
+    indigo: {
+      bg: 'bg-indigo-600', bgLight: 'bg-indigo-50', text: 'text-indigo-600',
+      ring: 'ring-indigo-200', hoverBg: 'hover:bg-indigo-50',
+      selectedText: 'text-white', todayRing: 'ring-indigo-300',
+    },
+    red: {
+      bg: 'bg-red-600', bgLight: 'bg-red-50', text: 'text-red-600',
+      ring: 'ring-red-200', hoverBg: 'hover:bg-red-50',
+      selectedText: 'text-white', todayRing: 'ring-red-300',
+    },
+    teal: {
+      bg: 'bg-teal-600', bgLight: 'bg-teal-50', text: 'text-teal-600',
+      ring: 'ring-teal-200', hoverBg: 'hover:bg-teal-50',
+      selectedText: 'text-white', todayRing: 'ring-teal-300',
+    },
+  };
+  const accent = accentMap[accentColor];
 
   const calendarDays = useMemo(() => {
     const firstDay = new Date(viewYear, viewMonth, 1);
