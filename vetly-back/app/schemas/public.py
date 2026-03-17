@@ -3,6 +3,7 @@ Public-facing schemas (no authentication required)
 """
 
 from datetime import datetime
+from uuid import UUID
 from pydantic import BaseModel, ConfigDict
 
 
@@ -55,6 +56,7 @@ class PublicReviewListResponse(BaseModel):
 
 
 class PublicServiceResponse(BaseModel):
+    id: UUID
     name: str
     description: str | None = None
     price: float

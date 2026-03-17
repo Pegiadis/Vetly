@@ -2,19 +2,16 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useMyPets, useVets, useAvailableSlots, useVetServices, createAppointment, createBatchAppointments, Vet } from '@/hooks/useOwnerData';
+import { useMyPets, useVets, useAvailableSlots, useVetServices, createAppointment, createBatchAppointments, Vet, PublicVetService } from '@/hooks/useOwnerData';
 import { ApiError } from '@/lib/api';
 import CalendarPicker from '@/components/CalendarPicker';
 import { getImageUrl } from '@/lib/api';
 import { VetSearchMap } from '@/components/MapView';
 
-const appointmentTypes = [
-  { id: 'Checkup', name: 'Γενικός Έλεγχος', icon: '🩺' },
-  { id: 'Vaccination', name: 'Εμβολιασμός', icon: '💉' },
-  { id: 'Dental Cleaning', name: 'Οδοντιατρικά', icon: '🦷' },
-  { id: 'Surgery', name: 'Χειρουργείο', icon: '🏥' },
-  { id: 'Grooming', name: 'Περιποίηση', icon: '✂️' },
-];
+const dayLabels: Record<string, string> = {
+  monday: 'Δευτέρα', tuesday: 'Τρίτη', wednesday: 'Τετάρτη',
+  thursday: 'Πέμπτη', friday: 'Παρασκευή', saturday: 'Σάββατο', sunday: 'Κυριακή',
+};
 
 type Step = 1 | 2 | 3 | 4;
 
@@ -23,8 +20,9 @@ export default function BookPage() {
   const { vets, loading: vetsLoading, refetch: refetchVets } = useVets();
 
   const [step, setStep] = useState<Step>(1);
-  const [selectedPets, setSelectedPets] = useState<Map<string, string>>(new Map());
+  const [selectedPets, setSelectedPets] = useState<Set<string>>(new Set());
   const [selectedVet, setSelectedVet] = useState<string | null>(null);
+  const [selectedService, setSelectedService] = useState<PublicVetService | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
@@ -39,6 +37,11 @@ export default function BookPage() {
     setSelectedTime(null);
   }, [selectedVet, selectedDate]);
 
+  // Clear selected service when vet changes
+  useEffect(() => {
+    setSelectedService(null);
+  }, [selectedVet]);
+
   // Refetch vets when reaching step 2 to get latest ratings
   useEffect(() => {
     if (step === 2 && refetchVets) {
@@ -48,8 +51,8 @@ export default function BookPage() {
 
   const canProceed = () => {
     switch (step) {
-      case 1: return selectedPets.size > 0 && Array.from(selectedPets.values()).every(t => t !== '');
-      case 2: return selectedVet;
+      case 1: return selectedPets.size > 0;
+      case 2: return selectedVet !== null && selectedService !== null;
       case 3: return selectedDate && selectedTime;
       case 4: return true;
       default: return false;
@@ -57,7 +60,7 @@ export default function BookPage() {
   };
 
   const handleConfirm = async () => {
-    if (selectedPets.size === 0 || !selectedVet || !selectedDate || !selectedTime) return;
+    if (selectedPets.size === 0 || !selectedVet || !selectedDate || !selectedTime || !selectedService) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -66,24 +69,26 @@ export default function BookPage() {
       const scheduledAt = `${selectedDate}T${selectedTime}:00`;
 
       if (selectedPets.size === 1) {
-        const [petId, type] = [...selectedPets.entries()][0];
+        const petId = [...selectedPets][0];
         await createAppointment({
           vet_id: selectedVet!,
           pet_id: petId,
           scheduled_at: scheduledAt,
-          type,
-          duration_minutes: 30,
+          type: selectedService.name,
+          duration_minutes: selectedService.duration_minutes,
+          service_type_id: selectedService.id,
           notes: notes || undefined,
         });
       } else {
         const types: Record<string, string> = {};
-        selectedPets.forEach((type, petId) => { types[petId] = type; });
+        selectedPets.forEach(petId => { types[petId] = selectedService.name; });
         await createBatchAppointments({
           vet_id: selectedVet!,
-          pet_ids: [...selectedPets.keys()],
+          pet_ids: [...selectedPets],
           scheduled_at: scheduledAt,
           types,
-          duration_minutes: 30,
+          duration_minutes: selectedService.duration_minutes,
+          service_type_id: selectedService.id,
           notes: notes || undefined,
         });
       }
@@ -142,8 +147,8 @@ export default function BookPage() {
           ))}
         </div>
         <div className="flex justify-between mt-2 text-xs text-slate-500">
-          <span>Κατοικίδιο</span>
-          <span>Κτηνίατρος</span>
+          <span>Κατοικίδια</span>
+          <span>Κτηνίατρος & Υπηρεσία</span>
           <span>Ημ/νία</span>
           <span>Επιβεβαίωση</span>
         </div>
@@ -151,7 +156,7 @@ export default function BookPage() {
 
       {/* Step Content */}
       <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        {/* Step 1: Select Pets & Types */}
+        {/* Step 1: Select Pets */}
         {step === 1 && (
           <div className="space-y-6">
             <div>
@@ -173,11 +178,11 @@ export default function BookPage() {
                       key={pet.id}
                       onClick={() => {
                         setSelectedPets(prev => {
-                          const next = new Map(prev);
+                          const next = new Set(prev);
                           if (next.has(pet.id)) {
                             next.delete(pet.id);
                           } else {
-                            next.set(pet.id, '');
+                            next.add(pet.id);
                           }
                           return next;
                         });
@@ -209,43 +214,6 @@ export default function BookPage() {
                 </div>
               )}
             </div>
-
-            {selectedPets.size > 0 && (
-              <div>
-                <h3 className="font-bold text-slate-800 mb-4">Τύπος ραντεβού ανά κατοικίδιο</h3>
-                <div className="space-y-3">
-                  {Array.from(selectedPets.entries()).map(([petId, type]) => {
-                    const pet = pets.find(p => p.id === petId);
-                    return (
-                      <div key={petId} className="p-3 bg-slate-50 rounded-xl">
-                        <p className="font-bold text-slate-800 text-sm mb-2">{pet?.name}</p>
-                        <div className="flex gap-2 flex-wrap">
-                          {appointmentTypes.map((t) => (
-                            <button
-                              key={t.id}
-                              onClick={() => {
-                                setSelectedPets(prev => {
-                                  const next = new Map(prev);
-                                  next.set(petId, t.id);
-                                  return next;
-                                });
-                              }}
-                              className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-all ${
-                                type === t.id
-                                  ? 'border-teal-500 bg-teal-100 text-teal-700'
-                                  : 'border-slate-200 hover:border-teal-200 text-slate-600'
-                              }`}
-                            >
-                              {t.icon} {t.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -401,13 +369,18 @@ export default function BookPage() {
                         ))}
                       </div>
                     ) : vetServices.length === 0 ? (
-                      <p className="text-sm text-slate-400 italic">Δεν έχουν καταχωρηθεί υπηρεσίες.</p>
+                      <p className="text-sm text-slate-400 italic">Ο κτηνίατρος δεν έχει καταχωρήσει υπηρεσίες ακόμα.</p>
                     ) : (
                       <div className="space-y-2">
-                        {vetServices.map((service, idx) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between bg-white rounded-xl px-3 py-2 border border-slate-100"
+                        {vetServices.map((service) => (
+                          <button
+                            key={service.id}
+                            onClick={() => setSelectedService(service)}
+                            className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 border-2 transition-all text-left ${
+                              selectedService?.id === service.id
+                                ? 'border-teal-500 bg-teal-50 shadow-sm'
+                                : 'border-slate-100 bg-white hover:border-teal-200'
+                            }`}
                           >
                             <div className="min-w-0 flex-1">
                               <p className="font-medium text-slate-800 text-sm">{service.name}</p>
@@ -419,11 +392,36 @@ export default function BookPage() {
                               <span className="text-xs text-slate-400">{service.duration_minutes} λεπ.</span>
                               <span className="font-bold text-teal-700 text-sm">{Number(service.price).toFixed(2)} €</span>
                             </div>
-                          </div>
+                          </button>
                         ))}
                       </div>
                     )}
                   </div>
+
+                  {/* Working Hours Section */}
+                  {selectedVetData.hours && (
+                    <div className="border-t border-teal-200/60 pt-4 mt-4">
+                      <h5 className="font-bold text-slate-700 text-sm mb-3 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Ωράριο
+                      </h5>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {Object.entries(dayLabels).map(([key, label]) => {
+                          const day = selectedVetData.hours?.[key];
+                          return (
+                            <div key={key} className="flex items-center justify-between bg-white rounded-lg px-2.5 py-1.5 border border-slate-100">
+                              <span className="text-xs font-medium text-slate-600">{label}</span>
+                              <span className={`text-xs font-medium ${day?.closed ? 'text-red-400' : 'text-slate-800'}`}>
+                                {day?.closed ? 'Κλειστά' : day?.open && day?.close ? `${day.open} - ${day.close}` : '—'}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               </>
@@ -516,20 +514,22 @@ export default function BookPage() {
             <div className="bg-slate-50 rounded-xl p-4 text-left mb-8 space-y-3 text-sm">
               <div>
                 <p className="text-slate-500 mb-1">Κατοικίδια</p>
-                {Array.from(selectedPets.entries()).map(([petId, type]) => {
+                {Array.from(selectedPets).map((petId) => {
                   const pet = pets.find(p => p.id === petId);
-                  const typeData = appointmentTypes.find(t => t.id === type);
                   return (
-                    <p key={petId} className="font-bold text-slate-800">
-                      {pet?.name} — {typeData?.name}
-                    </p>
+                    <p key={petId} className="font-bold text-slate-800">{pet?.name}</p>
                   );
                 })}
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-slate-500">Κτηνίατρος</p>
                   <p className="font-bold text-slate-800">{selectedVetData?.name}</p>
+                </div>
+                <div>
+                  <p className="text-slate-500">Υπηρεσία</p>
+                  <p className="font-bold text-slate-800">{selectedService?.name}</p>
+                  <p className="text-xs text-slate-500">{selectedService?.duration_minutes} λεπτά — {Number(selectedService?.price ?? 0).toFixed(2)} €</p>
                 </div>
                 <div>
                   <p className="text-slate-500">Ημ/νία & Ώρα</p>

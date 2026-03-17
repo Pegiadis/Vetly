@@ -34,6 +34,7 @@ export interface Vet {
   image_url: string | null;
   coordinates_lat: number | null;
   coordinates_lng: number | null;
+  hours: Record<string, { open: string | null; close: string | null; closed: boolean }> | null;
 }
 
 export interface AppointmentPetInfo {
@@ -136,6 +137,7 @@ export function useVets() {
 }
 
 export interface PublicVetService {
+  id: string;
   name: string;
   description: string | null;
   price: number;
@@ -370,6 +372,7 @@ export interface CreateAppointmentRequest {
   scheduled_at: string;
   type: string;
   duration_minutes?: number;
+  service_type_id?: string;
   notes?: string;
 }
 

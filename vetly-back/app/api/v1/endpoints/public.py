@@ -195,6 +195,7 @@ def get_public_vet_services(
     return PublicServiceListResponse(
         items=[
             PublicServiceResponse(
+                id=s.id,
                 name=s.name,
                 description=s.description,
                 price=float(s.price),
