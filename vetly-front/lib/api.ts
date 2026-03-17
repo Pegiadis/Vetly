@@ -35,7 +35,15 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-    throw new ApiError(response.status, error.detail || 'Request failed');
+    let message = error.detail || 'Request failed';
+    if (typeof message !== 'string') {
+      if (Array.isArray(message)) {
+        message = message.map((e: { msg?: string }) => e.msg || String(e)).join(', ');
+      } else {
+        message = JSON.stringify(message);
+      }
+    }
+    throw new ApiError(response.status, message);
   }
 
   if (response.status === 204) {
