@@ -1,7 +1,0 @@
-{
-  "name": "Vetly",
-  "description": "The ultimate digital hub for connecting pet owners with veterinary services in Greece.",
-  "requestFramePermissions": [
-    "geolocation"
-  ]
-}
