@@ -11,6 +11,7 @@ import {
 } from '@/hooks/useOwnerData';
 import { getImageUrl } from '@/lib/api';
 import Pagination from '@/components/Pagination';
+import { useToast } from '@/components/Toast';
 
 export default function ReviewsPage() {
   const [page, setPage] = useState(1);
@@ -29,6 +30,8 @@ export default function ReviewsPage() {
 
   // Delete state
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const toast = useToast();
 
   const renderStars = (rating: number, interactive = false, onSelect?: (r: number) => void) => {
     return (
@@ -66,8 +69,9 @@ export default function ReviewsPage() {
       setFormRating(0);
       setFormComment('');
       refetch();
+      toast.success('Η αξιολόγηση υποβλήθηκε επιτυχώς!');
     } catch {
-      // Error handled silently
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setFormSubmitting(false);
     }
@@ -91,20 +95,23 @@ export default function ReviewsPage() {
       setFormRating(0);
       setFormComment('');
       refetch();
+      toast.success('Η αξιολόγηση ενημερώθηκε επιτυχώς!');
     } catch {
-      // Error handled silently
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setFormSubmitting(false);
     }
   };
 
   const handleDelete = async (reviewId: string) => {
+    if (!window.confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την αξιολόγηση;')) return;
     setDeletingId(reviewId);
     try {
       await deleteReview(reviewId);
       refetch();
+      toast.success('Η αξιολόγηση διαγράφηκε.');
     } catch {
-      // Error handled silently
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setDeletingId(null);
     }

@@ -156,7 +156,7 @@ class VetService:
                 available.append(slot_start)
 
         # If today, filter out past slots
-        now = datetime.now()
+        now = datetime.utcnow()
         if target_date == now.date():
             available = [s for s in available if s > now]
 

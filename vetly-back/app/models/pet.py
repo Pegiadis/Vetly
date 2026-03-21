@@ -14,6 +14,11 @@ class PetType(str, enum.Enum):
     """Pet type enumeration"""
     DOG = "Dog"
     CAT = "Cat"
+    BIRD = "Bird"
+    RABBIT = "Rabbit"
+    HAMSTER = "Hamster"
+    FISH = "Fish"
+    REPTILE = "Reptile"
     OTHER = "Other"
 
 

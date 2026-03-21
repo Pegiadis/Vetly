@@ -37,6 +37,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = "noreply@vetly.gr"
     SMTP_TLS: bool = True
+    EMAIL_NOTIFICATIONS_ENABLED: bool = False
     FRONTEND_URL: str = "http://localhost:3000"
     EMAIL_VERIFY_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_EXPIRE_HOURS: int = 1

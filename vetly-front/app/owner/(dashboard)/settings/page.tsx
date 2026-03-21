@@ -20,7 +20,7 @@ export default function SettingsPage() {
       refetch();
       refreshUser();
     } catch {
-      // silent
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -39,10 +39,14 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  const [notifications, setNotifications] = useState({
-    appointments: true,
-    medications: true,
-    marketing: false,
+  const [notifications, setNotifications] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('vetly_notification_prefs');
+        if (saved) return JSON.parse(saved);
+      } catch { /* use defaults */ }
+    }
+    return { appointments: true, medications: true, marketing: false };
   });
 
   useEffect(() => {
@@ -75,10 +79,11 @@ export default function SettingsPage() {
   const hasErrors = Object.keys(fieldErrors).length > 0;
 
   const handleNotificationChange = (key: keyof typeof notifications) => {
-    setNotifications(prev => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setNotifications((prev: typeof notifications) => {
+      const updated = { ...prev, [key]: !prev[key] };
+      try { localStorage.setItem('vetly_notification_prefs', JSON.stringify(updated)); } catch { /* ignore */ }
+      return updated;
+    });
   };
 
   const handleSave = async () => {
@@ -103,7 +108,7 @@ export default function SettingsPage() {
       refreshUser();
       setSaveSuccess(true);
     } catch {
-      // silent
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setSaving(false);
     }

@@ -17,6 +17,7 @@ from app.schemas.owner import (
     AppointmentBatchCreateRequest,
     AppointmentRescheduleRequest,
     AppointmentResponse,
+    AppointmentDetailResponse,
     AppointmentPaginatedResponse,
     VetListResponse,
     OwnerMedicalHistoryResponse,
@@ -77,6 +78,17 @@ def get_upcoming_appointments(
     """Get upcoming appointments for the logged-in pet owner"""
     service = OwnerService(db)
     return service.get_upcoming_appointments(current_owner.id)
+
+
+@router.get("/appointments/{appointment_id}", response_model=AppointmentDetailResponse)
+def get_appointment_detail(
+    appointment_id: UUID,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> AppointmentDetailResponse:
+    """Get detailed appointment info including medical events and medications"""
+    service = OwnerService(db)
+    return service.get_appointment_detail(current_owner.id, appointment_id)
 
 
 @router.post("/appointments/batch", response_model=list[AppointmentResponse], status_code=201)
@@ -157,6 +169,7 @@ def get_pet_medical_history(
 @router.get("/medications", response_model=MedicationPaginatedResponse)
 def get_my_medications(
     is_active: bool | None = Query(None),
+    pet_id: UUID | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     current_owner: PetOwner = Depends(get_current_pet_owner),
@@ -164,7 +177,7 @@ def get_my_medications(
 ) -> MedicationPaginatedResponse:
     """Get medications for the owner's pets with pagination"""
     service = OwnerService(db)
-    return service.get_my_medications(current_owner.id, is_active, page=page, page_size=page_size)
+    return service.get_my_medications(current_owner.id, is_active, pet_id=pet_id, page=page, page_size=page_size)
 
 
 @router.delete("/medications/{medication_id}", status_code=204)

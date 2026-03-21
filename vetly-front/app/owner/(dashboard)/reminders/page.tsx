@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useOwnerReminders, dismissReminder } from '@/hooks/useOwnerData';
 import Pagination from '@/components/Pagination';
+import { useToast } from '@/components/Toast';
 
 type ReminderType = 'vaccination' | 'checkup' | 'medication' | 'custom';
 
@@ -44,15 +45,18 @@ export default function OwnerRemindersPage() {
   const [page, setPage] = useState(1);
   const { reminders, totalPages, loading, error, refetch } = useOwnerReminders(page, 10);
   const [dismissing, setDismissing] = useState<string | null>(null);
+  const toast = useToast();
 
   const handleDismiss = async (id: string) => {
     if (dismissing) return;
+    if (!window.confirm('Είστε σίγουροι ότι θέλετε να απορρίψετε αυτή την υπενθύμιση;')) return;
     setDismissing(id);
     try {
       await dismissReminder(id);
       refetch();
+      toast.success('Η υπενθύμιση απορρίφθηκε.');
     } catch {
-      // silent
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setDismissing(null);
     }

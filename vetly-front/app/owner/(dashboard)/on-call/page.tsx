@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useMyPets, useOnCallVets, useAvailableSlots, createAppointment, OnCallVet } from '@/hooks/useOwnerData';
+import { useMyPets, useOnCallVets, useAvailableSlots, createBatchAppointments, OnCallVet } from '@/hooks/useOwnerData';
 import { ApiError, getImageUrl } from '@/lib/api';
 import CalendarPicker from '@/components/CalendarPicker';
 import { OnCallMap } from '@/components/MapView';
@@ -56,19 +56,20 @@ export default function OnCallPage() {
 
     try {
       const scheduledAt = `${selectedDate}T${selectedTime}:00`;
+      const petIds = Array.from(selectedPets);
+      const types: Record<string, string> = {};
+      for (const petId of petIds) {
+        types[petId] = emergencyType;
+      }
 
-      const promises = Array.from(selectedPets).map((petId) =>
-        createAppointment({
-          vet_id: selectedVet!,
-          pet_id: petId,
-          scheduled_at: scheduledAt,
-          type: emergencyType,
-          duration_minutes: 30,
-          notes: notes || undefined,
-        })
-      );
-
-      await Promise.all(promises);
+      await createBatchAppointments({
+        vet_id: selectedVet!,
+        pet_ids: petIds,
+        scheduled_at: scheduledAt,
+        types,
+        duration_minutes: 30, // Emergency triage default
+        notes: notes || undefined,
+      });
       setStep(4);
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
@@ -76,7 +77,7 @@ export default function OnCallPage() {
         setSelectedTime(null);
         refetchSlots();
       } else {
-        setSubmitError(err instanceof Error ? err.message : 'Failed to create appointment');
+        setSubmitError(err instanceof Error ? err.message : 'Αποτυχία δημιουργίας ραντεβού. Δοκιμάστε ξανά.');
       }
     } finally {
       setSubmitting(false);
@@ -426,7 +427,7 @@ export default function OnCallPage() {
                 </div>
                 <div>
                   <p className="text-slate-500">Ημ/νία & Ώρα</p>
-                  <p className="font-bold text-slate-800">{selectedDate} στις {selectedTime}</p>
+                  <p className="font-bold text-slate-800">{new Date(selectedDate + 'T00:00:00').toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} στις {selectedTime}</p>
                 </div>
               </div>
             </div>

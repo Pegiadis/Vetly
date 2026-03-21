@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useMyMedications, useMyPets } from '@/hooks/useOwnerData';
 import { getImageUrl } from '@/lib/api';
 import Pagination from '@/components/Pagination';
@@ -20,13 +20,8 @@ export default function MedicationsPage() {
   const [showActive, setShowActive] = useState(true);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const { medications, total, totalPages, loading, error } = useMyMedications(showActive, page, 10);
+  const { medications, total, totalPages, loading, error } = useMyMedications(showActive, page, 10, selectedPetId || undefined);
   const { pets } = useMyPets(1, 50);
-
-  const filtered = useMemo(() => {
-    if (!selectedPetId) return medications;
-    return medications.filter(m => m.pet_id === selectedPetId);
-  }, [medications, selectedPetId]);
 
   const handleTabChange = (active: boolean) => {
     setShowActive(active);
@@ -125,8 +120,8 @@ export default function MedicationsPage() {
 
       {/* Medications List */}
       <div className="space-y-4">
-        {filtered.length > 0 ? (
-          filtered.map((med) => {
+        {medications.length > 0 ? (
+          medications.map((med) => {
             const expired = isExpired(med.end_date);
             const endingSoon = med.end_date && !expired && daysUntilEnd(med.end_date) <= 7;
 

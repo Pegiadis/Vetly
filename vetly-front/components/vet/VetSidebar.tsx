@@ -7,7 +7,7 @@ import { usePendingAppointments, useVetNotifications, useOnCall } from '@/hooks/
 
 const navItems = [
   {
-    name: 'Dashboard',
+    name: 'Πίνακας Ελέγχου',
     href: '/vet/dashboard',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -80,7 +80,7 @@ const navItems = [
     ),
   },
   {
-    name: 'Analytics',
+    name: 'Στατιστικά',
     href: '/vet/analytics',
     icon: (
       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -209,7 +209,7 @@ export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
               </span>
               {item.name}
               {item.badge && pendingAppointments.length > 0 && (
-                <span className="ml-auto bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                <span className="ml-auto bg-red-500 text-white text-xs font-bold min-w-[20px] h-5 flex items-center justify-center px-1.5 rounded-full">
                   {pendingAppointments.length}
                 </span>
               )}

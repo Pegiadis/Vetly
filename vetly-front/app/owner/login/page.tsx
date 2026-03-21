@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
@@ -25,6 +25,8 @@ export default function OwnerLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
+  const searchParams = useSearchParams();
+  const sessionExpired = searchParams.get('expired') === 'true';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,6 +76,13 @@ export default function OwnerLoginPage() {
             Διαχειριστείτε τα κατοικίδιά σας με ευκολία.
           </p>
         </div>
+
+        {/* Session Expired */}
+        {sessionExpired && !error && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm">
+            Η συνεδρία σας έληξε. Παρακαλώ συνδεθείτε ξανά.
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (

@@ -99,7 +99,7 @@ export default function BookPage() {
         setSelectedTime(null);
         refetchSlots();
       } else {
-        setSubmitError(err instanceof Error ? err.message : 'Failed to create appointment');
+        setSubmitError(err instanceof Error ? err.message : 'Αποτυχία δημιουργίας ραντεβού. Δοκιμάστε ξανά.');
       }
     } finally {
       setSubmitting(false);

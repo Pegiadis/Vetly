@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   useMyNotifications,
   markNotificationRead,
   markAllNotificationsRead,
 } from '@/hooks/useOwnerData';
 import Pagination from '@/components/Pagination';
+import { useToast } from '@/components/Toast';
 
 const svgIcon = (d: string) => (
   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -57,8 +59,12 @@ function formatDate(dateStr: string) {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
+  if (diffMins < 1) return 'Μόλις τώρα';
+  if (diffMins === 1) return '1 λεπτό πριν';
   if (diffMins < 60) return `${diffMins} λεπτά πριν`;
+  if (diffHours === 1) return '1 ώρα πριν';
   if (diffHours < 24) return `${diffHours} ώρες πριν`;
+  if (diffDays === 1) return '1 ημέρα πριν';
   if (diffDays < 7) return `${diffDays} ημέρες πριν`;
   return date.toLocaleDateString('el-GR', { day: 'numeric', month: 'short' });
 }
@@ -66,6 +72,7 @@ function formatDate(dateStr: string) {
 export default function NotificationsPage() {
   const [page, setPage] = useState(1);
   const { notifications, totalPages, loading, error, refetch } = useMyNotifications(page, 10);
+  const toast = useToast();
 
   const unreadCount = useMemo(
     () => notifications.filter(n => !n.is_read).length,
@@ -77,7 +84,7 @@ export default function NotificationsPage() {
       await markNotificationRead(id);
       refetch();
     } catch {
-      // silent
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
   };
 
@@ -86,14 +93,47 @@ export default function NotificationsPage() {
       await markAllNotificationsRead();
       refetch();
     } catch {
-      // silent
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
+  };
+
+  const router = useRouter();
+
+  const getNotificationLink = (type: string): string | null => {
+    if (type.includes('appointment')) return '/owner/appointments';
+    if (type.includes('reminder')) return '/owner/reminders';
+    if (type.includes('review') || type === 'reply') return '/owner/reviews';
+    if (type.includes('medication')) return '/owner/medications';
+    return null;
+  };
+
+  const handleNotificationClick = (notification: { id: string; type: string; is_read: boolean }) => {
+    if (!notification.is_read) handleMarkRead(notification.id);
+    const link = getNotificationLink(notification.type);
+    if (link) router.push(link);
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-8">
+          <div className="h-8 bg-slate-200 rounded w-48 animate-pulse mb-2" />
+          <div className="h-4 bg-slate-200 rounded w-64 animate-pulse" />
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="bg-white rounded-2xl p-5 border border-slate-200 animate-pulse">
+              <div className="flex gap-4">
+                <div className="w-12 h-12 bg-slate-200 rounded-xl flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-slate-200 rounded w-3/4" />
+                  <div className="h-3 bg-slate-200 rounded w-1/2" />
+                  <div className="h-3 bg-slate-200 rounded w-1/4" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -139,10 +179,8 @@ export default function NotificationsPage() {
             return (
               <div
                 key={notification.id}
-                onClick={() => !notification.is_read && handleMarkRead(notification.id)}
-                className={`bg-white rounded-2xl p-5 shadow-sm border transition-all ${
-                  !notification.is_read ? 'cursor-pointer' : ''
-                } ${
+                onClick={() => handleNotificationClick(notification)}
+                className={`bg-white rounded-2xl p-5 shadow-sm border transition-all cursor-pointer ${
                   notification.is_read
                     ? 'border-slate-100 hover:border-slate-200'
                     : 'border-teal-200 bg-teal-50/30 hover:bg-teal-50/50'

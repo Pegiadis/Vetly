@@ -67,6 +67,19 @@ def generate_invite(
     return service.generate_invite(client_id, current_vet.id, base_url)
 
 
+@router.put("/{client_id}/resend-invite", response_model=InviteLinkResponse)
+def resend_invite(
+    client_id: UUID,
+    request: Request,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> InviteLinkResponse:
+    """Resend an invite with a new token for an existing invited client"""
+    base_url = str(request.base_url).rstrip("/").replace("/api/v1", "").replace(":8000", ":3000")
+    service = VetClientService(db)
+    return service.resend_invite(client_id, current_vet.id, base_url)
+
+
 @router.post("/{client_id}/pets", response_model=VetClientPetResponse, status_code=status.HTTP_201_CREATED)
 def add_pet(
     client_id: UUID,

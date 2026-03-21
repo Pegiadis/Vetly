@@ -109,3 +109,50 @@ class ReviewService:
         )
 
         return self._build_detail_response(updated)
+
+    def update_reply(
+        self,
+        review_id: UUID,
+        vet_id: UUID,
+        data: ReviewReplyRequest,
+    ) -> ReviewDetailResponse:
+        """Update an existing reply on a review"""
+        review = self.repository.get_by_id(review_id, vet_id)
+
+        if not review:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Review not found",
+            )
+
+        if not review.reply:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No reply exists to update",
+            )
+
+        updated = self.repository.update_reply(review, data.reply)
+        return self._build_detail_response(updated)
+
+    def delete_reply(
+        self,
+        review_id: UUID,
+        vet_id: UUID,
+    ) -> ReviewDetailResponse:
+        """Delete a reply from a review"""
+        review = self.repository.get_by_id(review_id, vet_id)
+
+        if not review:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Review not found",
+            )
+
+        if not review.reply:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No reply exists to delete",
+            )
+
+        updated = self.repository.delete_reply(review)
+        return self._build_detail_response(updated)

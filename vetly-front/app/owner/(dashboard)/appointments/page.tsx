@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useMyAppointments, cancelAppointment, rescheduleAppointment, useAvailableSlots } from '@/hooks/useOwnerData';
 import type { Appointment, AppointmentFilters } from '@/hooks/useOwnerData';
 import { getImageUrl, ApiError } from '@/lib/api';
@@ -10,6 +11,19 @@ import DatePicker from '@/components/DatePicker';
 import CalendarPicker from '@/components/CalendarPicker';
 
 type TabType = 'upcoming' | 'past';
+
+const appointmentTypeLabels: Record<string, string> = {
+  'Checkup': 'Εξέταση',
+  'Vaccination': 'Εμβολιασμός',
+  'Surgery': 'Χειρουργείο',
+  'Emergency': 'Έκτακτη Ανάγκη',
+  'Dental': 'Οδοντιατρικά',
+  'Grooming': 'Καλλωπισμός',
+  'Consultation': 'Συμβουλευτική',
+  'Follow-up': 'Επανεξέταση',
+  'Deworming': 'Αποπαρασίτωση',
+  'Lab Tests': 'Εργαστηριακές Εξετάσεις',
+};
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
@@ -308,6 +322,7 @@ function AppointmentCard({
   onCancel: (apt: Appointment) => void;
   onReschedule: (apt: Appointment) => void;
 }) {
+  const router = useRouter();
   const petName = apt.pet?.name || 'Κατοικίδιο';
   const petImage = getImageUrl(apt.pet?.image_url);
   const vetName = apt.vet?.name || 'Κτηνίατρος';
@@ -315,7 +330,7 @@ function AppointmentCard({
   const address = apt.vet?.address;
 
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:border-teal-200 transition-all">
+    <div onClick={() => router.push(`/owner/appointments/${apt.id}`)} className="block bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:border-teal-200 transition-all cursor-pointer">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-start gap-4">
           <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-slate-100 flex-shrink-0 bg-teal-50 flex items-center justify-center">
@@ -330,7 +345,7 @@ function AppointmentCard({
               <h3 className="font-bold text-slate-900">{petName}</h3>
               <StatusBadge status={apt.status} />
             </div>
-            <p className="text-sm text-slate-600 font-medium">{apt.type}</p>
+            <p className="text-sm text-slate-600 font-medium">{appointmentTypeLabels[apt.type] || apt.type}</p>
             <p className="text-sm text-slate-500">{vetName}{vetSpecialty ? ` • ${vetSpecialty}` : ''}</p>
             <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
               <span className="flex items-center gap-1">
@@ -353,7 +368,7 @@ function AppointmentCard({
           {showActions && (
             <>
               <button
-                onClick={() => onReschedule(apt)}
+                onClick={(e) => { e.preventDefault(); onReschedule(apt); }}
                 className="px-4 py-2 bg-teal-50 text-teal-700 rounded-xl font-bold text-sm hover:bg-teal-100 transition-colors flex items-center gap-1.5"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -362,7 +377,7 @@ function AppointmentCard({
                 Αναπρογραμματισμός
               </button>
               <button
-                onClick={() => onCancel(apt)}
+                onClick={(e) => { e.preventDefault(); onCancel(apt); }}
                 className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -375,6 +390,7 @@ function AppointmentCard({
           {!showActions && apt.status === 'completed' && (
             <Link
               href="/owner/reviews"
+              onClick={(e) => e.stopPropagation()}
               className="px-4 py-2 bg-amber-50 text-amber-700 rounded-xl font-bold text-sm hover:bg-amber-100 transition-colors flex items-center gap-1"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -396,6 +412,7 @@ function AppointmentCard({
             }
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             className="flex items-center gap-2 hover:text-teal-600 transition-colors cursor-pointer"
           >
             <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -6,12 +6,22 @@ import { useFullAnalytics } from '@/hooks/useVetData';
 const petTypeEmojis: Record<string, string> = {
   Dog: '\uD83D\uDC15',
   Cat: '\uD83D\uDC08',
+  Bird: '\uD83D\uDC26',
+  Rabbit: '\uD83D\uDC30',
+  Hamster: '\uD83D\uDC39',
+  Fish: '\uD83D\uDC1F',
+  Reptile: '\uD83E\uDD8E',
   Other: '\uD83D\uDC3E',
 };
 
 const petTypeLabels: Record<string, string> = {
   Dog: 'Σκύλοι',
   Cat: 'Γάτες',
+  Bird: 'Πτηνά',
+  Rabbit: 'Κουνέλια',
+  Hamster: 'Χάμστερ',
+  Fish: 'Ψάρια',
+  Reptile: 'Ερπετά',
   Other: 'Άλλα',
 };
 
@@ -46,9 +56,9 @@ export default function VetAnalyticsPage() {
       {/* Header */}
       <div className="mb-6">
         <Link href="/vet/dashboard" className="text-slate-500 text-sm font-bold mb-2 hover:text-indigo-600 block">
-          &larr; Dashboard
+          &larr; Πίνακας Ελέγχου
         </Link>
-        <h1 className="text-3xl font-bold text-slate-900">Analytics</h1>
+        <h1 className="text-3xl font-bold text-slate-900">Στατιστικά</h1>
         <p className="text-slate-500 mt-1">Στατιστικά ιατρείου</p>
       </div>
 

@@ -119,6 +119,30 @@ class VetClientService:
         invite_url = f"{base_url}/invite/{token}"
         return InviteLinkResponse(invite_url=invite_url, expires_at=expires_at)
 
+    def resend_invite(self, client_id: UUID, vet_id: UUID, base_url: str) -> InviteLinkResponse:
+        """Resend an invite by generating a new token for an existing client"""
+        client = self.repo.get_by_id_for_vet(client_id, vet_id)
+        if not client:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+        if client.status == "linked":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Client already has a Vetly account",
+            )
+        if client.status != "invited":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Client has not been invited yet. Use the invite endpoint first.",
+            )
+
+        token = secrets.token_hex(32)
+        expires_at = datetime.utcnow() + timedelta(days=INVITE_EXPIRY_DAYS)
+
+        self.repo.update(client, invite_token=token, invite_expires_at=expires_at)
+
+        invite_url = f"{base_url}/invite/{token}"
+        return InviteLinkResponse(invite_url=invite_url, expires_at=expires_at)
+
     def get_invite_info(self, token: str) -> InviteInfoResponse:
         client = self.repo.get_by_invite_token(token)
         if not client:

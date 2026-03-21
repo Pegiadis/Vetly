@@ -66,6 +66,7 @@ export interface Appointment {
   type: string;
   status: string;
   notes: string | null;
+  price: number | null;
   group_id: string | null;
   created_at: string;
   updated_at: string;
@@ -394,6 +395,59 @@ export async function createBatchAppointments(data: BatchCreateAppointmentReques
   return api.post<Appointment[]>('/owner/appointments/batch', data);
 }
 
+export interface AppointmentDetailMedicalEvent {
+  id: string;
+  date: string;
+  title: string;
+  notes: string | null;
+  event_type: string;
+  created_at: string;
+}
+
+export interface AppointmentDetailMedication {
+  id: string;
+  name: string;
+  dosage: string;
+  frequency: string;
+  time: string;
+  start_date: string;
+  end_date: string | null;
+  notes: string | null;
+  is_active: boolean;
+}
+
+export interface AppointmentDetail extends Appointment {
+  medical_events: AppointmentDetailMedicalEvent[];
+  medications: AppointmentDetailMedication[];
+}
+
+export function useAppointmentDetail(appointmentId: string | null) {
+  const [appointment, setAppointment] = useState<AppointmentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchDetail = useCallback(async () => {
+    if (!appointmentId) return;
+    try {
+      setLoading(true);
+      const data = await api.get<AppointmentDetail>(`/owner/appointments/${appointmentId}`);
+      setAppointment(data);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch appointment details');
+    } finally {
+      setLoading(false);
+    }
+  }, [appointmentId]);
+
+  useEffect(() => {
+    if (appointmentId) fetchDetail();
+    else { setAppointment(null); setLoading(false); }
+  }, [appointmentId, fetchDetail]);
+
+  return { appointment, loading, error, refetch: fetchDetail };
+}
+
 export async function cancelAppointment(appointmentId: string): Promise<Appointment> {
   return api.post<Appointment>(`/owner/appointments/${appointmentId}/cancel`, {});
 }
@@ -479,7 +533,7 @@ export interface OwnerMedication {
   pet: MedicationPetInfo | null;
 }
 
-export function useMyMedications(isActive?: boolean, page = 1, pageSize = 10) {
+export function useMyMedications(isActive?: boolean, page = 1, pageSize = 10, petId?: string) {
   const [medications, setMedications] = useState<OwnerMedication[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -492,6 +546,7 @@ export function useMyMedications(isActive?: boolean, page = 1, pageSize = 10) {
       params.set('page', String(page));
       params.set('page_size', String(pageSize));
       if (isActive !== undefined) params.set('is_active', String(isActive));
+      if (petId) params.set('pet_id', petId);
       const data = await api.get<PaginatedResponse<OwnerMedication>>(`/owner/medications?${params.toString()}`);
       setMedications(data.items);
       setTotal(data.total);
@@ -501,7 +556,7 @@ export function useMyMedications(isActive?: boolean, page = 1, pageSize = 10) {
     } finally {
       setLoading(false);
     }
-  }, [isActive, page, pageSize]);
+  }, [isActive, page, pageSize, petId]);
 
   useEffect(() => {
     fetchMedications();

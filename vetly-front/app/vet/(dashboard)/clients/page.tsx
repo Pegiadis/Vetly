@@ -7,6 +7,7 @@ import {
   useVetClient,
   createVetClient,
   generateClientInvite,
+  resendClientInvite,
   addClientPet,
   updateClientPet,
   deleteClientPet,
@@ -519,7 +520,18 @@ export default function VetClientsPage() {
       refetchClient();
       refetch();
     } catch {
-      // silent
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+    }
+  };
+
+  const handleResendInvite = async (clientId: string) => {
+    try {
+      const data = await resendClientInvite(clientId);
+      setInviteData(data);
+      refetchClient();
+      refetch();
+    } catch {
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
   };
 
@@ -530,7 +542,7 @@ export default function VetClientsPage() {
       refetchClient();
       refetch();
     } catch {
-      // silent
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
     setDeleteTarget(null);
   };
@@ -1015,7 +1027,7 @@ export default function VetClientsPage() {
             {/* Panel Footer Actions */}
             {selectedClient && (
               <div className="p-5 border-t border-slate-100 bg-slate-50 mt-auto space-y-2">
-                {selectedClient.status !== 'linked' && (
+                {selectedClient.status === 'managed' && (
                   <button
                     onClick={() => handleGenerateInvite(selectedClient.id)}
                     className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
@@ -1024,6 +1036,17 @@ export default function VetClientsPage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
                     Πρόσκληση στο Vetly
+                  </button>
+                )}
+                {selectedClient.status === 'invited' && (
+                  <button
+                    onClick={() => handleResendInvite(selectedClient.id)}
+                    className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Αποστολή ξανά
                   </button>
                 )}
                 </div>

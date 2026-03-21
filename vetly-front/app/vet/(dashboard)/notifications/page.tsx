@@ -69,7 +69,7 @@ export default function VetNotificationsPage() {
       await markVetNotificationRead(id);
       refetch();
     } catch {
-      // silent
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
   };
 
@@ -78,7 +78,7 @@ export default function VetNotificationsPage() {
       await markAllVetNotificationsRead();
       refetch();
     } catch {
-      // silent
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
   };
 

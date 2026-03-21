@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useVetReviews, useVetReviewStats, replyToReview } from '@/hooks/useVetData';
+import { useVetReviews, useVetReviewStats, replyToReview, updateReviewReply, deleteReviewReply } from '@/hooks/useVetData';
 import { getImageUrl } from '@/lib/api';
 import Pagination from '@/components/Pagination';
+import { useToast } from '@/components/Toast';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('el-GR', {
@@ -19,8 +20,10 @@ export default function VetReviewsPage() {
   const { reviews, totalPages, loading: reviewsLoading, error, refetch } = useVetReviews(page, 10);
   const { stats, loading: statsLoading } = useVetReviewStats();
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [editingReply, setEditingReply] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
 
   const loading = reviewsLoading || statsLoading;
 
@@ -32,8 +35,39 @@ export default function VetReviewsPage() {
       setReplyingTo(null);
       setReplyText('');
       await refetch();
+      toast.success('Η απάντηση αποστάλθηκε.');
     } catch {
-      // silently fail
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditReply = async (reviewId: string) => {
+    if (!replyText.trim()) return;
+    setSubmitting(true);
+    try {
+      await updateReviewReply(reviewId, replyText.trim());
+      setEditingReply(null);
+      setReplyText('');
+      await refetch();
+      toast.success('Η απάντηση ενημερώθηκε.');
+    } catch {
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeleteReply = async (reviewId: string) => {
+    if (!window.confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε την απάντησή σας;')) return;
+    setSubmitting(true);
+    try {
+      await deleteReviewReply(reviewId);
+      await refetch();
+      toast.success('Η απάντηση διαγράφηκε.');
+    } catch {
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setSubmitting(false);
     }
@@ -158,23 +192,52 @@ export default function VetReviewsPage() {
                   </div>
                   <p className="mt-3 text-slate-600">{review.comment}</p>
 
-                  {review.reply && (
+                  {review.reply && editingReply !== review.id && (
                     <div className="mt-4 bg-indigo-50 rounded-xl p-4 border-l-4 border-indigo-500">
-                      <p className="text-sm text-slate-500 font-bold mb-1">Η απάντησή σας:</p>
-                      <p className="text-slate-700">{review.reply}</p>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="text-sm text-slate-500 font-bold mb-1">Η απάντησή σας:</p>
+                          <p className="text-slate-700">{review.reply}</p>
+                        </div>
+                        <div className="flex items-center gap-1 ml-3 shrink-0">
+                          <button
+                            onClick={() => {
+                              setEditingReply(review.id);
+                              setReplyText(review.reply || '');
+                              setReplyingTo(null);
+                            }}
+                            className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+                            title="Επεξεργασία"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteReply(review.id)}
+                            disabled={submitting}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Διαγραφή"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
 
                   {!review.reply && replyingTo !== review.id && (
                     <button
-                      onClick={() => setReplyingTo(review.id)}
+                      onClick={() => { setReplyingTo(review.id); setEditingReply(null); setReplyText(''); }}
                       className="mt-3 text-sm text-indigo-600 font-bold hover:text-indigo-700"
                     >
                       Απάντηση
                     </button>
                   )}
 
-                  {replyingTo === review.id && (
+                  {replyingTo === review.id && !editingReply && (
                     <div className="mt-4 space-y-3">
                       <textarea
                         className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -200,6 +263,37 @@ export default function VetReviewsPage() {
                           className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50"
                         >
                           {submitting ? 'Αποστολή...' : 'Αποστολή'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {editingReply === review.id && (
+                    <div className="mt-4 space-y-3">
+                      <textarea
+                        className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        rows={3}
+                        placeholder="Επεξεργασία απάντησης..."
+                        value={replyText}
+                        onChange={e => setReplyText(e.target.value)}
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            setEditingReply(null);
+                            setReplyText('');
+                          }}
+                          disabled={submitting}
+                          className="px-4 py-2 text-slate-600 border border-slate-200 rounded-lg font-medium hover:bg-slate-50 disabled:opacity-50"
+                        >
+                          Ακύρωση
+                        </button>
+                        <button
+                          onClick={() => handleEditReply(review.id)}
+                          disabled={submitting || !replyText.trim()}
+                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
                         </button>
                       </div>
                     </div>

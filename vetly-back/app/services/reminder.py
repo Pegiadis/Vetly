@@ -170,7 +170,7 @@ class ReminderService:
             return
 
         today = date.today()
-        due_date = today.replace(year=today.year + 1)
+        due_date = today + timedelta(days=365)
         reminder_date = due_date - timedelta(days=14)
 
         repo = ReminderRepository(db)

@@ -284,7 +284,7 @@ export default function VetServicesPage() {
       await deleteServiceType(deletingService.id);
       refetch();
     } catch {
-      // silent
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
     setDeletingService(null);
   };

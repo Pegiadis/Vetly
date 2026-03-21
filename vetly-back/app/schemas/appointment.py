@@ -94,6 +94,18 @@ class AppointmentRejectRequest(BaseModel):
     reason: str | None = Field(None, max_length=1000)
 
 
+class VetRescheduleRequest(BaseModel):
+    """Request for a vet to reschedule an appointment"""
+    scheduled_at: datetime
+
+    @field_validator('scheduled_at')
+    @classmethod
+    def must_be_future(cls, v: datetime) -> datetime:
+        if v.replace(tzinfo=None) <= datetime.utcnow():
+            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
+        return v
+
+
 class ExaminationMedicationItem(BaseModel):
     """A single medication prescribed during examination"""
     name: str = Field(..., min_length=1, max_length=255)

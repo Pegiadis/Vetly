@@ -17,6 +17,7 @@ from app.schemas.appointment import (
     AppointmentRejectRequest,
     CompleteExaminationRequest,
     VetCreateAppointmentRequest,
+    VetRescheduleRequest,
 )
 
 router = APIRouter()
@@ -145,6 +146,22 @@ def reject_appointment(
         appointment_id=appointment_id,
         vet_id=current_vet.id,
         reason=reason,
+    )
+
+
+@router.post("/{appointment_id}/reschedule", response_model=AppointmentDetailResponse)
+def reschedule_appointment(
+    appointment_id: UUID,
+    data: VetRescheduleRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> AppointmentDetailResponse:
+    """Reschedule an appointment to a new date/time (vet-initiated, stays confirmed)"""
+    service = AppointmentService(db)
+    return service.reschedule_appointment(
+        appointment_id=appointment_id,
+        vet_id=current_vet.id,
+        data=data,
     )
 
 

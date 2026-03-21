@@ -150,5 +150,8 @@ class ChatService:
 
             response = chat.send_message(new_message)
             return response.text
+        except (ConnectionError, TimeoutError, ValueError) as exc:
+            return "Λυπάμαι, αντιμετώπισα ένα πρόβλημα. Παρακαλώ δοκιμάστε ξανά."
         except Exception as exc:
-            return f"Sorry, I encountered an error: {str(exc)}"
+            print(f"[CHAT ERROR] Unexpected error: {exc}")
+            return "Λυπάμαι, αντιμετώπισα ένα πρόβλημα. Παρακαλώ δοκιμάστε ξανά."

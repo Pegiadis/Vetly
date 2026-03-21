@@ -11,6 +11,7 @@ import {
   VetAppointment,
 } from '@/hooks/useVetData';
 import { getImageUrl } from '@/lib/api';
+import { useToast } from '@/components/Toast';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('el-GR', {
@@ -45,6 +46,7 @@ export default function VetPendingPage() {
   const { appointments, loading, error, refetch } = usePendingAppointments();
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+  const toast = useToast();
 
   // Group appointments by group_id
   const grouped = useMemo(() => {
@@ -74,8 +76,9 @@ export default function VetPendingPage() {
     try {
       await approveAppointment(id);
       await refetch();
+      toast.success('Το ραντεβού εγκρίθηκε.');
     } catch {
-      // silently fail — user sees no change
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setProcessingId(null);
     }
@@ -87,8 +90,9 @@ export default function VetPendingPage() {
     try {
       await rejectAppointment(id);
       await refetch();
+      toast.success('Το ραντεβού απορρίφθηκε.');
     } catch {
-      // silently fail
+      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setProcessingId(null);
     }
@@ -251,14 +255,38 @@ export default function VetPendingPage() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleReject(first.id, e); }}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setProcessingId(first.id);
+                        try {
+                          await Promise.all(group.map(apt => rejectAppointment(apt.id)));
+                          await refetch();
+                          toast.success('Όλα τα ραντεβού απορρίφθηκαν.');
+                        } catch {
+                          toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+                        } finally {
+                          setProcessingId(null);
+                        }
+                      }}
                       disabled={isProcessing}
                       className="px-4 py-2 text-red-600 border border-red-200 rounded-xl font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
                     >
                       Απόρριψη Όλων
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleApprove(first.id, e); }}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setProcessingId(first.id);
+                        try {
+                          await Promise.all(group.map(apt => approveAppointment(apt.id)));
+                          await refetch();
+                          toast.success('Όλα τα ραντεβού εγκρίθηκαν.');
+                        } catch {
+                          toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+                        } finally {
+                          setProcessingId(null);
+                        }
+                      }}
                       disabled={isProcessing}
                       className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
                     >

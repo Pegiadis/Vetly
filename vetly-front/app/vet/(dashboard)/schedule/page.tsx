@@ -224,7 +224,7 @@ export default function VetSchedulePage() {
       await approveAppointment(id);
       refetch();
     } catch {
-      // silently fail
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
   };
 
@@ -233,7 +233,7 @@ export default function VetSchedulePage() {
       await rejectAppointment(id);
       refetch();
     } catch {
-      // silently fail
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
   };
 

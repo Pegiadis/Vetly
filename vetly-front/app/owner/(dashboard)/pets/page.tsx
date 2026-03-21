@@ -47,6 +47,11 @@ function PetTypeLabel({ type }: { type: string }) {
   const labels: Record<string, string> = {
     Dog: 'Σκύλος',
     Cat: 'Γάτα',
+    Bird: 'Πτηνό',
+    Rabbit: 'Κουνέλι',
+    Hamster: 'Χάμστερ',
+    Fish: 'Ψάρι',
+    Reptile: 'Ερπετό',
     Other: 'Άλλο',
   };
   return <>{labels[type] || type}</>;
@@ -216,7 +221,7 @@ export default function PetsPage() {
       refetch();
     } catch (err) {
       setFormError(err instanceof ApiError ? err.message : 'Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.');
-      // silent
+      // error shown via formError state
     } finally {
       setSubmitting(false);
     }
@@ -247,7 +252,7 @@ export default function PetsPage() {
       refetch();
       refetchDeleted();
     } catch {
-      // silent
+      // error shown via formError state
     } finally {
       setRestoringId(null);
     }
@@ -627,9 +632,14 @@ export default function PetsPage() {
                     onChange={e => setCreateForm(prev => ({ ...prev, type: e.target.value }))}
                     className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
                   >
-                    <option value="Dog">Σκύλος</option>
-                    <option value="Cat">Γάτα</option>
-                    <option value="Other">Άλλο</option>
+                    <option value="Dog">🐕 Σκύλος</option>
+                    <option value="Cat">🐈 Γάτα</option>
+                    <option value="Bird">🐦 Πτηνό</option>
+                    <option value="Rabbit">🐰 Κουνέλι</option>
+                    <option value="Hamster">🐹 Χάμστερ</option>
+                    <option value="Fish">🐟 Ψάρι</option>
+                    <option value="Reptile">🦎 Ερπετό</option>
+                    <option value="Other">📦 Άλλο</option>
                   </select>
                 </div>
                 <div>

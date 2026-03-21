@@ -128,6 +128,13 @@ export async function completeExamination(
   return api.post<VetAppointment>(`/vet/appointments/${appointmentId}/complete`, data);
 }
 
+export async function rescheduleAppointment(
+  appointmentId: string,
+  scheduledAt: string,
+): Promise<VetAppointment> {
+  return api.post<VetAppointment>(`/vet/appointments/${appointmentId}/reschedule`, { scheduled_at: scheduledAt });
+}
+
 export interface VetAppointmentFilters {
   status?: string;
   dateFrom?: string;
@@ -440,6 +447,14 @@ export function useVetReviewStats() {
 
 export async function replyToReview(reviewId: string, reply: string): Promise<Review> {
   return api.post<Review>(`/vet/reviews/${reviewId}/reply`, { reply });
+}
+
+export async function updateReviewReply(reviewId: string, reply: string): Promise<Review> {
+  return api.put<Review>(`/vet/reviews/${reviewId}/reply`, { reply });
+}
+
+export async function deleteReviewReply(reviewId: string): Promise<Review> {
+  return api.delete<Review>(`/vet/reviews/${reviewId}/reply`);
 }
 
 // --- Analytics ---
@@ -896,6 +911,10 @@ export async function createVetClient(data: {
 
 export async function generateClientInvite(clientId: string): Promise<{ invite_url: string; expires_at: string }> {
   return api.post<{ invite_url: string; expires_at: string }>(`/vet/clients/${clientId}/invite`, {});
+}
+
+export async function resendClientInvite(clientId: string): Promise<{ invite_url: string; expires_at: string }> {
+  return api.put<{ invite_url: string; expires_at: string }>(`/vet/clients/${clientId}/resend-invite`, {});
 }
 
 export async function addClientPet(clientId: string, data: {

@@ -30,6 +30,34 @@ class AppointmentRepository:
         )
         return self.db.scalar(query)
 
+    def has_conflicting_appointment(
+        self, vet_id: UUID, scheduled_at: datetime, duration_minutes: int
+    ) -> bool:
+        """Check if a vet already has an active appointment overlapping the given slot"""
+        slot_start = scheduled_at
+        slot_end = scheduled_at + timedelta(minutes=duration_minutes)
+        day_start = scheduled_at.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+
+        query = (
+            select(Appointment)
+            .where(
+                and_(
+                    Appointment.vet_id == vet_id,
+                    Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
+                    Appointment.scheduled_at >= day_start,
+                    Appointment.scheduled_at < day_end,
+                )
+            )
+        )
+        existing = self.db.scalars(query).all()
+        for apt in existing:
+            apt_start = apt.scheduled_at
+            apt_end = apt_start + timedelta(minutes=apt.duration_minutes or 30)
+            if slot_start < apt_end and slot_end > apt_start:
+                return True
+        return False
+
     def get_vet_appointments(
         self,
         vet_id: UUID,

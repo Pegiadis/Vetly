@@ -2,7 +2,7 @@
 Review model
 """
 
-from sqlalchemy import Column, Integer, Text, ForeignKey, CheckConstraint
+from sqlalchemy import Column, Integer, Text, ForeignKey, CheckConstraint, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -49,6 +49,7 @@ class Review(BaseModel):
     # Constraints
     __table_args__ = (
         CheckConstraint("rating >= 1 AND rating <= 5", name="rating_range"),
+        UniqueConstraint("vet_id", "pet_owner_id", name="uq_review_vet_owner"),
     )
     
     def __repr__(self):

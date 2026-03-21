@@ -324,6 +324,57 @@ class OwnerProfileUpdateRequest(BaseModel):
 
 # --- Pet CRUD ---
 
+class AppointmentDetailMedicalEvent(BaseModel):
+    """Medical event nested in appointment detail"""
+    id: UUID
+    date: date
+    title: str
+    notes: str | None = None
+    event_type: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AppointmentDetailMedication(BaseModel):
+    """Medication nested in appointment detail"""
+    id: UUID
+    name: str
+    dosage: str
+    frequency: str
+    time: time
+    start_date: date
+    end_date: date | None = None
+    notes: str | None = None
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+class AppointmentDetailResponse(BaseModel):
+    """Detailed appointment response including medical events and medications"""
+    id: UUID
+    vet_id: UUID
+    pet_id: UUID
+    pet_owner_id: UUID
+    scheduled_at: datetime
+    duration_minutes: int
+    type: str
+    status: str
+    notes: str | None = None
+    price: Decimal | None = None
+    service_type_id: UUID | None = None
+    group_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+    pet: AppointmentPetInfo | None = None
+    vet: AppointmentVetInfo | None = None
+    medical_events: list[AppointmentDetailMedicalEvent] = []
+    medications: list[AppointmentDetailMedication] = []
+
+    model_config = {"from_attributes": True}
+
+
 class PetCreateRequest(BaseModel):
     """Request to create a new pet"""
     name: str = Field(..., min_length=1, max_length=30)

@@ -20,6 +20,7 @@ from app.schemas.appointment import (
     AppointmentPetOwnerResponse,
     CompleteExaminationRequest,
     VetCreateAppointmentRequest,
+    VetRescheduleRequest,
 )
 
 
@@ -54,6 +55,15 @@ class AppointmentService:
                 detail="Pet not found",
             )
 
+        # B2: Check for scheduling conflicts
+        if self.repository.has_conflicting_appointment(
+            vet_id, data.scheduled_at, data.duration_minutes or 30
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Υπάρχει ήδη ραντεβού αυτή την ώρα.",
+            )
+
         appointment = self.repository.create_appointment(
             vet_id=vet_id,
             pet_owner_id=pet.pet_owner_id,
@@ -78,6 +88,9 @@ class AppointmentService:
             type="appointment_new",
             title="Νέο ραντεβού",
             message=f"Ο {vet_name} προγραμμάτισε ραντεβού για {pet.name} στις {date_str}",
+            vet_id=vet_id,
+            pet_name=pet.name,
+            date_str=date_str,
         )
 
         return self._build_detail_response(appointment)
@@ -170,8 +183,20 @@ class AppointmentService:
                 detail="Appointment not found",
             )
 
-        # Validate status transition
+        # B3: Validate status transition
         new_status = AppointmentStatus(data.status)
+        valid_transitions = {
+            AppointmentStatus.PENDING: [AppointmentStatus.CONFIRMED, AppointmentStatus.CANCELLED],
+            AppointmentStatus.CONFIRMED: [AppointmentStatus.COMPLETED, AppointmentStatus.CANCELLED],
+            AppointmentStatus.COMPLETED: [],
+            AppointmentStatus.CANCELLED: [],
+        }
+        allowed = valid_transitions.get(appointment.status, [])
+        if new_status not in allowed:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Μη έγκυρη αλλαγή κατάστασης.",
+            )
         updated = self.repository.update_status(appointment, new_status, data.notes)
 
         # Cascade cancellation to group members
@@ -216,11 +241,15 @@ class AppointmentService:
         # Notify owner
         vet_name = appointment.vet.name if appointment.vet else ""
         pet_names_str = ", ".join(pet_names)
+        date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_owner(
             appointment.pet_owner_id,
             type="appointment_confirm",
             title="Ραντεβού επιβεβαιώθηκε",
             message=f"Το ραντεβού σας για {pet_names_str} με {vet_name} επιβεβαιώθηκε",
+            vet_id=vet_id,
+            pet_name=pet_names_str,
+            date_str=date_str,
         )
 
         return self._build_detail_response(updated)
@@ -261,11 +290,15 @@ class AppointmentService:
         # Notify owner
         vet_name = appointment.vet.name if appointment.vet else ""
         pet_names_str = ", ".join(pet_names)
+        date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_owner(
             appointment.pet_owner_id,
             type="appointment_reject",
             title="Ραντεβού απορρίφθηκε",
             message=f"Το ραντεβού σας για {pet_names_str} με {vet_name} απορρίφθηκε",
+            vet_id=vet_id,
+            pet_name=pet_names_str,
+            date_str=date_str,
         )
 
         return self._build_detail_response(updated)
@@ -324,11 +357,15 @@ class AppointmentService:
 
         # Notify owner
         pet_name = appointment.pet.name if appointment.pet else ""
+        date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_owner(
             appointment.pet_owner_id,
             type="appointment_complete",
             title="Εξέταση ολοκληρώθηκε",
             message=f"Η εξέταση του {pet_name} ολοκληρώθηκε. Διάγνωση: {data.diagnosis}",
+            vet_id=vet_id,
+            pet_name=pet_name,
+            date_str=date_str,
         )
 
         # Auto-create vaccination reminder if the appointment type indicates vaccination
@@ -340,6 +377,59 @@ class AppointmentService:
                 vet_id=vet_id,
                 vaccination_title=data.diagnosis,
             )
-            self.db.commit()
+
+        self.db.commit()
 
         return self._build_detail_response(updated)
+
+    def reschedule_appointment(
+        self,
+        appointment_id: UUID,
+        vet_id: UUID,
+        data: VetRescheduleRequest,
+    ) -> AppointmentDetailResponse:
+        """Reschedule an appointment (vet-initiated, stays confirmed)"""
+        appointment = self.repository.get_by_id(appointment_id, vet_id)
+
+        if not appointment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Appointment not found",
+            )
+
+        if appointment.status not in (AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Μόνο ενεργά ραντεβού μπορούν να αναπρογραμματιστούν.",
+            )
+
+        # Check for conflicts at the new time
+        if self.repository.has_conflicting_appointment(
+            vet_id, data.scheduled_at, appointment.duration_minutes or 30
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Υπάρχει ήδη ραντεβού αυτή την ώρα.",
+            )
+
+        # Update scheduled_at, keep status as CONFIRMED (vet-initiated)
+        appointment.scheduled_at = data.scheduled_at
+        appointment.status = AppointmentStatus.CONFIRMED
+        self.db.commit()
+        self.db.refresh(appointment)
+
+        # Notify owner about the reschedule
+        pet_name = appointment.pet.name if appointment.pet else ""
+        vet_name = appointment.vet.name if appointment.vet else ""
+        new_date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
+        self.notifications.notify_owner(
+            appointment.pet_owner_id,
+            type="appointment_reschedule",
+            title="Αναπρογραμματισμός ραντεβού",
+            message=f"Ο {vet_name} αναπρογραμμάτισε το ραντεβού για {pet_name} στις {new_date_str}",
+            vet_id=vet_id,
+            pet_name=pet_name,
+            date_str=new_date_str,
+        )
+
+        return self._build_detail_response(appointment)

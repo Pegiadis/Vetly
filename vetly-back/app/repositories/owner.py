@@ -5,7 +5,7 @@ Repository for pet owner related database operations
 from uuid import UUID
 from datetime import datetime, date, timedelta
 
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.base import Pet, Appointment, Vet, PetOwner, MedicalEvent, Medication, Review, Notification
@@ -50,7 +50,10 @@ class OwnerRepository:
         pet_name: str | None = None,
     ) -> tuple[list[Appointment], int]:
         """Get appointments for a pet owner with pagination and filters"""
-        conditions = [Appointment.pet_owner_id == owner_id]
+        conditions = [
+            Appointment.pet_owner_id == owner_id,
+            Appointment.pet.has(Pet.deleted_at.is_(None)),  # Exclude deleted pets
+        ]
 
         if status == "upcoming":
             conditions.append(Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]))
@@ -151,20 +154,28 @@ class OwnerRepository:
         return False
 
     def has_same_day_appointment(
-        self, pet_id: UUID, vet_id: UUID, scheduled_at: datetime
+        self, pet_id: UUID, vet_id: UUID, scheduled_at: datetime, duration_minutes: int = 30
     ) -> bool:
-        """Check if the same pet already has an active appointment with the same vet on the same day"""
+        """Check if the same pet has an overlapping appointment with the same vet on the same day"""
         day_start = scheduled_at.replace(hour=0, minute=0, second=0, microsecond=0)
         day_end = day_start + timedelta(days=1)
 
-        query = select(Appointment.id).where(
+        query = select(Appointment).where(
             Appointment.pet_id == pet_id,
             Appointment.vet_id == vet_id,
             Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
             Appointment.scheduled_at >= day_start,
             Appointment.scheduled_at < day_end,
-        ).limit(1)
-        return self.db.scalar(query) is not None
+        )
+        existing = self.db.scalars(query).all()
+        new_start = scheduled_at
+        new_end = scheduled_at + timedelta(minutes=duration_minutes)
+        for apt in existing:
+            apt_start = apt.scheduled_at
+            apt_end = apt_start + timedelta(minutes=apt.duration_minutes or 30)
+            if new_start < apt_end and new_end > apt_start:
+                return True
+        return False
 
     def create_appointment(
         self,
@@ -242,16 +253,24 @@ class OwnerRepository:
         return list(events), total
 
     def get_medications_for_owner(
-        self, owner_id: UUID, is_active: bool | None = None, skip: int = 0, limit: int = 10
+        self, owner_id: UUID, is_active: bool | None = None, pet_id: UUID | None = None, skip: int = 0, limit: int = 10
     ) -> tuple[list[Medication], int]:
         """Get medications for an owner's pets with pagination"""
         pet_ids = self.get_pet_ids_for_owner(owner_id)
         if not pet_ids:
             return [], 0
 
-        conditions = [Medication.pet_id.in_(pet_ids)]
+        if pet_id and pet_id in pet_ids:
+            conditions = [Medication.pet_id == pet_id]
+        else:
+            conditions = [Medication.pet_id.in_(pet_ids)]
         if is_active is not None:
             conditions.append(Medication.is_active == is_active)
+            if is_active:
+                # D8: Also filter out medications past their end_date
+                conditions.append(
+                    or_(Medication.end_date.is_(None), Medication.end_date >= date.today())
+                )
         where = and_(*conditions)
 
         query = (

@@ -102,3 +102,17 @@ class ReviewRepository:
         self.db.commit()
         self.db.refresh(review)
         return review
+
+    def update_reply(self, review: Review, reply: str) -> Review:
+        """Update an existing reply on a review"""
+        review.reply = reply
+        self.db.commit()
+        self.db.refresh(review)
+        return review
+
+    def delete_reply(self, review: Review) -> Review:
+        """Remove a reply from a review"""
+        review.reply = None
+        self.db.commit()
+        self.db.refresh(review)
+        return review

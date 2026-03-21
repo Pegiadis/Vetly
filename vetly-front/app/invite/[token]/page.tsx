@@ -216,7 +216,8 @@ export default function InviteRegisterPage() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className={`${inputBase} border-slate-300`}
+                readOnly={!!inviteInfo?.client_email}
+                className={`${inputBase} border-slate-300 ${inviteInfo?.client_email ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                 placeholder="Email"
               />
             </div>

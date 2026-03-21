@@ -118,7 +118,7 @@ export default function VetSettingsPage() {
       refetch();
       refreshUser();
     } catch {
-      // silent
+      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

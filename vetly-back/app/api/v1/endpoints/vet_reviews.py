@@ -59,3 +59,33 @@ def reply_to_review(
         vet_id=current_vet.id,
         data=data,
     )
+
+
+@router.put("/{review_id}/reply", response_model=ReviewDetailResponse)
+def update_reply(
+    review_id: UUID,
+    data: ReviewReplyRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> ReviewDetailResponse:
+    """Update an existing reply on a review"""
+    service = ReviewService(db)
+    return service.update_reply(
+        review_id=review_id,
+        vet_id=current_vet.id,
+        data=data,
+    )
+
+
+@router.delete("/{review_id}/reply", response_model=ReviewDetailResponse)
+def delete_reply(
+    review_id: UUID,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> ReviewDetailResponse:
+    """Delete a reply from a review"""
+    service = ReviewService(db)
+    return service.delete_reply(
+        review_id=review_id,
+        vet_id=current_vet.id,
+    )

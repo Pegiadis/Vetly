@@ -54,6 +54,9 @@ vetly-landing-page/.next/
 *.venv*
 __pycache__/
 
+# E2E Tests
+e2e-tests/
+
 # Uploads
 vetly-back/uploads/
 

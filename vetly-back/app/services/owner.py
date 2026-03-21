@@ -19,6 +19,9 @@ from app.schemas.owner import (
     AppointmentRescheduleRequest,
     AppointmentResponse,
     AppointmentPaginatedResponse,
+    AppointmentDetailResponse,
+    AppointmentDetailMedicalEvent,
+    AppointmentDetailMedication,
     VetListResponse,
     OwnerMedicalEventResponse,
     OwnerMedicalHistoryResponse,
@@ -44,6 +47,28 @@ class OwnerService:
         self.db = db
         self.repository = OwnerRepository(db)
         self.notifications = NotificationService(db)
+
+    def _check_working_hours(self, vet, scheduled_at) -> None:
+        """Validate that the appointment time falls within vet's working hours"""
+        if not vet.hours:
+            return  # No hours configured, allow any time
+        day_names = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        day_name = day_names[scheduled_at.weekday()]
+        day_hours = vet.hours.get(day_name)
+        if not day_hours or day_hours.get('closed', False):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
+            )
+        open_time = day_hours.get('open')
+        close_time = day_hours.get('close')
+        if open_time and close_time:
+            appt_time = scheduled_at.strftime('%H:%M')
+            if appt_time < open_time or appt_time >= close_time:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
+                )
 
     def get_my_pets(self, owner_id: UUID, page: int = 1, page_size: int = 6) -> PetPaginatedResponse:
         """Get pets for the logged-in owner with pagination"""
@@ -75,6 +100,34 @@ class OwnerService:
         appointments = self.repository.get_upcoming_appointments(owner_id)
         return [AppointmentResponse.model_validate(apt) for apt in appointments]
 
+    def get_appointment_detail(self, owner_id: UUID, appointment_id: UUID) -> AppointmentDetailResponse:
+        """Get detailed appointment info including medical events and medications for the pet"""
+        appointment = self.repository.get_appointment_by_id(appointment_id, owner_id)
+        if not appointment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Appointment not found",
+            )
+
+        # Get medical events for the pet around the appointment date
+        events, _ = self.repository.get_medical_history_for_pet(
+            pet_id=appointment.pet_id, skip=0, limit=50,
+        )
+
+        # Get medications for the pet
+        from sqlalchemy import select
+        from app.db.base import Medication
+
+        med_query = select(Medication).where(
+            Medication.pet_id == appointment.pet_id,
+        ).order_by(Medication.is_active.desc(), Medication.name)
+        medications = list(self.db.scalars(med_query).all())
+
+        response = AppointmentDetailResponse.model_validate(appointment)
+        response.medical_events = [AppointmentDetailMedicalEvent.model_validate(e) for e in events]
+        response.medications = [AppointmentDetailMedication.model_validate(m) for m in medications]
+        return response
+
     def create_appointment(
         self, owner_id: UUID, data: AppointmentCreateRequest
     ) -> AppointmentResponse:
@@ -95,6 +148,9 @@ class OwnerService:
                 detail="Pet not found or does not belong to you",
             )
 
+        # B6: Check working hours
+        self._check_working_hours(vet, data.scheduled_at)
+
         # Check for conflicting appointments
         if self.repository.has_conflicting_appointment(
             data.vet_id, data.scheduled_at, data.duration_minutes
@@ -104,9 +160,9 @@ class OwnerService:
                 detail="Η ώρα αυτή μόλις κρατήθηκε από κάποιον άλλο. Παρακαλώ επιλέξτε άλλη ώρα.",
             )
 
-        # Check same-day duplicate (same pet + same vet + same day)
+        # Check same-day duplicate (same pet + same vet + overlapping time)
         if self.repository.has_same_day_appointment(
-            data.pet_id, data.vet_id, data.scheduled_at
+            data.pet_id, data.vet_id, data.scheduled_at, data.duration_minutes
         ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -134,6 +190,9 @@ class OwnerService:
             type="appointment_new",
             title="Νέο αίτημα ραντεβού",
             message=f"{owner_name} ζήτησε ραντεβού για {pet.name} στις {date_str}",
+            owner_id=owner_id,
+            pet_name=pet.name,
+            date_str=date_str,
         )
 
         return AppointmentResponse.model_validate(appointment)
@@ -161,6 +220,9 @@ class OwnerService:
                 )
             pets.append(pet)
 
+        # B6: Check working hours
+        self._check_working_hours(vet, data.scheduled_at)
+
         # Check for conflicting vet appointments at that timeslot (once)
         if self.repository.has_conflicting_appointment(
             data.vet_id, data.scheduled_at, data.duration_minutes
@@ -173,7 +235,7 @@ class OwnerService:
         # Check same-day duplicate for each pet
         for pet in pets:
             if self.repository.has_same_day_appointment(
-                pet.id, data.vet_id, data.scheduled_at
+                pet.id, data.vet_id, data.scheduled_at, data.duration_minutes
             ):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -216,6 +278,9 @@ class OwnerService:
             type="appointment_new",
             title="Νέο αίτημα ραντεβού",
             message=f"{owner_name} ζήτησε ραντεβού για {pet_names} στις {date_str}",
+            owner_id=owner_id,
+            pet_name=pet_names,
+            date_str=date_str,
         )
 
         return [AppointmentResponse.model_validate(apt) for apt in appointments]
@@ -234,6 +299,15 @@ class OwnerService:
                 detail="Μόνο ενεργά ραντεβού μπορούν να ακυρωθούν.",
             )
 
+        # D3: Cancellation time limit - 2 hours before appointment
+        from datetime import datetime, timedelta
+        time_until = appointment.scheduled_at.replace(tzinfo=None) - datetime.utcnow()
+        if time_until < timedelta(hours=2):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Δεν μπορείτε να ακυρώσετε ραντεβού λιγότερο από 2 ώρες πριν την ώρα του.",
+            )
+
         cancelled = self.repository.cancel_appointment(appointment)
 
         owner = self.repository.get_owner_by_id(owner_id)
@@ -245,6 +319,9 @@ class OwnerService:
             type="appointment_cancel",
             title="Ακύρωση ραντεβού",
             message=f"Ο ιδιοκτήτης {owner_name} ακύρωσε το ραντεβού για {pet_name} στις {date_str}",
+            owner_id=owner_id,
+            pet_name=pet_name,
+            date_str=date_str,
         )
 
         return AppointmentResponse.model_validate(cancelled)
@@ -265,6 +342,20 @@ class OwnerService:
                 detail="Μόνο ενεργά ραντεβού μπορούν να αναπρογραμματιστούν.",
             )
 
+        # Check working hours at new time
+        vet = self.repository.get_vet_by_id(appointment.vet_id)
+        if vet:
+            self._check_working_hours(vet, data.scheduled_at)
+
+        # A12: Check for conflicts at the new time
+        if self.repository.has_conflicting_appointment(
+            appointment.vet_id, data.scheduled_at, appointment.duration_minutes or 30
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Ο κτηνίατρος έχει ήδη ραντεβού αυτή την ώρα.",
+            )
+
         rescheduled = self.repository.reschedule_appointment(appointment, data.scheduled_at)
 
         owner = self.repository.get_owner_by_id(owner_id)
@@ -276,6 +367,9 @@ class OwnerService:
             type="appointment_reschedule",
             title="Αναπρογραμματισμός ραντεβού",
             message=f"Ο ιδιοκτήτης {owner_name} αναπρογραμμάτισε το ραντεβού για {pet_name} στις {new_date_str}",
+            owner_id=owner_id,
+            pet_name=pet_name,
+            date_str=new_date_str,
         )
 
         return AppointmentResponse.model_validate(rescheduled)
@@ -308,12 +402,12 @@ class OwnerService:
         )
 
     def get_my_medications(
-        self, owner_id: UUID, is_active: bool | None = None, page: int = 1, page_size: int = 10,
+        self, owner_id: UUID, is_active: bool | None = None, pet_id: UUID | None = None, page: int = 1, page_size: int = 10,
     ) -> MedicationPaginatedResponse:
         """Get medications for an owner's pets with pagination"""
         skip = (page - 1) * page_size
         medications, total = self.repository.get_medications_for_owner(
-            owner_id, is_active, skip=skip, limit=page_size,
+            owner_id, is_active, pet_id=pet_id, skip=skip, limit=page_size,
         )
         return MedicationPaginatedResponse(
             items=[MedicationResponse.model_validate(m) for m in medications],
@@ -363,6 +457,18 @@ class OwnerService:
                 detail="Μπορείτε να αξιολογήσετε μόνο κτηνιάτρους με τους οποίους έχετε ολοκληρωμένο ραντεβού.",
             )
 
+        # Check if review already exists (unique constraint)
+        from sqlalchemy import select
+        from app.db.base import Review
+        existing = self.db.scalar(
+            select(Review).where(Review.vet_id == data.vet_id, Review.pet_owner_id == owner_id)
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Έχετε ήδη αξιολογήσει αυτόν τον κτηνίατρο.",
+            )
+
         review = self.repository.create_review(
             pet_owner_id=owner_id,
             vet_id=data.vet_id,
@@ -375,9 +481,12 @@ class OwnerService:
         # Notify vet
         self.notifications.notify_vet(
             data.vet_id,
-            type="review",
+            type="review_new",
             title="Νέα αξιολόγηση",
             message=f"Λάβατε αξιολόγηση {data.rating} αστεριών",
+            owner_id=owner_id,
+            rating=data.rating,
+            comment=data.comment or "",
         )
 
         # Re-fetch with vet relation loaded
