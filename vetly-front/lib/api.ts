@@ -36,15 +36,19 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   if (!response.ok) {
     if (response.status === 401) {
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('vetly_token_vet');
-        localStorage.removeItem('vetly_token_pet_owner');
-        localStorage.removeItem('vetly_user_type');
-        sessionStorage.removeItem('vetly_token_vet');
-        sessionStorage.removeItem('vetly_token_pet_owner');
-        sessionStorage.removeItem('vetly_user_type');
-        sessionStorage.removeItem('vetly_session_storage');
-        const isVet = window.location.pathname.startsWith('/vet');
-        window.location.href = isVet ? '/vet/login?expired=true' : '/owner/login?expired=true';
+        const path = window.location.pathname;
+        const isAuthPage = path.includes('/login') || path.includes('/register') || path.includes('/verify') || path.includes('/reset') || path.includes('/forgot');
+        if (!isAuthPage) {
+          localStorage.removeItem('vetly_token_vet');
+          localStorage.removeItem('vetly_token_pet_owner');
+          localStorage.removeItem('vetly_user_type');
+          sessionStorage.removeItem('vetly_token_vet');
+          sessionStorage.removeItem('vetly_token_pet_owner');
+          sessionStorage.removeItem('vetly_user_type');
+          sessionStorage.removeItem('vetly_session_storage');
+          const isVet = path.startsWith('/vet');
+          window.location.href = isVet ? '/vet/login?expired=true' : '/owner/login?expired=true';
+        }
       }
     }
     const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
