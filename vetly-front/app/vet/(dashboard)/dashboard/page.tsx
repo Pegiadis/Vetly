@@ -298,7 +298,7 @@ export default function VetDashboardPage() {
   const { patients: recentPatients, loading: patientsLoading } = usePatients();
   const [examAppointment, setExamAppointment] = useState<VetAppointment | null>(null);
   const [showCreateAppt, setShowCreateAppt] = useState(false);
-  const { isOnCall, toggling: togglingOnCall, handleToggle: handleToggleOnCall } = useOnCall();
+  const { isOnCall } = useOnCall();
 
   const loading = statsLoading || todayLoading || pendingLoading || patientsLoading;
 
@@ -444,17 +444,6 @@ export default function VetDashboardPage() {
                 {isOnCall ? 'Ενεργή' : 'Ανενεργή'}
               </h3>
             </div>
-            <button
-              onClick={handleToggleOnCall}
-              disabled={togglingOnCall}
-              className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
-                isOnCall ? 'bg-green-500' : 'bg-slate-300'
-              } ${togglingOnCall ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                isOnCall ? 'translate-x-5' : 'translate-x-0'
-              }`} />
-            </button>
           </div>
         </div>
       </div>
