@@ -187,7 +187,7 @@ function RescheduleDialog({
     try {
       setSubmitting(true);
       setError(null);
-      const scheduledAt = new Date(`${selectedDate}T${selectedTime}:00`).toISOString();
+      const scheduledAt = `${selectedDate}T${selectedTime}:00`;
       await rescheduleAppointment(appointment.id, scheduledAt);
       onSuccess();
     } catch (err) {
@@ -368,7 +368,7 @@ function AppointmentCard({
           {showActions && (
             <>
               <button
-                onClick={(e) => { e.preventDefault(); onReschedule(apt); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onReschedule(apt); }}
                 className="px-4 py-2 bg-teal-50 text-teal-700 rounded-xl font-bold text-sm hover:bg-teal-100 transition-colors flex items-center gap-1.5"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -377,7 +377,7 @@ function AppointmentCard({
                 Αναπρογραμματισμός
               </button>
               <button
-                onClick={(e) => { e.preventDefault(); onCancel(apt); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCancel(apt); }}
                 className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
