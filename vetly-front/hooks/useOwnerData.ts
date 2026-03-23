@@ -34,7 +34,7 @@ export interface Vet {
   image_url: string | null;
   coordinates_lat: number | null;
   coordinates_lng: number | null;
-  hours: Record<string, { open: string | null; close: string | null; closed: boolean }> | null;
+  hours: Record<string, { open: string | null; close: string | null; closed: boolean; break_start?: string | null; break_end?: string | null }> | null;
 }
 
 export interface AppointmentPetInfo {
@@ -229,7 +229,7 @@ export interface OnCallVet {
   reviews_count: number;
   is_on_call: boolean;
   is_verified: boolean;
-  hours: Record<string, { open: string | null; close: string | null; closed: boolean }> | null;
+  hours: Record<string, { open: string | null; close: string | null; closed: boolean; break_start?: string | null; break_end?: string | null }> | null;
 }
 
 export function useOnCallVets() {

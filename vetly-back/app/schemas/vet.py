@@ -13,6 +13,8 @@ class DayHours(BaseModel):
     open: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
     close: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
     closed: bool = False
+    break_start: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
+    break_end: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
 
 
 class WorkingHours(BaseModel):

@@ -353,7 +353,9 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
                         {hours?.closed
                           ? 'Κλειστά'
                           : hours?.open && hours?.close
-                          ? `${hours.open} - ${hours.close}`
+                          ? (hours?.break_start && hours?.break_end
+                            ? `${hours.open} - ${hours.break_start}, ${hours.break_end} - ${hours.close}`
+                            : `${hours.open} - ${hours.close}`)
                           : '-'}
                       </span>
                     </div>

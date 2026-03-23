@@ -69,6 +69,14 @@ class OwnerService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
                 )
+            # Check break period
+            break_start = day_hours.get('break_start')
+            break_end = day_hours.get('break_end')
+            if break_start and break_end and appt_time >= break_start and appt_time < break_end:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
+                )
 
     def get_my_pets(self, owner_id: UUID, page: int = 1, page_size: int = 6) -> PetPaginatedResponse:
         """Get pets for the logged-in owner with pagination"""

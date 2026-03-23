@@ -28,6 +28,8 @@ export interface DayHours {
   open: string | null;
   close: string | null;
   closed: boolean;
+  break_start?: string | null;
+  break_end?: string | null;
 }
 
 export interface VetListResponse {

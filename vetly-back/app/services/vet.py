@@ -127,10 +127,23 @@ class VetService:
         open_time = datetime.combine(target_date, datetime.min.time().replace(hour=open_h, minute=open_m))
         close_time = datetime.combine(target_date, datetime.min.time().replace(hour=close_h, minute=close_m))
 
+        # Parse optional break times
+        break_start_time = None
+        break_end_time = None
+        if day_hours.get("break_start") and day_hours.get("break_end"):
+            bs_h, bs_m = map(int, day_hours["break_start"].split(":"))
+            be_h, be_m = map(int, day_hours["break_end"].split(":"))
+            break_start_time = datetime.combine(target_date, datetime.min.time().replace(hour=bs_h, minute=bs_m))
+            break_end_time = datetime.combine(target_date, datetime.min.time().replace(hour=be_h, minute=be_m))
+
         # Generate all possible slots
         all_slots = []
         current = open_time
         while current + timedelta(minutes=slot_interval) <= close_time:
+            # Skip slots that fall within the break period
+            if break_start_time and break_end_time and current >= break_start_time and current < break_end_time:
+                current += timedelta(minutes=slot_interval)
+                continue
             all_slots.append(current)
             current += timedelta(minutes=slot_interval)
 

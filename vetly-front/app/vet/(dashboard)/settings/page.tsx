@@ -183,7 +183,7 @@ export default function VetSettingsPage() {
       for (const day of dayOrder) {
         const h = profile.hours[day];
         merged[day] = h
-          ? { open: h.open || '', close: h.close || '', closed: h.closed ?? false }
+          ? { open: h.open || '', close: h.close || '', closed: h.closed ?? false, break_start: h.break_start || '', break_end: h.break_end || '' }
           : defaultHours[day];
       }
       setHours(merged);
@@ -229,6 +229,8 @@ export default function VetSettingsPage() {
         open: h.closed ? null : (h.open || null),
         close: h.closed ? null : (h.close || null),
         closed: h.closed,
+        break_start: h.closed ? null : (h.break_start || null),
+        break_end: h.closed ? null : (h.break_end || null),
       };
     }
 
@@ -462,41 +464,67 @@ export default function VetSettingsPage() {
             {dayOrder.map(day => {
               const schedule = hours[day];
               return (
-                <div key={day} className="flex items-center gap-4">
-                  <span className="w-24 text-sm font-medium text-slate-700">{dayNames[day]}</span>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={!schedule.closed}
-                      onChange={() =>
-                        setHours({ ...hours, [day]: { ...schedule, closed: !schedule.closed } })
-                      }
-                      className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                    />
-                    <span className="text-sm text-slate-600">Ανοιχτά</span>
-                  </label>
+                <div key={day} className="space-y-2">
+                  <div className="flex items-center gap-4">
+                    <span className="w-24 text-sm font-medium text-slate-700">{dayNames[day]}</span>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={!schedule.closed}
+                        onChange={() =>
+                          setHours({ ...hours, [day]: { ...schedule, closed: !schedule.closed } })
+                        }
+                        className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                      />
+                      <span className="text-sm text-slate-600">Ανοιχτά</span>
+                    </label>
+                    {!schedule.closed && (
+                      <>
+                        <input
+                          type="time"
+                          value={schedule.open || ''}
+                          onChange={e =>
+                            setHours({ ...hours, [day]: { ...schedule, open: e.target.value } })
+                          }
+                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                        <span className="text-slate-400">-</span>
+                        <input
+                          type="time"
+                          value={schedule.close || ''}
+                          onChange={e =>
+                            setHours({ ...hours, [day]: { ...schedule, close: e.target.value } })
+                          }
+                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </>
+                    )}
+                    {schedule.closed && <span className="text-sm text-slate-400 italic">Κλειστά</span>}
+                  </div>
                   {!schedule.closed && (
-                    <>
+                    <div className="flex items-center gap-4 ml-28">
+                      <span className="text-xs text-slate-500">Διάλειμμα:</span>
                       <input
                         type="time"
-                        value={schedule.open || ''}
+                        value={schedule.break_start || ''}
                         onChange={e =>
-                          setHours({ ...hours, [day]: { ...schedule, open: e.target.value } })
+                          setHours({ ...hours, [day]: { ...schedule, break_start: e.target.value } })
                         }
-                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Από"
+                        className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
                       <span className="text-slate-400">-</span>
                       <input
                         type="time"
-                        value={schedule.close || ''}
+                        value={schedule.break_end || ''}
                         onChange={e =>
-                          setHours({ ...hours, [day]: { ...schedule, close: e.target.value } })
+                          setHours({ ...hours, [day]: { ...schedule, break_end: e.target.value } })
                         }
-                        className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder="Έως"
+                        className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       />
-                    </>
+                    </div>
                   )}
-                  {schedule.closed && <span className="text-sm text-slate-400 italic">Κλειστά</span>}
                 </div>
               );
             })}
