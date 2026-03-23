@@ -16,6 +16,7 @@ from app.schemas.vet_client import (
     VetClientPetResponse,
     VetClientPetUpdateRequest,
     VetClientResponse,
+    VetClientUpdateRequest,
     InviteLinkResponse,
 )
 
@@ -53,6 +54,26 @@ def get_client(
     service = VetClientService(db)
     return service.get_client(client_id, current_vet.id)
 
+
+@router.put("/{client_id}", response_model=VetClientResponse)
+def update_client(
+    client_id: UUID,
+    data: VetClientUpdateRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> VetClientResponse:
+    service = VetClientService(db)
+    return service.update_client(client_id, current_vet.id, data)
+
+
+@router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_client(
+    client_id: UUID,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> None:
+    service = VetClientService(db)
+    service.delete_client(client_id, current_vet.id)
 
 
 @router.post("/{client_id}/invite", response_model=InviteLinkResponse)

@@ -6,6 +6,8 @@ import {
   useVetClients,
   useVetClient,
   createVetClient,
+  updateVetClient,
+  deleteVetClient,
   generateClientInvite,
   resendClientInvite,
   addClientPet,
@@ -105,6 +107,148 @@ function ClientDialog({
               onBlur={() => handleBlur('name')}
               className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('name')}`}
               placeholder="π.χ. Μαρία Παπαδοπούλου"
+            />
+            {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={form.email}
+              onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="maria@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Τηλέφωνο</label>
+            <input
+              type="tel"
+              maxLength={50}
+              value={form.phone}
+              onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="69xxxxxxxx"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Διεύθυνση</label>
+            <input
+              type="text"
+              maxLength={500}
+              value={form.address}
+              onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Οδός, Πόλη"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Σημειώσεις</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              rows={2}
+              maxLength={2000}
+              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              placeholder="Προσθέστε σημειώσεις..."
+            />
+            {form.notes.length > 1800 && (
+              <p className="text-xs text-slate-400 mt-1 text-right">{form.notes.length}/2000</p>
+            )}
+          </div>
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+          )}
+          <div className="flex gap-3 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+              Ακύρωση
+            </button>
+            <button type="submit" disabled={submitting || !form.name.trim() || Object.keys(fieldErrors).length > 0} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+              {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// --- Edit Client Dialog ---
+function EditClientDialog({
+  client,
+  onClose,
+  onSaved,
+}: {
+  client: VetClient;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: client.name,
+    email: client.email || '',
+    phone: client.phone || '',
+    address: client.address || '',
+    notes: client.notes || '',
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+
+  const fieldErrors: Record<string, string> = {};
+  if (form.name.length > 0 && form.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
+
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await updateVetClient(client.id, {
+        name: form.name.trim(),
+        email: form.email.trim() || undefined,
+        phone: form.phone.trim() || undefined,
+        address: form.address.trim() || undefined,
+        notes: form.notes.trim() || undefined,
+      });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Αποτυχία αποθήκευσης');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-white">
+              Επεξεργασία Πελάτη
+            </h2>
+            <button onClick={onClose} className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1">Ονοματεπώνυμο *</label>
+            <input
+              type="text"
+              required
+              maxLength={255}
+              value={form.name}
+              onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setTouched(t => ({ ...t, name: true })); }}
+              onBlur={() => handleBlur('name')}
+              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('name')}`}
             />
             {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
           </div>
@@ -470,11 +614,12 @@ export default function VetClientsPage() {
 
   // Dialogs
   const [showAddClient, setShowAddClient] = useState(false);
+  const [showEditClient, setShowEditClient] = useState(false);
   const [showAddPet, setShowAddPet] = useState(false);
   const [editingPet, setEditingPet] = useState<VetClientPet | null>(null);
   const [inviteData, setInviteData] = useState<{ invite_url: string; expires_at: string } | null>(null);
   const [historyPetId, setHistoryPetId] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{ type: 'pet'; id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'pet' | 'client'; id: string; name: string } | null>(null);
   const [showReminderPetId, setShowReminderPetId] = useState<string | null>(null);
   const [reminderForm, setReminderForm] = useState({ type: 'checkup', title: '', message: '', due_date: '', reminder_days_before: 14 });
   const [reminderSubmitting, setReminderSubmitting] = useState(false);
@@ -502,6 +647,7 @@ export default function VetClientsPage() {
 
   const handleClientSaved = () => {
     setShowAddClient(false);
+    setShowEditClient(false);
     refetch();
     if (selectedClientId) refetchClient();
   };
@@ -536,10 +682,15 @@ export default function VetClientsPage() {
   };
 
   const handleDelete = async () => {
-    if (!deleteTarget || !selectedClientId) return;
+    if (!deleteTarget) return;
     try {
-      await deleteClientPet(selectedClientId, deleteTarget.id);
-      refetchClient();
+      if (deleteTarget.type === 'client') {
+        await deleteVetClient(deleteTarget.id);
+        setSelectedClientId(null);
+      } else if (selectedClientId) {
+        await deleteClientPet(selectedClientId, deleteTarget.id);
+        refetchClient();
+      }
       refetch();
     } catch {
       alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
@@ -1049,6 +1200,26 @@ export default function VetClientsPage() {
                     Αποστολή ξανά
                   </button>
                 )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowEditClient(true)}
+                    className="flex-1 py-3 border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-white transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                    Επεξεργασία
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget({ type: 'client', id: selectedClient.id, name: selectedClient.name })}
+                    className="flex-1 py-3 border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Διαγραφή
+                  </button>
+                </div>
                 </div>
             )}
           </div>
@@ -1080,6 +1251,14 @@ export default function VetClientsPage() {
         />
       )}
 
+      {showEditClient && selectedClient && (
+        <EditClientDialog
+          client={selectedClient}
+          onClose={() => setShowEditClient(false)}
+          onSaved={handleClientSaved}
+        />
+      )}
+
       {inviteData && (
         <InviteDialog
           inviteUrl={inviteData.invite_url}
@@ -1090,8 +1269,12 @@ export default function VetClientsPage() {
 
       {deleteTarget && (
         <DeleteConfirmDialog
-          title="Διαγραφή Κατοικιδίου"
-          message={`Είστε σίγουροι ότι θέλετε να διαγράψετε "${deleteTarget.name}";`}
+          title={deleteTarget.type === 'client' ? 'Διαγραφή Πελάτη' : 'Διαγραφή Κατοικιδίου'}
+          message={
+            deleteTarget.type === 'client'
+              ? `Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον πελάτη;`
+              : `Είστε σίγουροι ότι θέλετε να διαγράψετε "${deleteTarget.name}";`
+          }
           onConfirm={handleDelete}
           onClose={() => setDeleteTarget(null)}
         />

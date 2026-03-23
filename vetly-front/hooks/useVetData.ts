@@ -914,6 +914,20 @@ export async function createVetClient(data: {
 }
 
 
+export async function updateVetClient(clientId: string, data: {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+}): Promise<VetClient> {
+  return api.put<VetClient>(`/vet/clients/${clientId}`, data);
+}
+
+export async function deleteVetClient(clientId: string): Promise<void> {
+  return api.delete<void>(`/vet/clients/${clientId}`);
+}
+
 export async function generateClientInvite(clientId: string): Promise<{ invite_url: string; expires_at: string }> {
   return api.post<{ invite_url: string; expires_at: string }>(`/vet/clients/${clientId}/invite`, {});
 }
@@ -1078,7 +1092,7 @@ export interface VetReminder {
   vet_id: string;
   vet_name: string | null;
   pet_owner_id: string;
-  type: 'vaccination' | 'checkup' | 'medication' | 'custom';
+  type: string;
   title: string;
   message: string | null;
   due_date: string;
@@ -1127,12 +1141,15 @@ export function useVetReminders(page = 1, pageSize = 10) {
 export async function createReminder(data: {
   pet_id: string;
   type: string;
-  title: string;
+  title?: string;
   message?: string;
   due_date: string;
   reminder_days_before?: number;
 }): Promise<VetReminder> {
-  return api.post<VetReminder>('/vet/reminders', data);
+  // Strip undefined title so backend auto-generates
+  const payload = { ...data };
+  if (!payload.title) delete payload.title;
+  return api.post<VetReminder>('/vet/reminders', payload);
 }
 
 export async function deleteVetReminder(reminderId: string): Promise<void> {
