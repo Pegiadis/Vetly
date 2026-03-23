@@ -57,7 +57,7 @@ def _detail(label: str, value: str) -> str:
     return (
         f'<div style="display:flex;justify-content:space-between;padding:8px 0;'
         f'border-bottom:1px solid #f1f5f9;">'
-        f'<span style="color:#64748b;font-size:14px;">{label}</span>'
+        f'<span style="color:#64748b;font-size:14px;">{label}:&nbsp;</span>'
         f'<span style="color:#1e293b;font-size:14px;font-weight:600;">{value}</span>'
         f'</div>'
     )
