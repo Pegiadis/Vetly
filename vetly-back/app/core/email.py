@@ -1,40 +1,36 @@
 """
-Email sending utilities
+Email sending utilities using Resend
 """
 
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import requests
 
 from app.core.config import settings
 
 
 def send_email(to_email: str, subject: str, html_body: str) -> None:
-    if not settings.SMTP_HOST:
+    if not settings.RESEND_API_KEY:
         print(f"\n{'='*60}")
         print(f"EMAIL TO: {to_email}")
         print(f"SUBJECT: {subject}")
-        print(f"{'='*60}")
-        print(html_body)
         print(f"{'='*60}\n")
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = settings.SMTP_FROM_EMAIL
-    msg["To"] = to_email
-    msg.attach(MIMEText(html_body, "html"))
-
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            if settings.SMTP_TLS:
-                server.starttls()
-            if settings.SMTP_USER:
-                server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.SMTP_FROM_EMAIL, to_email, msg.as_string())
+        response = requests.post(
+            "https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
+            json={
+                "from": settings.EMAIL_FROM,
+                "to": [to_email],
+                "subject": subject,
+                "html": html_body,
+            },
+            timeout=10,
+        )
+        if response.status_code not in (200, 201):
+            print(f"[EMAIL ERROR] Resend API returned {response.status_code}: {response.text}")
     except Exception as e:
         print(f"[EMAIL ERROR] Failed to send email to {to_email}: {e}")
-        # Don't crash the request - email delivery is best-effort
 
 
 def send_verification_email(to_email: str, token: str, user_type: str) -> None:

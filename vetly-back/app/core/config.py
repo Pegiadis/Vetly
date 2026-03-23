@@ -30,13 +30,9 @@ class Settings(BaseSettings):
     # CORS
     ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
 
-    # Email / SMTP
-    SMTP_HOST: str = ""
-    SMTP_PORT: int = 587
-    SMTP_USER: str = ""
-    SMTP_PASSWORD: str = ""
-    SMTP_FROM_EMAIL: str = "noreply@vetly.gr"
-    SMTP_TLS: bool = True
+    # Email
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "Vetly <noreply@vetly.gr>"
     EMAIL_NOTIFICATIONS_ENABLED: bool = False
     FRONTEND_URL: str = "http://localhost:3000"
     EMAIL_VERIFY_EXPIRE_HOURS: int = 24
