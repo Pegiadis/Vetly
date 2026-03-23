@@ -815,7 +815,7 @@ export interface OwnerReminder {
   vet_id: string;
   vet_name: string | null;
   pet_owner_id: string;
-  type: 'vaccination' | 'checkup' | 'medication' | 'custom';
+  type: string;
   title: string;
   message: string | null;
   due_date: string;

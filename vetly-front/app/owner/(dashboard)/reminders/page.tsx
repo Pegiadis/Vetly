@@ -5,21 +5,27 @@ import { useOwnerReminders, dismissReminder } from '@/hooks/useOwnerData';
 import Pagination from '@/components/Pagination';
 import { useToast } from '@/components/Toast';
 
-type ReminderType = 'vaccination' | 'checkup' | 'medication' | 'custom';
-
-const TYPE_LABELS: Record<ReminderType, string> = {
+const DEFAULT_TYPE_LABELS: Record<string, string> = {
   vaccination: 'Εμβολιασμός',
   checkup: 'Έλεγχος',
   medication: 'Φαρμακευτική Αγωγή',
   custom: 'Γενικό',
 };
 
-const TYPE_BADGE_CLASSES: Record<ReminderType, string> = {
+const TYPE_BADGE_CLASSES: Record<string, string> = {
   vaccination: 'bg-green-100 text-green-700',
   checkup: 'bg-blue-100 text-blue-700',
   medication: 'bg-purple-100 text-purple-700',
   custom: 'bg-slate-100 text-slate-700',
 };
+
+function getTypeBadgeClass(type: string): string {
+  return TYPE_BADGE_CLASSES[type] || 'bg-slate-100 text-slate-700';
+}
+
+function getTypeLabel(type: string): string {
+  return DEFAULT_TYPE_LABELS[type] || type;
+}
 
 function getDueDateStyle(dueDateStr: string): { text: string; border: string } {
   const today = new Date();
@@ -145,8 +151,8 @@ export default function OwnerRemindersPage() {
         {reminders.length > 0 ? (
           reminders.map((reminder) => {
             const dueDateStyle = getDueDateStyle(reminder.due_date);
-            const typeBadge = TYPE_BADGE_CLASSES[reminder.type] || TYPE_BADGE_CLASSES.custom;
-            const typeLabel = TYPE_LABELS[reminder.type] || reminder.type;
+            const typeBadge = getTypeBadgeClass(reminder.type);
+            const typeLabel = getTypeLabel(reminder.type);
 
             return (
               <div

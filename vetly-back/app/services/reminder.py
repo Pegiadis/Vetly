@@ -10,7 +10,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.base import Pet, PetOwner, Reminder, Vet
-from app.models.reminder import ReminderType
 from app.repositories.notification import NotificationRepository
 from app.repositories.reminder import ReminderRepository
 from app.services.notification import NotificationService
@@ -66,12 +65,14 @@ class ReminderService:
 
         reminder_date = data.due_date - timedelta(days=data.reminder_days_before)
 
+        title = data.get_title()
+
         reminder = self.repository.create(
             pet_id=data.pet_id,
             vet_id=vet_id,
             pet_owner_id=pet.pet_owner_id,
             type=data.type,
-            title=data.title,
+            title=title,
             message=data.message,
             due_date=data.due_date,
             reminder_date=reminder_date,
@@ -87,7 +88,7 @@ class ReminderService:
             owner_id=pet.pet_owner_id,
             type="reminder",
             title="Νέα υπενθύμιση",
-            message=f"Ο κτηνίατρος {vet_name} δημιούργησε υπενθύμιση για {pet_name}: {data.title}",
+            message=f"Ο κτηνίατρος {vet_name} δημιούργησε υπενθύμιση για {pet_name}: {title}",
             vet_id=vet_id,
             pet_name=pet_name,
             date_str=date_str,
@@ -207,7 +208,7 @@ class ReminderService:
             pet_id=pet_id,
             vet_id=vet_id,
             pet_owner_id=pet.pet_owner_id,
-            type=ReminderType.vaccination,
+            type="vaccination",
             title=f"Επανεμβολιασμός: {vaccination_title}",
             message=f"Ο {vaccination_title} του {pet.name} χρειάζεται ανανέωση.",
             due_date=due_date,

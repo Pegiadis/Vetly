@@ -2,19 +2,11 @@
 Reminder model for automated vaccination and checkup reminders
 """
 
-import enum
-from sqlalchemy import Column, String, Text, Date, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, String, Text, Date, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.db.base_class import BaseModel
-
-
-class ReminderType(str, enum.Enum):
-    vaccination = "vaccination"
-    checkup = "checkup"
-    medication = "medication"
-    custom = "custom"
 
 
 class Reminder(BaseModel):
@@ -46,7 +38,7 @@ class Reminder(BaseModel):
     )
 
     # Reminder Content
-    type = Column(Enum(ReminderType), nullable=False)
+    type = Column(String(100), nullable=False)
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=True)
 

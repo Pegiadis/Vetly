@@ -14,21 +14,27 @@ import {
 import Pagination from '@/components/Pagination';
 import DatePicker from '@/components/DatePicker';
 
-type ReminderType = 'vaccination' | 'checkup' | 'medication' | 'custom';
-
-const TYPE_LABELS: Record<ReminderType, string> = {
+const DEFAULT_TYPE_LABELS: Record<string, string> = {
   vaccination: 'Εμβολιασμός',
   checkup: 'Έλεγχος',
   medication: 'Φαρμακευτική Αγωγή',
   custom: 'Γενικό',
 };
 
-const TYPE_BADGE_CLASSES: Record<ReminderType, string> = {
+const TYPE_BADGE_CLASSES: Record<string, string> = {
   vaccination: 'bg-green-100 text-green-700',
   checkup: 'bg-blue-100 text-blue-700',
   medication: 'bg-purple-100 text-purple-700',
   custom: 'bg-slate-100 text-slate-600',
 };
+
+function getTypeBadgeClass(type: string): string {
+  return TYPE_BADGE_CLASSES[type] || 'bg-slate-100 text-slate-600';
+}
+
+function getTypeLabel(type: string): string {
+  return DEFAULT_TYPE_LABELS[type] || type;
+}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('el-GR', {
@@ -76,7 +82,7 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
 
   // Form state
   const [form, setForm] = useState({
-    type: 'checkup' as ReminderType,
+    type: 'checkup',
     title: '',
     message: '',
     due_date: '',
@@ -144,7 +150,7 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPet || !form.title || !form.due_date) {
+    if (!selectedPet || !form.type.trim() || !form.due_date) {
       setError('Συμπληρώστε τα υποχρεωτικά πεδία.');
       return;
     }
@@ -153,8 +159,8 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
     try {
       await createReminder({
         pet_id: selectedPet.id,
-        type: form.type,
-        title: form.title,
+        type: form.type.trim(),
+        title: form.title.trim() || undefined,
         message: form.message || undefined,
         due_date: form.due_date,
         reminder_days_before: form.reminder_days_before,
@@ -346,31 +352,34 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
             <label className="block text-sm font-bold text-slate-700 mb-1">
               Τύπος <span className="text-red-500">*</span>
             </label>
-            <select
+            <input
+              list="reminder-types"
               name="type"
               value={form.type}
               onChange={handleChange}
+              placeholder="Επιλέξτε ή πληκτρολογήστε τύπο"
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            >
+            />
+            <datalist id="reminder-types">
               <option value="vaccination">Εμβολιασμός</option>
               <option value="checkup">Έλεγχος</option>
               <option value="medication">Φαρμακευτική Αγωγή</option>
               <option value="custom">Γενικό</option>
-            </select>
+            </datalist>
+            <p className="text-xs text-slate-400 mt-1">Επιλέξτε από τη λίστα ή πληκτρολογήστε δικό σας τύπο</p>
           </div>
 
           {/* Title */}
           <div>
             <label className="block text-sm font-bold text-slate-700 mb-1">
-              Τίτλος <span className="text-red-500">*</span>
+              Τίτλος <span className="text-slate-400 font-normal">(προαιρετικό)</span>
             </label>
             <input
               type="text"
               name="title"
               value={form.title}
               onChange={handleChange}
-              required
-              placeholder="π.χ. Ετήσιος εμβολιασμός"
+              placeholder="Προαιρετικό - θα δημιουργηθεί αυτόματα"
               className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
             />
           </div>
@@ -453,7 +462,7 @@ function DeleteReminderDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const typeLabel = TYPE_LABELS[reminder.type] || reminder.type;
+  const typeLabel = getTypeLabel(reminder.type);
 
   const handleDelete = async () => {
     try {
@@ -619,8 +628,8 @@ export default function VetRemindersPage() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {reminders.map((reminder: VetReminder) => {
-                  const typeBadge = TYPE_BADGE_CLASSES[reminder.type] || TYPE_BADGE_CLASSES.custom;
-                  const typeLabel = TYPE_LABELS[reminder.type] || reminder.type;
+                  const typeBadge = getTypeBadgeClass(reminder.type);
+                  const typeLabel = getTypeLabel(reminder.type);
                   const dueDateColor = getDueDateStyle(reminder.due_date);
 
                   return (

@@ -7,17 +7,28 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.models.reminder import ReminderType
+REMINDER_TYPE_LABELS: dict[str, str] = {
+    "vaccination": "Εμβολιασμός",
+    "checkup": "Έλεγχος",
+    "medication": "Φαρμακευτική Αγωγή",
+    "custom": "Υπενθύμιση",
+}
 
 
 class ReminderCreateRequest(BaseModel):
     """Request to create a reminder"""
     pet_id: UUID
-    type: ReminderType
-    title: str = Field(..., min_length=1, max_length=255)
+    type: str = Field(..., min_length=1, max_length=100)
+    title: str | None = Field(None, max_length=255)
     message: str | None = Field(None, max_length=2000)
     due_date: date
     reminder_days_before: int = Field(14, ge=1, le=365)
+
+    def get_title(self) -> str:
+        """Return the title, auto-generating from type if not provided."""
+        if self.title and self.title.strip():
+            return self.title.strip()
+        return REMINDER_TYPE_LABELS.get(self.type, self.type)
 
 
 class ReminderResponse(BaseModel):
@@ -30,7 +41,7 @@ class ReminderResponse(BaseModel):
     vet_id: UUID
     vet_name: str | None = None
     pet_owner_id: UUID
-    type: ReminderType
+    type: str
     title: str
     message: str | None = None
     due_date: date
