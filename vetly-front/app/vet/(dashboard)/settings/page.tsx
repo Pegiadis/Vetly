@@ -7,14 +7,21 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getImageUrl } from '@/lib/api';
 import { VetMapPicker } from '@/components/MapView';
 
+const TIME_OPTIONS: string[] = [];
+for (let h = 6; h < 24; h++) {
+  for (let m = 0; m < 60; m += 30) {
+    TIME_OPTIONS.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
+  }
+}
+
 const defaultHours: Record<string, DayHours> = {
-  monday: { open: '09:00', close: '21:00', closed: false },
-  tuesday: { open: '09:00', close: '21:00', closed: false },
-  wednesday: { open: '09:00', close: '21:00', closed: false },
-  thursday: { open: '09:00', close: '21:00', closed: false },
-  friday: { open: '09:00', close: '18:00', closed: false },
-  saturday: { open: '10:00', close: '14:00', closed: false },
-  sunday: { open: '', close: '', closed: true },
+  monday: { closed: false, morning: { open: '09:00', close: '14:00' }, afternoon: { open: '17:00', close: '21:00' } },
+  tuesday: { closed: false, morning: { open: '09:00', close: '14:00' }, afternoon: { open: '17:00', close: '21:00' } },
+  wednesday: { closed: false, morning: { open: '09:00', close: '14:00' }, afternoon: { open: '17:00', close: '21:00' } },
+  thursday: { closed: false, morning: { open: '09:00', close: '14:00' }, afternoon: { open: '17:00', close: '21:00' } },
+  friday: { closed: false, morning: { open: '09:00', close: '14:00' }, afternoon: { open: '17:00', close: '18:00' } },
+  saturday: { closed: false, morning: { open: '10:00', close: '14:00' }, afternoon: null },
+  sunday: { closed: true, morning: null, afternoon: null },
 };
 
 const dayNames: Record<string, string> = {
@@ -181,10 +188,31 @@ export default function VetSettingsPage() {
     if (profile.hours) {
       const merged: Record<string, DayHours> = {};
       for (const day of dayOrder) {
-        const h = profile.hours[day];
-        merged[day] = h
-          ? { open: h.open || '', close: h.close || '', closed: h.closed ?? false, break_start: h.break_start || '', break_end: h.break_end || '' }
-          : defaultHours[day];
+        const h = profile.hours[day] as unknown as Record<string, unknown> | undefined;
+        if (!h) {
+          merged[day] = defaultHours[day];
+        } else {
+          // Backward compatibility: old format with open/close -> treat as morning shift
+          const morning = h.morning as { open: string; close: string } | null | undefined;
+          const afternoon = h.afternoon as { open: string; close: string } | null | undefined;
+          const oldOpen = h.open as string | null | undefined;
+          const oldClose = h.close as string | null | undefined;
+          if (morning || afternoon) {
+            merged[day] = {
+              closed: (h.closed as boolean) ?? false,
+              morning: morning ? { open: morning.open, close: morning.close } : null,
+              afternoon: afternoon ? { open: afternoon.open, close: afternoon.close } : null,
+            };
+          } else if (oldOpen && oldClose) {
+            merged[day] = {
+              closed: (h.closed as boolean) ?? false,
+              morning: { open: oldOpen, close: oldClose },
+              afternoon: null,
+            };
+          } else {
+            merged[day] = { closed: (h.closed as boolean) ?? false, morning: null, afternoon: null };
+          }
+        }
       }
       setHours(merged);
     }
@@ -221,17 +249,19 @@ export default function VetSettingsPage() {
       return;
     }
 
-    // Convert empty hour strings to null for backend pattern validation
+    // Convert to new shift format for backend
     const sanitizedHours: Record<string, DayHours> = {};
     for (const day of dayOrder) {
       const h = hours[day];
-      sanitizedHours[day] = {
-        open: h.closed ? null : (h.open || null),
-        close: h.closed ? null : (h.close || null),
-        closed: h.closed,
-        break_start: h.closed ? null : (h.break_start || null),
-        break_end: h.closed ? null : (h.break_end || null),
-      };
+      if (h.closed) {
+        sanitizedHours[day] = { closed: true, morning: null, afternoon: null };
+      } else {
+        sanitizedHours[day] = {
+          closed: false,
+          morning: h.morning?.open && h.morning?.close ? { open: h.morning.open, close: h.morning.close } : null,
+          afternoon: h.afternoon?.open && h.afternoon?.close ? { open: h.afternoon.open, close: h.afternoon.close } : null,
+        };
+      }
     }
 
     try {
@@ -460,12 +490,13 @@ export default function VetSettingsPage() {
         {/* Working Hours */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <h2 className="text-lg font-bold text-slate-800 mb-4">Ωράριο Λειτουργίας</h2>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {dayOrder.map(day => {
               const schedule = hours[day];
+              const hasAfternoon = !!schedule.afternoon;
               return (
-                <div key={day} className="space-y-2">
-                  <div className="flex items-center gap-4">
+                <div key={day} className="border border-slate-100 rounded-xl p-3">
+                  <div className="flex items-center gap-4 mb-2">
                     <span className="w-24 text-sm font-medium text-slate-700">{dayNames[day]}</span>
                     <label className="flex items-center gap-2">
                       <input
@@ -478,51 +509,71 @@ export default function VetSettingsPage() {
                       />
                       <span className="text-sm text-slate-600">Ανοιχτά</span>
                     </label>
-                    {!schedule.closed && (
-                      <>
-                        <input
-                          type="time"
-                          value={schedule.open || ''}
-                          onChange={e =>
-                            setHours({ ...hours, [day]: { ...schedule, open: e.target.value } })
-                          }
-                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                        <span className="text-slate-400">-</span>
-                        <input
-                          type="time"
-                          value={schedule.close || ''}
-                          onChange={e =>
-                            setHours({ ...hours, [day]: { ...schedule, close: e.target.value } })
-                          }
-                          className="px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        />
-                      </>
-                    )}
                     {schedule.closed && <span className="text-sm text-slate-400 italic">Κλειστά</span>}
                   </div>
                   {!schedule.closed && (
-                    <div className="flex items-center gap-4 ml-28">
-                      <span className="text-xs text-slate-500">Διάλειμμα:</span>
-                      <input
-                        type="time"
-                        value={schedule.break_start || ''}
-                        onChange={e =>
-                          setHours({ ...hours, [day]: { ...schedule, break_start: e.target.value } })
-                        }
-                        placeholder="Από"
-                        className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                      <span className="text-slate-400">-</span>
-                      <input
-                        type="time"
-                        value={schedule.break_end || ''}
-                        onChange={e =>
-                          setHours({ ...hours, [day]: { ...schedule, break_end: e.target.value } })
-                        }
-                        placeholder="Έως"
-                        className="px-3 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
+                    <div className="ml-28 space-y-2">
+                      {/* Morning shift */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-slate-500 w-20">Πρωί</span>
+                        <select
+                          value={schedule.morning?.open || ''}
+                          onChange={e => setHours({ ...hours, [day]: { ...schedule, morning: { open: e.target.value, close: schedule.morning?.close || '' } } })}
+                          className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">--:--</option>
+                          {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <span className="text-slate-400">-</span>
+                        <select
+                          value={schedule.morning?.close || ''}
+                          onChange={e => setHours({ ...hours, [day]: { ...schedule, morning: { open: schedule.morning?.open || '', close: e.target.value } } })}
+                          className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">--:--</option>
+                          {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </div>
+                      {/* Afternoon shift */}
+                      {hasAfternoon ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-slate-500 w-20">Απόγευμα</span>
+                          <select
+                            value={schedule.afternoon?.open || ''}
+                            onChange={e => setHours({ ...hours, [day]: { ...schedule, afternoon: { open: e.target.value, close: schedule.afternoon?.close || '' } } })}
+                            className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="">--:--</option>
+                            {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          <span className="text-slate-400">-</span>
+                          <select
+                            value={schedule.afternoon?.close || ''}
+                            onChange={e => setHours({ ...hours, [day]: { ...schedule, afternoon: { open: schedule.afternoon?.open || '', close: e.target.value } } })}
+                            className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          >
+                            <option value="">--:--</option>
+                            {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setHours({ ...hours, [day]: { ...schedule, afternoon: null } })}
+                            className="text-red-400 hover:text-red-600 text-xs ml-1"
+                            title="Αφαίρεση απογευματινού"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setHours({ ...hours, [day]: { ...schedule, afternoon: { open: '17:00', close: '21:00' } } })}
+                          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                          Προσθήκη απογευματινού ωραρίου
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

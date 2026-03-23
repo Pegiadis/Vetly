@@ -118,34 +118,40 @@ class VetService:
             return AvailableSlotsResponse(date=target_date.isoformat(), vet_id=vet_id, slots=[])
 
         day_hours = vet.hours[day_name]
-        if day_hours.get("closed", False) or not day_hours.get("open") or not day_hours.get("close"):
+        if day_hours.get("closed", False):
             return AvailableSlotsResponse(date=target_date.isoformat(), vet_id=vet_id, slots=[])
 
-        # Parse open/close times
-        open_h, open_m = map(int, day_hours["open"].split(":"))
-        close_h, close_m = map(int, day_hours["close"].split(":"))
-        open_time = datetime.combine(target_date, datetime.min.time().replace(hour=open_h, minute=open_m))
-        close_time = datetime.combine(target_date, datetime.min.time().replace(hour=close_h, minute=close_m))
+        def _parse_time(t: str) -> datetime:
+            h, m = map(int, t.split(":"))
+            return datetime.combine(target_date, datetime.min.time().replace(hour=h, minute=m))
 
-        # Parse optional break times
-        break_start_time = None
-        break_end_time = None
-        if day_hours.get("break_start") and day_hours.get("break_end"):
-            bs_h, bs_m = map(int, day_hours["break_start"].split(":"))
-            be_h, be_m = map(int, day_hours["break_end"].split(":"))
-            break_start_time = datetime.combine(target_date, datetime.min.time().replace(hour=bs_h, minute=bs_m))
-            break_end_time = datetime.combine(target_date, datetime.min.time().replace(hour=be_h, minute=be_m))
-
-        # Generate all possible slots
-        all_slots = []
-        current = open_time
-        while current + timedelta(minutes=slot_interval) <= close_time:
-            # Skip slots that fall within the break period
-            if break_start_time and break_end_time and current >= break_start_time and current < break_end_time:
+        def _generate_shift_slots(shift: dict) -> list[datetime]:
+            """Generate slots for a single shift"""
+            if not shift or not shift.get("open") or not shift.get("close"):
+                return []
+            shift_open = _parse_time(shift["open"])
+            shift_close = _parse_time(shift["close"])
+            slots = []
+            current = shift_open
+            while current + timedelta(minutes=slot_interval) <= shift_close:
+                slots.append(current)
                 current += timedelta(minutes=slot_interval)
-                continue
-            all_slots.append(current)
-            current += timedelta(minutes=slot_interval)
+            return slots
+
+        # Collect shifts: support new format (morning/afternoon) and old format (open/close)
+        morning = day_hours.get("morning")
+        afternoon = day_hours.get("afternoon")
+
+        if morning or afternoon:
+            # New two-shift format
+            all_slots = _generate_shift_slots(morning) + _generate_shift_slots(afternoon)
+        elif day_hours.get("open") and day_hours.get("close"):
+            # Backward compatibility: old format treated as single shift
+            all_slots = _generate_shift_slots({"open": day_hours["open"], "close": day_hours["close"]})
+        else:
+            return AvailableSlotsResponse(date=target_date.isoformat(), vet_id=vet_id, slots=[])
+
+        all_slots.sort()
 
         # Get booked appointments
         booked = self.repository.get_booked_slots(vet_id, target_date)

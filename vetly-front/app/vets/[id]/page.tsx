@@ -352,11 +352,12 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
                       >
                         {hours?.closed
                           ? 'Κλειστά'
-                          : hours?.open && hours?.close
-                          ? (hours?.break_start && hours?.break_end
-                            ? `${hours.open} - ${hours.break_start}, ${hours.break_end} - ${hours.close}`
-                            : `${hours.open} - ${hours.close}`)
-                          : '-'}
+                          : (() => {
+                              const parts: string[] = [];
+                              if (hours?.morning?.open && hours?.morning?.close) parts.push(`${hours.morning.open} - ${hours.morning.close}`);
+                              if (hours?.afternoon?.open && hours?.afternoon?.close) parts.push(`${hours.afternoon.open} - ${hours.afternoon.close}`);
+                              return parts.length > 0 ? parts.join(', ') : '-';
+                            })()}
                       </span>
                     </div>
                   );

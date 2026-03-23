@@ -41,18 +41,66 @@ function formatDate(dateStr: string): string {
   });
 }
 
+interface DismissDialogProps {
+  reminder: { id: string; title: string; due_date: string } | null;
+  loading: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+function DismissDialog({ reminder, loading, onConfirm, onCancel }: DismissDialogProps) {
+  if (!reminder) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/40" onClick={onCancel} />
+      <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+        <h3 className="text-lg font-bold text-slate-900 mb-2">Απόρριψη Υπενθύμισης</h3>
+        <p className="text-slate-600 mb-1">
+          Είστε σίγουροι ότι θέλετε να απορρίψετε αυτή την υπενθύμιση; Ο κτηνίατρος θα ειδοποιηθεί.
+        </p>
+        <div className="bg-slate-50 rounded-xl p-3 my-4 space-y-1">
+          <p className="text-sm font-semibold text-slate-800">{reminder.title}</p>
+          <p className="text-xs text-slate-500">{formatDate(reminder.due_date)}</p>
+        </div>
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            Πίσω
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Απόρριψη...' : 'Απόρριψη'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OwnerRemindersPage() {
   const [page, setPage] = useState(1);
   const { reminders, totalPages, loading, error, refetch } = useOwnerReminders(page, 10);
   const [dismissing, setDismissing] = useState<string | null>(null);
+  const [dismissTarget, setDismissTarget] = useState<{ id: string; title: string; due_date: string } | null>(null);
   const toast = useToast();
 
-  const handleDismiss = async (id: string) => {
+  const openDismissDialog = (reminder: { id: string; title: string; due_date: string }) => {
     if (dismissing) return;
-    if (!window.confirm('Είστε σίγουροι ότι θέλετε να απορρίψετε αυτή την υπενθύμιση;')) return;
-    setDismissing(id);
+    setDismissTarget(reminder);
+  };
+
+  const handleDismiss = async () => {
+    if (!dismissTarget || dismissing) return;
+    setDismissing(dismissTarget.id);
     try {
-      await dismissReminder(id);
+      await dismissReminder(dismissTarget.id);
+      setDismissTarget(null);
       refetch();
       toast.success('Η υπενθύμιση απορρίφθηκε.');
     } catch {
@@ -157,7 +205,7 @@ export default function OwnerRemindersPage() {
                   {!reminder.is_dismissed && (
                     <div className="flex-shrink-0">
                       <button
-                        onClick={() => handleDismiss(reminder.id)}
+                        onClick={() => openDismissDialog({ id: reminder.id, title: reminder.title, due_date: reminder.due_date })}
                         disabled={dismissing === reminder.id}
                         className="text-xs font-bold text-slate-500 hover:text-red-600 border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
                       >
@@ -190,6 +238,13 @@ export default function OwnerRemindersPage() {
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
       </div>
+
+      <DismissDialog
+        reminder={dismissTarget}
+        loading={dismissing !== null}
+        onConfirm={handleDismiss}
+        onCancel={() => setDismissTarget(null)}
+      />
     </div>
   );
 }

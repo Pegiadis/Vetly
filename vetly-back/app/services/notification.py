@@ -24,6 +24,7 @@ from app.core.email_templates import (
     new_appointment_request_email,
     examination_completed_email,
     new_review_email,
+    new_reminder_email,
 )
 
 
@@ -84,6 +85,8 @@ class NotificationService:
         self._send_owner_email(
             owner_id=owner_id,
             notification_type=type,
+            title=title,
+            message=message,
             vet_id=vet_id,
             pet_name=pet_name,
             date_str=date_str,
@@ -135,6 +138,8 @@ class NotificationService:
         pet_name: str,
         date_str: str,
         service: str,
+        title: str = "",
+        message: str = "",
     ) -> None:
         """Pick the right template and send an email to the owner."""
         email = self._get_owner_email(owner_id)
@@ -189,6 +194,14 @@ class NotificationService:
                 vet_name=vet_name,
                 pet_name=pet_name,
                 date_str=date_str,
+            )
+        elif notification_type == "reminder":
+            result = new_reminder_email(
+                vet_name=vet_name,
+                pet_name=pet_name,
+                title=title,
+                due_date=date_str,
+                message=message,
             )
 
         if result:

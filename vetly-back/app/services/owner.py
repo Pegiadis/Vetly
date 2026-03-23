@@ -48,6 +48,11 @@ class OwnerService:
         self.repository = OwnerRepository(db)
         self.notifications = NotificationService(db)
 
+    @staticmethod
+    def _time_in_shift(appt_time: str, shift: dict) -> bool:
+        """Check if appointment time falls within a shift (open <= time < close)"""
+        return shift.get('open') is not None and shift.get('close') is not None and appt_time >= shift['open'] and appt_time < shift['close']
+
     def _check_working_hours(self, vet, scheduled_at) -> None:
         """Validate that the appointment time falls within vet's working hours"""
         if not vet.hours:
@@ -60,23 +65,32 @@ class OwnerService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
             )
-        open_time = day_hours.get('open')
-        close_time = day_hours.get('close')
-        if open_time and close_time:
-            appt_time = scheduled_at.strftime('%H:%M')
-            if appt_time < open_time or appt_time >= close_time:
+
+        appt_time = scheduled_at.strftime('%H:%M')
+
+        # New format: morning/afternoon shifts
+        morning = day_hours.get('morning')
+        afternoon = day_hours.get('afternoon')
+
+        if morning or afternoon:
+            # New two-shift format
+            in_morning = morning and self._time_in_shift(appt_time, morning)
+            in_afternoon = afternoon and self._time_in_shift(appt_time, afternoon)
+            if not in_morning and not in_afternoon:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
                 )
-            # Check break period
-            break_start = day_hours.get('break_start')
-            break_end = day_hours.get('break_end')
-            if break_start and break_end and appt_time >= break_start and appt_time < break_end:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
-                )
+        else:
+            # Backward compatibility: old format with open/close
+            open_time = day_hours.get('open')
+            close_time = day_hours.get('close')
+            if open_time and close_time:
+                if appt_time < open_time or appt_time >= close_time:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
+                    )
 
     def get_my_pets(self, owner_id: UUID, page: int = 1, page_size: int = 6) -> PetPaginatedResponse:
         """Get pets for the logged-in owner with pagination"""

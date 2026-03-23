@@ -414,11 +414,12 @@ export default function BookPage() {
                             <div key={key} className="flex items-center justify-between bg-white rounded-lg px-2.5 py-1.5 border border-slate-100">
                               <span className="text-xs font-medium text-slate-600">{label}</span>
                               <span className={`text-xs font-medium ${day?.closed ? 'text-red-400' : 'text-slate-800'}`}>
-                                {day?.closed ? 'Κλειστά' : day?.open && day?.close ? (
-                                  day?.break_start && day?.break_end
-                                    ? `${day.open} - ${day.break_start}, ${day.break_end} - ${day.close}`
-                                    : `${day.open} - ${day.close}`
-                                ) : '—'}
+                                {day?.closed ? 'Κλειστά' : (() => {
+                                  const parts: string[] = [];
+                                  if (day?.morning?.open && day?.morning?.close) parts.push(`${day.morning.open} - ${day.morning.close}`);
+                                  if (day?.afternoon?.open && day?.afternoon?.close) parts.push(`${day.afternoon.open} - ${day.afternoon.close}`);
+                                  return parts.length > 0 ? parts.join(', ') : '—';
+                                })()}
                               </span>
                             </div>
                           );

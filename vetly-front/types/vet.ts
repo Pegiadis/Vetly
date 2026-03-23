@@ -24,12 +24,15 @@ export interface Vet {
   updated_at: string;
 }
 
+export interface Shift {
+  open: string;
+  close: string;
+}
+
 export interface DayHours {
-  open: string | null;
-  close: string | null;
   closed: boolean;
-  break_start?: string | null;
-  break_end?: string | null;
+  morning?: Shift | null;
+  afternoon?: Shift | null;
 }
 
 export interface VetListResponse {

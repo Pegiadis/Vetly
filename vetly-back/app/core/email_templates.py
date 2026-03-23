@@ -288,6 +288,29 @@ def examination_completed_email(
     return subject, _owner_email("Εξέταση Ολοκληρώθηκε", body)
 
 
+# ── Template: New reminder (→ owner) ────────────────────────────
+
+def new_reminder_email(
+    vet_name: str, pet_name: str, title: str, due_date: str, message: str = "",
+) -> tuple[str, str]:
+    """Return (subject, html) for new-reminder email to owner."""
+    details = _details_box(
+        _detail("Κτηνίατρος", vet_name),
+        _detail("Κατοικίδιο", pet_name),
+        _detail("Υπενθύμιση", title),
+        _detail("Ημερομηνία", due_date),
+    )
+    msg_html = _p(f"<em>{message}</em>") if message else ""
+    body = (
+        _p(f"Ο/Η κτηνίατρος <strong>{vet_name}</strong> δημιούργησε μια νέα υπενθύμιση για το κατοικίδιό σας <strong>{pet_name}</strong>.")
+        + details
+        + msg_html
+        + _p("Μπορείτε να δείτε τις υπενθυμίσεις σας στον πίνακα ελέγχου στο Vetly.")
+    )
+    subject = "Νέα υπενθύμιση - Vetly"
+    return subject, _owner_email("Νέα Υπενθύμιση", body)
+
+
 # ── Template: New review (→ vet) ────────────────────────────────
 
 def new_review_email(

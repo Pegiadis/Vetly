@@ -8,13 +8,17 @@ from decimal import Decimal
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
 
 
+class Shift(BaseModel):
+    """A single work shift (morning or afternoon)"""
+    open: str = Field(..., pattern=r'^\d{2}:\d{2}$')
+    close: str = Field(..., pattern=r'^\d{2}:\d{2}$')
+
+
 class DayHours(BaseModel):
-    """Working hours for a single day"""
-    open: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
-    close: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
+    """Working hours for a single day with two optional shifts"""
     closed: bool = False
-    break_start: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
-    break_end: str | None = Field(None, pattern=r'^\d{2}:\d{2}$')
+    morning: Shift | None = None
+    afternoon: Shift | None = None
 
 
 class WorkingHours(BaseModel):

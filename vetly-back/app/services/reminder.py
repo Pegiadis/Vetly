@@ -9,10 +9,11 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.base import Pet, Reminder
+from app.db.base import Pet, PetOwner, Reminder, Vet
 from app.models.reminder import ReminderType
 from app.repositories.notification import NotificationRepository
 from app.repositories.reminder import ReminderRepository
+from app.services.notification import NotificationService
 from app.schemas.reminder import (
     ReminderCreateRequest,
     ReminderListResponse,
@@ -49,6 +50,7 @@ class ReminderService:
         self.db = db
         self.repository = ReminderRepository(db)
         self.notification_repo = NotificationRepository(db)
+        self.notification_service = NotificationService(db)
 
     def create_reminder(
         self, vet_id: UUID, data: ReminderCreateRequest
@@ -76,6 +78,21 @@ class ReminderService:
         )
         self.db.commit()
         self.db.refresh(reminder)
+
+        # Notify owner (in-app + email)
+        vet_name = self.db.scalar(select(Vet.name).where(Vet.id == vet_id)) or ""
+        pet_name = pet.name or ""
+        date_str = data.due_date.strftime("%d/%m/%Y")
+        self.notification_service.notify_owner(
+            owner_id=pet.pet_owner_id,
+            type="reminder",
+            title="Νέα υπενθύμιση",
+            message=f"Ο κτηνίατρος {vet_name} δημιούργησε υπενθύμιση για {pet_name}: {data.title}",
+            vet_id=vet_id,
+            pet_name=pet_name,
+            date_str=date_str,
+        )
+
         return _build_reminder_response(reminder)
 
     def get_vet_reminders(
@@ -122,6 +139,18 @@ class ReminderService:
         self.repository.mark_dismissed(reminder)
         self.db.commit()
         self.db.refresh(reminder)
+
+        # Notify vet (in-app only, no email)
+        owner_name = self.db.scalar(
+            select(PetOwner.name).where(PetOwner.id == owner_id)
+        ) or ""
+        self.notification_service.notify_vet(
+            vet_id=reminder.vet_id,
+            type="reminder_dismissed",
+            title="Υπενθύμιση απορρίφθηκε",
+            message=f"Ο ιδιοκτήτης {owner_name} απέρριψε την υπενθύμιση: {reminder.title}",
+        )
+
         return _build_reminder_response(reminder)
 
     def delete_reminder(self, reminder_id: UUID, vet_id: UUID) -> None:
