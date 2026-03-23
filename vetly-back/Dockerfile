@@ -34,8 +34,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY . .
 
-# Create non-root user
-RUN useradd -m -u 1000 vetly && chown -R vetly:vetly /app
+# Create upload directories and non-root user
+RUN mkdir -p /app/uploads/pet /app/uploads/vet /app/uploads/owner && \
+    useradd -m -u 1000 vetly && chown -R vetly:vetly /app
 USER vetly
 
 # Expose port
