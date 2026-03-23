@@ -61,6 +61,7 @@ export function VetMapPickerInner({ lat, lng, onChange }: VetMapPickerProps) {
 
   return (
     <MapContainer center={center} zoom={lat && lng ? 15 : DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }} attributionControl={false}>
+      <InvalidateSize />
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
@@ -81,6 +82,15 @@ interface VetMarker {
   address: string | null;
   lat: number;
   lng: number;
+}
+
+function InvalidateSize() {
+  const map = useMap();
+  useEffect(() => {
+    const timer = setTimeout(() => map.invalidateSize(), 100);
+    return () => clearTimeout(timer);
+  }, [map]);
+  return null;
 }
 
 function FlyToSelected({ selectedId, markers }: { selectedId: string | null; markers: VetMarker[] }) {
@@ -145,6 +155,7 @@ interface OnCallMapProps {
 export function OnCallMapInner({ vets, selectedVetId, onSelectVet }: OnCallMapProps) {
   return (
     <MapContainer center={THESSALONIKI_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }} attributionControl={false}>
+      <InvalidateSize />
       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
       <FlyToSelected selectedId={selectedVetId} markers={vets} />
       {vets.map((vet) => (
@@ -202,6 +213,7 @@ export function OnCallMapInner({ vets, selectedVetId, onSelectVet }: OnCallMapPr
 export function VetSearchMapInner({ vets, selectedVetId, onSelectVet }: VetSearchMapProps) {
   return (
     <MapContainer center={THESSALONIKI_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }} attributionControl={false}>
+      <InvalidateSize />
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
