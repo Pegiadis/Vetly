@@ -48,6 +48,7 @@ def list_appointments(
     status: str | None = Query(None, description="Filter by status (pending, confirmed, completed, cancelled)"),
     date_from: date | None = Query(None, description="Filter from date"),
     date_to: date | None = Query(None, description="Filter to date"),
+    sort: str = Query("desc", description="Sort by date: asc or desc"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
     current_vet: Vet = Depends(get_current_vet),
@@ -62,6 +63,7 @@ def list_appointments(
         date_to=date_to,
         page=page,
         page_size=page_size,
+        sort_asc=sort == "asc",
     )
 
 
@@ -95,6 +97,33 @@ def get_pending_appointments(
         page=page,
         page_size=page_size,
     )
+
+
+@router.get("/diagnosis-types", response_model=CustomDiagnosisTypesResponse)
+def get_custom_diagnosis_types(
+    current_vet: Vet = Depends(get_current_vet),
+) -> CustomDiagnosisTypesResponse:
+    """Get the vet's custom diagnosis types"""
+    return CustomDiagnosisTypesResponse(types=current_vet.custom_diagnosis_types or [])
+
+
+@router.put("/diagnosis-types", response_model=CustomDiagnosisTypesResponse)
+def update_custom_diagnosis_types(
+    data: CustomDiagnosisTypesRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> CustomDiagnosisTypesResponse:
+    """Update the vet's custom diagnosis types"""
+    cleaned = [t.strip() for t in data.types if t.strip()]
+    seen: set[str] = set()
+    unique: list[str] = []
+    for t in cleaned:
+        if t not in seen:
+            seen.add(t)
+            unique.append(t)
+    current_vet.custom_diagnosis_types = unique
+    db.commit()
+    return CustomDiagnosisTypesResponse(types=unique)
 
 
 @router.get("/{appointment_id}", response_model=AppointmentDetailResponse)
@@ -172,33 +201,6 @@ def reschedule_appointment(
         vet_id=current_vet.id,
         data=data,
     )
-
-
-@router.get("/diagnosis-types", response_model=CustomDiagnosisTypesResponse)
-def get_custom_diagnosis_types(
-    current_vet: Vet = Depends(get_current_vet),
-) -> CustomDiagnosisTypesResponse:
-    """Get the vet's custom diagnosis types"""
-    return CustomDiagnosisTypesResponse(types=current_vet.custom_diagnosis_types or [])
-
-
-@router.put("/diagnosis-types", response_model=CustomDiagnosisTypesResponse)
-def update_custom_diagnosis_types(
-    data: CustomDiagnosisTypesRequest,
-    current_vet: Vet = Depends(get_current_vet),
-    db: Session = Depends(get_db),
-) -> CustomDiagnosisTypesResponse:
-    """Update the vet's custom diagnosis types"""
-    cleaned = [t.strip() for t in data.types if t.strip()]
-    seen: set[str] = set()
-    unique: list[str] = []
-    for t in cleaned:
-        if t not in seen:
-            seen.add(t)
-            unique.append(t)
-    current_vet.custom_diagnosis_types = unique
-    db.commit()
-    return CustomDiagnosisTypesResponse(types=unique)
 
 
 @router.post("/{appointment_id}/complete", response_model=AppointmentDetailResponse)
