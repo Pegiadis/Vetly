@@ -7,6 +7,8 @@ import {
   createReminder,
   useVetClients,
   useVetClient,
+  getCustomReminderTypes,
+  updateCustomReminderTypes,
   type VetReminder,
   type VetClientListItem,
   type LinkedPet,
@@ -92,14 +94,30 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
   const [error, setError] = useState('');
 
   // Custom type state
-  const [customTypes, setCustomTypes] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return [];
-    try {
-      return JSON.parse(localStorage.getItem('vetly_custom_reminder_types') || '[]');
-    } catch { return []; }
-  });
+  const [customTypes, setCustomTypes] = useState<string[]>([]);
+  const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
   const [showAddType, setShowAddType] = useState(false);
   const [newTypeName, setNewTypeName] = useState('');
+  const [editingTypeIndex, setEditingTypeIndex] = useState<number | null>(null);
+  const [editingTypeName, setEditingTypeName] = useState('');
+  const typeDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load custom types from API
+  useEffect(() => {
+    getCustomReminderTypes().then(setCustomTypes).catch(() => {});
+  }, []);
+
+  // Close type dropdown on click outside
+  useEffect(() => {
+    function handleTypeClickOutside(e: MouseEvent) {
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
+        setTypeDropdownOpen(false);
+        setEditingTypeIndex(null);
+      }
+    }
+    document.addEventListener('mousedown', handleTypeClickOutside);
+    return () => document.removeEventListener('mousedown', handleTypeClickOutside);
+  }, []);
 
   // Data hooks
   const { clients, loading: clientsLoading } = useVetClients(1, 20, debouncedSearch || undefined);
@@ -363,22 +381,171 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
               Τύπος <span className="text-red-500">*</span>
             </label>
             <div className="flex gap-2">
-              <select
-                value={form.type}
-                onChange={(e) => setForm(prev => ({ ...prev, type: e.target.value }))}
-                className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
-              >
-                <option value="vaccination">Εμβολιασμός</option>
-                <option value="checkup">Έλεγχος</option>
-                <option value="medication">Φαρμακευτική Αγωγή</option>
-                <option value="custom">Γενικό</option>
-                {customTypes.map((ct) => (
-                  <option key={ct} value={ct}>{ct}</option>
-                ))}
-              </select>
+              <div className="relative flex-1" ref={typeDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => { setTypeDropdownOpen(!typeDropdownOpen); setEditingTypeIndex(null); }}
+                  className="w-full flex items-center justify-between border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 bg-white hover:border-slate-300 transition-colors"
+                >
+                  <span>{getTypeLabel(form.type)}</span>
+                  <svg className={`w-4 h-4 text-slate-400 transition-transform ${typeDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                {typeDropdownOpen && (
+                  <div className="absolute z-20 w-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                    {[
+                      { value: 'vaccination', label: 'Εμβολιασμός' },
+                      { value: 'checkup', label: 'Έλεγχος' },
+                      { value: 'medication', label: 'Φαρμακευτική Αγωγή' },
+                      { value: 'custom', label: 'Γενικό' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => { setForm(prev => ({ ...prev, type: opt.value })); setTypeDropdownOpen(false); }}
+                        className={`w-full text-left px-3 py-2.5 text-sm hover:bg-indigo-50 transition-colors ${form.type === opt.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                    {customTypes.length > 0 && (
+                      <div className="border-t border-slate-100">
+                        {customTypes.map((ct, idx) => (
+                          <div key={idx} className="group relative">
+                            {editingTypeIndex === idx ? (
+                              <div className="flex items-center gap-1.5 px-3 py-2">
+                                <input
+                                  type="text"
+                                  value={editingTypeName}
+                                  onChange={(e) => setEditingTypeName(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const trimmed = editingTypeName.trim();
+                                      if (!trimmed) return;
+                                      const updated = customTypes.map((t, i) => i === idx ? trimmed : t);
+                                      setCustomTypes(updated);
+                                      updateCustomReminderTypes(updated).catch(() => {});
+                                      if (form.type === ct) setForm(prev => ({ ...prev, type: trimmed }));
+                                      setEditingTypeIndex(null);
+                                    }
+                                    if (e.key === 'Escape') setEditingTypeIndex(null);
+                                  }}
+                                  className="flex-1 border border-indigo-300 rounded-lg px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                  autoFocus
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const trimmed = editingTypeName.trim();
+                                    if (!trimmed) return;
+                                    const updated = customTypes.map((t, i) => i === idx ? trimmed : t);
+                                    setCustomTypes(updated);
+                                    updateCustomReminderTypes(updated).catch(() => {});
+                                    if (form.type === ct) setForm(prev => ({ ...prev, type: trimmed }));
+                                    setEditingTypeIndex(null);
+                                  }}
+                                  className="text-indigo-600 hover:text-indigo-700 p-1"
+                                >
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => { setForm(prev => ({ ...prev, type: ct })); setTypeDropdownOpen(false); }}
+                                className={`w-full text-left px-3 py-2.5 text-sm hover:bg-indigo-50 transition-colors flex items-center ${form.type === ct ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                              >
+                                <span className="flex-1">{ct}</span>
+                                <span className="hidden group-hover:flex items-center gap-1">
+                                  <span
+                                    role="button"
+                                    onClick={(e) => { e.stopPropagation(); setEditingTypeIndex(idx); setEditingTypeName(ct); }}
+                                    className="text-slate-400 hover:text-indigo-600 p-0.5 transition-colors"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                  </span>
+                                  <span
+                                    role="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const updated = customTypes.filter((_, i) => i !== idx);
+                                      setCustomTypes(updated);
+                                      updateCustomReminderTypes(updated).catch(() => {});
+                                      if (form.type === ct) setForm(prev => ({ ...prev, type: 'checkup' }));
+                                    }}
+                                    className="text-slate-400 hover:text-red-500 p-0.5 transition-colors"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </span>
+                                </span>
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {showAddType && (
+                      <div className="border-t border-slate-100 p-2">
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            value={newTypeName}
+                            onChange={(e) => setNewTypeName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const trimmed = newTypeName.trim();
+                                if (!trimmed) return;
+                                const updated = [...customTypes, trimmed];
+                                setCustomTypes(updated);
+                                updateCustomReminderTypes(updated).catch(() => {});
+                                setForm(prev => ({ ...prev, type: trimmed }));
+                                setNewTypeName('');
+                                setShowAddType(false);
+                                setTypeDropdownOpen(false);
+                              }
+                              if (e.key === 'Escape') setShowAddType(false);
+                            }}
+                            placeholder="Νέος τύπος..."
+                            className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                            autoFocus
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const trimmed = newTypeName.trim();
+                              if (!trimmed) return;
+                              const updated = [...customTypes, trimmed];
+                              setCustomTypes(updated);
+                              updateCustomReminderTypes(updated).catch(() => {});
+                              setForm(prev => ({ ...prev, type: trimmed }));
+                              setNewTypeName('');
+                              setShowAddType(false);
+                              setTypeDropdownOpen(false);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors shrink-0"
+                          >
+                            Προσθήκη
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
-                onClick={() => setShowAddType(!showAddType)}
+                onClick={() => { setShowAddType(true); setTypeDropdownOpen(true); }}
                 className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0"
                 title="Προσθήκη νέου τύπου"
               >
@@ -387,47 +554,6 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
                 </svg>
               </button>
             </div>
-            {showAddType && (
-              <div className="flex gap-2 mt-2">
-                <input
-                  type="text"
-                  value={newTypeName}
-                  onChange={(e) => setNewTypeName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      const trimmed = newTypeName.trim();
-                      if (!trimmed) return;
-                      const updated = [...customTypes, trimmed];
-                      setCustomTypes(updated);
-                      localStorage.setItem('vetly_custom_reminder_types', JSON.stringify(updated));
-                      setForm(prev => ({ ...prev, type: trimmed }));
-                      setNewTypeName('');
-                      setShowAddType(false);
-                    }
-                  }}
-                  placeholder="Πληκτρολογήστε νέο τύπο..."
-                  className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    const trimmed = newTypeName.trim();
-                    if (!trimmed) return;
-                    const updated = [...customTypes, trimmed];
-                    setCustomTypes(updated);
-                    localStorage.setItem('vetly_custom_reminder_types', JSON.stringify(updated));
-                    setForm(prev => ({ ...prev, type: trimmed }));
-                    setNewTypeName('');
-                    setShowAddType(false);
-                  }}
-                  className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors shrink-0"
-                >
-                  Προσθήκη
-                </button>
-              </div>
-            )}
           </div>
 
           {/* Title */}
