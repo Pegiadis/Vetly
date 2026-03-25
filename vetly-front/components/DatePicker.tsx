@@ -6,6 +6,7 @@ interface DatePickerProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  dropUp?: boolean;
 }
 
 const MONTHS_EL = [
@@ -34,7 +35,7 @@ function formatDisplay(dateStr: string): string {
   return `${d.getDate()} ${MONTHS_SHORT_EL[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-export default function DatePicker({ value, onChange, placeholder = 'Επιλέξτε ημ/νία' }: DatePickerProps) {
+export default function DatePicker({ value, onChange, placeholder = 'Επιλέξτε ημ/νία', dropUp = false }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -128,7 +129,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
 
       {/* Dropdown Calendar */}
       {open && (
-        <div className="absolute top-full left-0 mt-2 z-50 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 w-[288px] animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className={`absolute left-0 z-50 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 w-[288px] animate-in fade-in duration-150 ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
           {/* Month Navigation */}
           <div className="flex items-center justify-between mb-4">
             <button
