@@ -91,6 +91,16 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Custom type state
+  const [customTypes, setCustomTypes] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem('vetly_custom_reminder_types') || '[]');
+    } catch { return []; }
+  });
+  const [showAddType, setShowAddType] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+
   // Data hooks
   const { clients, loading: clientsLoading } = useVetClients(1, 20, debouncedSearch || undefined);
   const { client: clientDetail, loading: clientDetailLoading } = useVetClient(selectedClientId);
@@ -352,21 +362,72 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
             <label className="block text-sm font-bold text-slate-700 mb-1">
               Τύπος <span className="text-red-500">*</span>
             </label>
-            <input
-              list="reminder-types"
-              name="type"
-              value={form.type}
-              onChange={handleChange}
-              placeholder="Επιλέξτε ή πληκτρολογήστε τύπο"
-              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            />
-            <datalist id="reminder-types">
-              <option value="vaccination">Εμβολιασμός</option>
-              <option value="checkup">Έλεγχος</option>
-              <option value="medication">Φαρμακευτική Αγωγή</option>
-              <option value="custom">Γενικό</option>
-            </datalist>
-            <p className="text-xs text-slate-400 mt-1">Επιλέξτε από τη λίστα ή πληκτρολογήστε δικό σας τύπο</p>
+            <div className="flex gap-2">
+              <select
+                value={form.type}
+                onChange={(e) => setForm(prev => ({ ...prev, type: e.target.value }))}
+                className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+              >
+                <option value="vaccination">Εμβολιασμός</option>
+                <option value="checkup">Έλεγχος</option>
+                <option value="medication">Φαρμακευτική Αγωγή</option>
+                <option value="custom">Γενικό</option>
+                {customTypes.map((ct) => (
+                  <option key={ct} value={ct}>{ct}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setShowAddType(!showAddType)}
+                className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0"
+                title="Προσθήκη νέου τύπου"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+            </div>
+            {showAddType && (
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="text"
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const trimmed = newTypeName.trim();
+                      if (!trimmed) return;
+                      const updated = [...customTypes, trimmed];
+                      setCustomTypes(updated);
+                      localStorage.setItem('vetly_custom_reminder_types', JSON.stringify(updated));
+                      setForm(prev => ({ ...prev, type: trimmed }));
+                      setNewTypeName('');
+                      setShowAddType(false);
+                    }
+                  }}
+                  placeholder="Πληκτρολογήστε νέο τύπο..."
+                  className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const trimmed = newTypeName.trim();
+                    if (!trimmed) return;
+                    const updated = [...customTypes, trimmed];
+                    setCustomTypes(updated);
+                    localStorage.setItem('vetly_custom_reminder_types', JSON.stringify(updated));
+                    setForm(prev => ({ ...prev, type: trimmed }));
+                    setNewTypeName('');
+                    setShowAddType(false);
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-colors shrink-0"
+                >
+                  Προσθήκη
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Title */}
