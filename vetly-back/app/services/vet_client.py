@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.base import PetOwner
+from app.core.email import send_email
 from app.core.security import create_access_token, get_password_hash
 from app.models.pet import PetType, Gender
 from app.repositories.vet_client import VetClientRepository
@@ -33,6 +34,42 @@ from app.schemas.vet_client import (
 
 
 INVITE_EXPIRY_DAYS = 7
+
+
+def _build_invite_email_html(vet_name: str, invite_url: str) -> str:
+    """Build HTML email for client invite using teal (owner) color scheme."""
+    color = "#0d9488"
+    color_light = "#f0fdfa"
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f8fafc;">
+      <div style="max-width:480px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
+        <div style="background:{color};padding:32px;text-align:center;">
+          <h1 style="color:white;margin:0;font-size:24px;">Vetly</h1>
+        </div>
+        <div style="padding:32px;">
+          <h2 style="color:#1e293b;margin:0 0 16px;">Πρόσκληση στο Vetly</h2>
+          <p style="color:#475569;line-height:1.6;margin:0 0 24px;">
+            {vet_name} σας προσκαλεί στο Vetly. Δημιουργήστε λογαριασμό για να διαχειριστείτε
+            τα ραντεβού και το ιστορικό υγείας του κατοικιδίου σας.
+          </p>
+          <div style="text-align:center;margin:32px 0;">
+            <a href="{invite_url}" style="display:inline-block;background:{color};color:white;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:bold;font-size:16px;">
+              Εγγραφή στο Vetly
+            </a>
+          </div>
+          <div style="margin-top:24px;padding:16px;background:{color_light};border-radius:8px;">
+            <p style="color:#64748b;font-size:12px;margin:0;word-break:break-all;">
+              Αν το κουμπί δεν λειτουργεί, αντιγράψτε αυτόν τον σύνδεσμο:<br>{invite_url}
+            </p>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
 
 
 class VetClientService:
@@ -144,6 +181,13 @@ class VetClientService:
         self.repo.update(client, invite_token=token, invite_expires_at=expires_at, status="invited")
 
         invite_url = f"{base_url}/invite/{token}"
+
+        # Send invite email
+        if client.email:
+            vet_name = client.vet.name if client.vet else "Ο κτηνίατρός σας"
+            html = _build_invite_email_html(vet_name, invite_url)
+            send_email(client.email, "Πρόσκληση στο Vetly", html)
+
         return InviteLinkResponse(invite_url=invite_url, expires_at=expires_at)
 
     def resend_invite(self, client_id: UUID, vet_id: UUID, base_url: str) -> InviteLinkResponse:
@@ -168,6 +212,13 @@ class VetClientService:
         self.repo.update(client, invite_token=token, invite_expires_at=expires_at)
 
         invite_url = f"{base_url}/invite/{token}"
+
+        # Send invite email
+        if client.email:
+            vet_name = client.vet.name if client.vet else "Ο κτηνίατρός σας"
+            html = _build_invite_email_html(vet_name, invite_url)
+            send_email(client.email, "Πρόσκληση στο Vetly", html)
+
         return InviteLinkResponse(invite_url=invite_url, expires_at=expires_at)
 
     def get_invite_info(self, token: str) -> InviteInfoResponse:
