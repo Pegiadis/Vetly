@@ -5,11 +5,20 @@ Vet Appointment Management API endpoints
 from uuid import UUID
 from datetime import date
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_vet
 from app.db.base import Vet
 from app.services.appointment import AppointmentService
+
+
+class CustomDiagnosisTypesRequest(BaseModel):
+    types: list[str]
+
+
+class CustomDiagnosisTypesResponse(BaseModel):
+    types: list[str]
 from app.schemas.appointment import (
     AppointmentListResponse,
     AppointmentDetailResponse,
@@ -163,6 +172,33 @@ def reschedule_appointment(
         vet_id=current_vet.id,
         data=data,
     )
+
+
+@router.get("/diagnosis-types", response_model=CustomDiagnosisTypesResponse)
+def get_custom_diagnosis_types(
+    current_vet: Vet = Depends(get_current_vet),
+) -> CustomDiagnosisTypesResponse:
+    """Get the vet's custom diagnosis types"""
+    return CustomDiagnosisTypesResponse(types=current_vet.custom_diagnosis_types or [])
+
+
+@router.put("/diagnosis-types", response_model=CustomDiagnosisTypesResponse)
+def update_custom_diagnosis_types(
+    data: CustomDiagnosisTypesRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> CustomDiagnosisTypesResponse:
+    """Update the vet's custom diagnosis types"""
+    cleaned = [t.strip() for t in data.types if t.strip()]
+    seen: set[str] = set()
+    unique: list[str] = []
+    for t in cleaned:
+        if t not in seen:
+            seen.add(t)
+            unique.append(t)
+    current_vet.custom_diagnosis_types = unique
+    db.commit()
+    return CustomDiagnosisTypesResponse(types=unique)
 
 
 @router.post("/{appointment_id}/complete", response_model=AppointmentDetailResponse)
