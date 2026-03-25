@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -12,6 +12,8 @@ import {
   completeExamination,
   rescheduleAppointment,
   useVetAvailableSlots,
+  getCustomDiagnosisTypes,
+  updateCustomDiagnosisTypes,
   VetAppointment,
   VetAppointmentFilters,
   ExaminationMedication,
@@ -65,6 +67,31 @@ function ExaminationDialog({
   const [medications, setMedications] = useState<ExaminationMedication[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Custom diagnosis types
+  const [customDiagnosisTypes, setCustomDiagnosisTypes] = useState<string[]>([]);
+  const [diagnosisDropdownOpen, setDiagnosisDropdownOpen] = useState(false);
+  const [showAddDiagnosis, setShowAddDiagnosis] = useState(false);
+  const [newDiagnosisName, setNewDiagnosisName] = useState('');
+  const [editingDiagnosisIndex, setEditingDiagnosisIndex] = useState<number | null>(null);
+  const [editingDiagnosisName, setEditingDiagnosisName] = useState('');
+  const diagnosisDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getCustomDiagnosisTypes().then(setCustomDiagnosisTypes).catch(() => {});
+  }, []);
+
+  // Close diagnosis dropdown on click outside
+  useEffect(() => {
+    function handleDiagClickOutside(e: MouseEvent) {
+      if (diagnosisDropdownRef.current && !diagnosisDropdownRef.current.contains(e.target as Node)) {
+        setDiagnosisDropdownOpen(false);
+        setEditingDiagnosisIndex(null);
+      }
+    }
+    document.addEventListener('mousedown', handleDiagClickOutside);
+    return () => document.removeEventListener('mousedown', handleDiagClickOutside);
+  }, []);
 
   const addMedication = () => {
     setMedications([...medications, { ...emptyMedication }]);
@@ -144,13 +171,166 @@ function ExaminationDialog({
               <label className="block text-sm font-bold text-slate-700 mb-2">
                 Διάγνωση <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                value={diagnosis}
-                onChange={(e) => setDiagnosis(e.target.value)}
-                placeholder="π.χ. Δερματίτιδα, Ωτίτιδα..."
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800"
-              />
+              <div className="flex gap-2">
+                <div className="relative flex-1" ref={diagnosisDropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => { setDiagnosisDropdownOpen(!diagnosisDropdownOpen); setEditingDiagnosisIndex(null); }}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm hover:border-slate-300 transition-colors"
+                  >
+                    <span className={diagnosis ? 'text-slate-800' : 'text-slate-400'}>{diagnosis || 'Επιλέξτε διάγνωση...'}</span>
+                    <svg className={`w-4 h-4 text-slate-400 transition-transform ${diagnosisDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {diagnosisDropdownOpen && (
+                    <div className="absolute z-20 w-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden max-h-60 overflow-y-auto">
+                      {customDiagnosisTypes.length === 0 && !showAddDiagnosis && (
+                        <div className="px-4 py-3 text-sm text-slate-400 text-center">
+                          Δεν υπάρχουν διαγνώσεις — πατήστε + για προσθήκη
+                        </div>
+                      )}
+                      {customDiagnosisTypes.map((dt, idx) => (
+                        <div key={idx} className="group relative">
+                          {editingDiagnosisIndex === idx ? (
+                            <div className="flex items-center gap-1.5 px-3 py-2">
+                              <input
+                                type="text"
+                                value={editingDiagnosisName}
+                                onChange={(e) => setEditingDiagnosisName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    const trimmed = editingDiagnosisName.trim();
+                                    if (!trimmed) return;
+                                    const updated = customDiagnosisTypes.map((t, i) => i === idx ? trimmed : t);
+                                    setCustomDiagnosisTypes(updated);
+                                    updateCustomDiagnosisTypes(updated).catch(() => {});
+                                    if (diagnosis === dt) setDiagnosis(trimmed);
+                                    setEditingDiagnosisIndex(null);
+                                  }
+                                  if (e.key === 'Escape') setEditingDiagnosisIndex(null);
+                                }}
+                                className="flex-1 border border-indigo-300 rounded-lg px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const trimmed = editingDiagnosisName.trim();
+                                  if (!trimmed) return;
+                                  const updated = customDiagnosisTypes.map((t, i) => i === idx ? trimmed : t);
+                                  setCustomDiagnosisTypes(updated);
+                                  updateCustomDiagnosisTypes(updated).catch(() => {});
+                                  if (diagnosis === dt) setDiagnosis(trimmed);
+                                  setEditingDiagnosisIndex(null);
+                                }}
+                                className="text-indigo-600 hover:text-indigo-700 p-1"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => { setDiagnosis(dt); setDiagnosisDropdownOpen(false); }}
+                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 transition-colors flex items-center ${diagnosis === dt ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                            >
+                              <span className="flex-1">{dt}</span>
+                              <span className="hidden group-hover:flex items-center gap-1">
+                                <span
+                                  role="button"
+                                  onClick={(e) => { e.stopPropagation(); setEditingDiagnosisIndex(idx); setEditingDiagnosisName(dt); }}
+                                  className="text-slate-400 hover:text-indigo-600 p-0.5 transition-colors"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                  </svg>
+                                </span>
+                                <span
+                                  role="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const updated = customDiagnosisTypes.filter((_, i) => i !== idx);
+                                    setCustomDiagnosisTypes(updated);
+                                    updateCustomDiagnosisTypes(updated).catch(() => {});
+                                    if (diagnosis === dt) setDiagnosis('');
+                                  }}
+                                  className="text-slate-400 hover:text-red-500 p-0.5 transition-colors"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                </span>
+                              </span>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {showAddDiagnosis && (
+                        <div className="border-t border-slate-100 p-2">
+                          <div className="flex gap-1.5">
+                            <input
+                              type="text"
+                              value={newDiagnosisName}
+                              onChange={(e) => setNewDiagnosisName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const trimmed = newDiagnosisName.trim();
+                                  if (!trimmed) return;
+                                  const updated = [...customDiagnosisTypes, trimmed];
+                                  setCustomDiagnosisTypes(updated);
+                                  updateCustomDiagnosisTypes(updated).catch(() => {});
+                                  setDiagnosis(trimmed);
+                                  setNewDiagnosisName('');
+                                  setShowAddDiagnosis(false);
+                                  setDiagnosisDropdownOpen(false);
+                                }
+                                if (e.key === 'Escape') setShowAddDiagnosis(false);
+                              }}
+                              placeholder="Νέα διάγνωση..."
+                              className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const trimmed = newDiagnosisName.trim();
+                                if (!trimmed) return;
+                                const updated = [...customDiagnosisTypes, trimmed];
+                                setCustomDiagnosisTypes(updated);
+                                updateCustomDiagnosisTypes(updated).catch(() => {});
+                                setDiagnosis(trimmed);
+                                setNewDiagnosisName('');
+                                setShowAddDiagnosis(false);
+                                setDiagnosisDropdownOpen(false);
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors shrink-0"
+                            >
+                              Προσθήκη
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowAddDiagnosis(true); setDiagnosisDropdownOpen(true); }}
+                  className="w-11 h-11 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0"
+                  title="Προσθήκη νέας διάγνωσης"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             <div>
