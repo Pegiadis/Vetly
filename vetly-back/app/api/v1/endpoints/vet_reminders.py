@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_vet, get_db
 from app.db.base import Vet
+from pydantic import BaseModel
+
 from app.schemas.reminder import (
     ProcessRemindersResponse,
     ReminderCreateRequest,
@@ -16,6 +18,14 @@ from app.schemas.reminder import (
     ReminderResponse,
 )
 from app.services.reminder import ReminderService
+
+
+class CustomReminderTypesRequest(BaseModel):
+    types: list[str]
+
+
+class CustomReminderTypesResponse(BaseModel):
+    types: list[str]
 
 router = APIRouter()
 
@@ -30,6 +40,34 @@ def get_vet_reminders(
     """Get paginated list of reminders created by the logged-in vet"""
     service = ReminderService(db)
     return service.get_vet_reminders(current_vet.id, page=page, page_size=page_size)
+
+
+@router.get("/types", response_model=CustomReminderTypesResponse)
+def get_custom_reminder_types(
+    current_vet: Vet = Depends(get_current_vet),
+) -> CustomReminderTypesResponse:
+    """Get the vet's custom reminder types"""
+    return CustomReminderTypesResponse(types=current_vet.custom_reminder_types or [])
+
+
+@router.put("/types", response_model=CustomReminderTypesResponse)
+def update_custom_reminder_types(
+    data: CustomReminderTypesRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> CustomReminderTypesResponse:
+    """Update the vet's custom reminder types"""
+    cleaned = [t.strip() for t in data.types if t.strip()]
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique: list[str] = []
+    for t in cleaned:
+        if t not in seen:
+            seen.add(t)
+            unique.append(t)
+    current_vet.custom_reminder_types = unique
+    db.commit()
+    return CustomReminderTypesResponse(types=unique)
 
 
 @router.post("", response_model=ReminderResponse, status_code=status.HTTP_201_CREATED)

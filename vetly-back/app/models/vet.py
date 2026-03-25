@@ -50,6 +50,10 @@ class Vet(BaseModel):
     # Ratings
     rating_average = Column(Numeric(3, 2), default=0.0, nullable=False)
     reviews_count = Column(Integer, default=0, nullable=False)
+
+    # Custom types (list of strings)
+    custom_reminder_types = Column(JSONB, nullable=False, server_default='[]')
+    custom_diagnosis_types = Column(JSONB, nullable=False, server_default='[]')
     
     # Relationships
     appointments = relationship(
