@@ -128,6 +128,16 @@ export async function completeExamination(
   return api.post<VetAppointment>(`/vet/appointments/${appointmentId}/complete`, data);
 }
 
+export async function getCustomDiagnosisTypes(): Promise<string[]> {
+  const data = await api.get<{ types: string[] }>('/vet/appointments/diagnosis-types');
+  return data.types;
+}
+
+export async function updateCustomDiagnosisTypes(types: string[]): Promise<string[]> {
+  const data = await api.put<{ types: string[] }>('/vet/appointments/diagnosis-types', { types });
+  return data.types;
+}
+
 export async function rescheduleAppointment(
   appointmentId: string,
   scheduledAt: string,
@@ -1154,4 +1164,14 @@ export async function createReminder(data: {
 
 export async function deleteVetReminder(reminderId: string): Promise<void> {
   return api.delete<void>(`/vet/reminders/${reminderId}`);
+}
+
+export async function getCustomReminderTypes(): Promise<string[]> {
+  const data = await api.get<{ types: string[] }>('/vet/reminders/types');
+  return data.types;
+}
+
+export async function updateCustomReminderTypes(types: string[]): Promise<string[]> {
+  const data = await api.put<{ types: string[] }>('/vet/reminders/types', { types });
+  return data.types;
 }
