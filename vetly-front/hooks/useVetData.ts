@@ -149,6 +149,7 @@ export interface VetAppointmentFilters {
   status?: string;
   dateFrom?: string;
   dateTo?: string;
+  sort?: 'asc' | 'desc';
 }
 
 export function useAllAppointments(page = 1, pageSize = 10, filters: VetAppointmentFilters = {}) {
@@ -166,6 +167,7 @@ export function useAllAppointments(page = 1, pageSize = 10, filters: VetAppointm
       if (filters.status) params.set('status', filters.status);
       if (filters.dateFrom) params.set('date_from', filters.dateFrom);
       if (filters.dateTo) params.set('date_to', filters.dateTo);
+      if (filters.sort) params.set('sort', filters.sort);
       const data = await api.get<AppointmentListResponse>(`/vet/appointments?${params.toString()}`);
       setAppointments(data.items);
       setTotal(data.total);
@@ -175,7 +177,7 @@ export function useAllAppointments(page = 1, pageSize = 10, filters: VetAppointm
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters.status, filters.dateFrom, filters.dateTo]);
+  }, [page, pageSize, filters.status, filters.dateFrom, filters.dateTo, filters.sort]);
 
   useEffect(() => {
     fetchAppointments();

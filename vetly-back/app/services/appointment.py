@@ -103,6 +103,7 @@ class AppointmentService:
         date_to: date | None = None,
         page: int = 1,
         page_size: int = 10,
+        sort_asc: bool = False,
     ) -> AppointmentListResponse:
         """Get paginated list of vet's appointments"""
         skip = (page - 1) * page_size
@@ -113,6 +114,7 @@ class AppointmentService:
             date_to=date_to,
             skip=skip,
             limit=page_size,
+            sort_asc=sort_asc,
         )
 
         return AppointmentListResponse(

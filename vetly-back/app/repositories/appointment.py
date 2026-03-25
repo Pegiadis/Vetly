@@ -66,6 +66,7 @@ class AppointmentRepository:
         date_to: date | None = None,
         skip: int = 0,
         limit: int = 10,
+        sort_asc: bool = False,
     ) -> tuple[list[Appointment], int]:
         """
         Get appointments for a vet with optional filters
@@ -92,11 +93,12 @@ class AppointmentRepository:
         if date_to:
             filters.append(Appointment.scheduled_at < datetime.combine(date_to + timedelta(days=1), datetime.min.time()))
 
+        order = Appointment.scheduled_at.asc() if sort_asc else Appointment.scheduled_at.desc()
         query = (
             select(Appointment)
             .where(and_(*filters))
             .options(joinedload(Appointment.pet), joinedload(Appointment.pet_owner))
-            .order_by(Appointment.scheduled_at.desc())
+            .order_by(order)
             .offset(skip)
             .limit(limit)
         )
@@ -118,6 +120,7 @@ class AppointmentRepository:
             Appointment.vet_id == vet_id,
             Appointment.scheduled_at >= datetime.combine(today, datetime.min.time()),
             Appointment.scheduled_at < datetime.combine(tomorrow, datetime.min.time()),
+            Appointment.status == AppointmentStatus.CONFIRMED,
         ]
 
         query = (
