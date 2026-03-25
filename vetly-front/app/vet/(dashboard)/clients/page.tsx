@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   useVetClients,
@@ -15,6 +15,8 @@ import {
   deleteClientPet,
   usePatientHistory,
   createReminder,
+  getCustomReminderTypes,
+  updateCustomReminderTypes,
   type VetClient,
   type VetClientPet,
   type VetClientListItem,
@@ -22,6 +24,7 @@ import {
 } from '@/hooks/useVetData';
 import Pagination from '@/components/Pagination';
 import DatePicker from '@/components/DatePicker';
+import { getImageUrl } from '@/lib/api';
 
 const statusConfig: Record<string, { label: string; bg: string }> = {
   managed: { label: 'Χωρίς λογαριασμό', bg: 'bg-slate-100 text-slate-600' },
@@ -624,6 +627,28 @@ export default function VetClientsPage() {
   const [reminderForm, setReminderForm] = useState({ type: 'checkup', title: '', message: '', due_date: '', reminder_days_before: 14 });
   const [reminderSubmitting, setReminderSubmitting] = useState(false);
   const [reminderError, setReminderError] = useState('');
+  const [reminderSuccess, setReminderSuccess] = useState(false);
+
+  // Custom reminder types
+  const [customReminderTypes, setCustomReminderTypes] = useState<string[]>([]);
+  const [reminderTypeDropdownOpen, setReminderTypeDropdownOpen] = useState(false);
+  const [showAddReminderType, setShowAddReminderType] = useState(false);
+  const [newReminderTypeName, setNewReminderTypeName] = useState('');
+  const reminderTypeDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getCustomReminderTypes().then(setCustomReminderTypes).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    function handleReminderTypeClickOutside(e: MouseEvent) {
+      if (reminderTypeDropdownRef.current && !reminderTypeDropdownRef.current.contains(e.target as Node)) {
+        setReminderTypeDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleReminderTypeClickOutside);
+    return () => document.removeEventListener('mousedown', handleReminderTypeClickOutside);
+  }, []);
 
   // Debounce search
   const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -699,8 +724,8 @@ export default function VetClientsPage() {
   };
 
   const handleCreateReminder = async (petId: string) => {
-    if (!reminderForm.title.trim() || !reminderForm.due_date) {
-      setReminderError('Συμπληρώστε τα υποχρεωτικά πεδία.');
+    if (!reminderForm.due_date) {
+      setReminderError('Επιλέξτε ημερομηνία.');
       return;
     }
     setReminderSubmitting(true);
@@ -709,13 +734,15 @@ export default function VetClientsPage() {
       await createReminder({
         pet_id: petId,
         type: reminderForm.type,
-        title: reminderForm.title,
+        title: reminderForm.title || undefined,
         message: reminderForm.message || undefined,
         due_date: reminderForm.due_date,
         reminder_days_before: reminderForm.reminder_days_before,
       });
       setShowReminderPetId(null);
       setReminderForm({ type: 'checkup', title: '', message: '', due_date: '', reminder_days_before: 14 });
+      setReminderSuccess(true);
+      setTimeout(() => setReminderSuccess(false), 3000);
     } catch (err) {
       setReminderError(err instanceof Error ? err.message : 'Σφάλμα κατά την αποθήκευση.');
     } finally {
@@ -925,6 +952,16 @@ export default function VetClientsPage() {
                   </div>
                 )}
 
+                {/* Success Banner */}
+                {reminderSuccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2 animate-in fade-in duration-200">
+                    <svg className="w-5 h-5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm font-bold text-green-700">Η υπενθύμιση δημιουργήθηκε και στάλθηκε στον ιδιοκτήτη!</p>
+                  </div>
+                )}
+
                 {/* Pets */}
                 {selectedClient.status === 'linked' && selectedClient.linked_pets?.length > 0 ? (
                   <div>
@@ -936,7 +973,7 @@ export default function VetClientsPage() {
                         <div key={pet.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
                           <div className="flex items-center gap-3">
                             {pet.image_url ? (
-                              <img src={pet.image_url} alt={pet.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                              <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                             ) : (
                               <span className="text-lg flex-shrink-0">{pet.type === 'DOG' ? '🐕' : pet.type === 'CAT' ? '🐈' : '🐾'}</span>
                             )}
@@ -982,19 +1019,148 @@ export default function VetClientsPage() {
                               {reminderError && (
                                 <p className="text-xs text-red-600">{reminderError}</p>
                               )}
-                              <select
-                                value={reminderForm.type}
-                                onChange={e => setReminderForm(f => ({ ...f, type: e.target.value }))}
-                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
-                              >
-                                <option value="vaccination">Εμβολιασμός</option>
-                                <option value="checkup">Έλεγχος</option>
-                                <option value="medication">Φαρμακευτική Αγωγή</option>
-                                <option value="custom">Γενικό</option>
-                              </select>
+                              <div className="flex gap-1.5">
+                                <div className="relative flex-1" ref={reminderTypeDropdownRef}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setReminderTypeDropdownOpen(!reminderTypeDropdownOpen)}
+                                    className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-800 bg-white hover:border-slate-300 transition-colors"
+                                  >
+                                    <span>{{ vaccination: 'Εμβολιασμός', checkup: 'Έλεγχος', medication: 'Φαρμακευτική Αγωγή', custom: 'Γενικό' }[reminderForm.type] || reminderForm.type}</span>
+                                    <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${reminderTypeDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  </button>
+                                  {reminderTypeDropdownOpen && (
+                                    <div className="absolute z-20 w-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                                      {[
+                                        { value: 'vaccination', label: 'Εμβολιασμός' },
+                                        { value: 'checkup', label: 'Έλεγχος' },
+                                        { value: 'medication', label: 'Φαρμακευτική Αγωγή' },
+                                        { value: 'custom', label: 'Γενικό' },
+                                      ].map((opt) => (
+                                        <button
+                                          key={opt.value}
+                                          type="button"
+                                          onClick={() => { setReminderForm(f => ({ ...f, type: opt.value })); setReminderTypeDropdownOpen(false); }}
+                                          className={`w-full text-left px-2.5 py-2 text-xs hover:bg-indigo-50 transition-colors ${reminderForm.type === opt.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                                        >
+                                          {opt.label}
+                                        </button>
+                                      ))}
+                                      {customReminderTypes.length > 0 && (
+                                        <div className="border-t border-slate-100">
+                                          {customReminderTypes.map((ct, idx) => (
+                                            <div key={idx} className="group">
+                                              <button
+                                                type="button"
+                                                onClick={() => { setReminderForm(f => ({ ...f, type: ct })); setReminderTypeDropdownOpen(false); }}
+                                                className={`w-full text-left px-2.5 py-2 text-xs hover:bg-indigo-50 transition-colors flex items-center ${reminderForm.type === ct ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                                              >
+                                                <span className="flex-1">{ct}</span>
+                                                <span className="hidden group-hover:flex items-center gap-0.5">
+                                                  <span
+                                                    role="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      const newName = prompt('Μετονομασία τύπου:', ct);
+                                                      if (newName && newName.trim() && newName.trim() !== ct) {
+                                                        const updated = customReminderTypes.map((t, i) => i === idx ? newName.trim() : t);
+                                                        setCustomReminderTypes(updated);
+                                                        updateCustomReminderTypes(updated).catch(() => {});
+                                                        if (reminderForm.type === ct) setReminderForm(f => ({ ...f, type: newName.trim() }));
+                                                      }
+                                                    }}
+                                                    className="text-slate-400 hover:text-indigo-600 p-0.5 transition-colors"
+                                                  >
+                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                    </svg>
+                                                  </span>
+                                                  <span
+                                                    role="button"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      const updated = customReminderTypes.filter((_, i) => i !== idx);
+                                                      setCustomReminderTypes(updated);
+                                                      updateCustomReminderTypes(updated).catch(() => {});
+                                                      if (reminderForm.type === ct) setReminderForm(f => ({ ...f, type: 'checkup' }));
+                                                    }}
+                                                    className="text-slate-400 hover:text-red-500 p-0.5 transition-colors"
+                                                  >
+                                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                  </span>
+                                                </span>
+                                              </button>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                      {showAddReminderType && (
+                                        <div className="border-t border-slate-100 p-1.5">
+                                          <div className="flex gap-1">
+                                            <input
+                                              type="text"
+                                              value={newReminderTypeName}
+                                              onChange={(e) => setNewReminderTypeName(e.target.value)}
+                                              onKeyDown={(e) => {
+                                                if (e.key === 'Enter') {
+                                                  e.preventDefault();
+                                                  const trimmed = newReminderTypeName.trim();
+                                                  if (!trimmed) return;
+                                                  const updated = [...customReminderTypes, trimmed];
+                                                  setCustomReminderTypes(updated);
+                                                  updateCustomReminderTypes(updated).catch(() => {});
+                                                  setReminderForm(f => ({ ...f, type: trimmed }));
+                                                  setNewReminderTypeName('');
+                                                  setShowAddReminderType(false);
+                                                  setReminderTypeDropdownOpen(false);
+                                                }
+                                                if (e.key === 'Escape') setShowAddReminderType(false);
+                                              }}
+                                              placeholder="Νέος τύπος..."
+                                              className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                              autoFocus
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const trimmed = newReminderTypeName.trim();
+                                                if (!trimmed) return;
+                                                const updated = [...customReminderTypes, trimmed];
+                                                setCustomReminderTypes(updated);
+                                                updateCustomReminderTypes(updated).catch(() => {});
+                                                setReminderForm(f => ({ ...f, type: trimmed }));
+                                                setNewReminderTypeName('');
+                                                setShowAddReminderType(false);
+                                                setReminderTypeDropdownOpen(false);
+                                              }}
+                                              className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors shrink-0"
+                                            >
+                                              OK
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => { setShowAddReminderType(true); setReminderTypeDropdownOpen(true); }}
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0"
+                                  title="Προσθήκη νέου τύπου"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                  </svg>
+                                </button>
+                              </div>
                               <input
                                 type="text"
-                                placeholder="Τίτλος *"
+                                placeholder="Τίτλος (προαιρετικό)"
                                 value={reminderForm.title}
                                 onChange={e => setReminderForm(f => ({ ...f, title: e.target.value }))}
                                 className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
@@ -1002,7 +1168,25 @@ export default function VetClientsPage() {
                               <DatePicker
                                 value={reminderForm.due_date}
                                 onChange={(v) => setReminderForm(f => ({ ...f, due_date: v }))}
-                                placeholder="Ημερομηνία"
+                                placeholder="Ημερομηνία *"
+                              />
+                              <div>
+                                <label className="text-xs text-slate-500 mb-1 block">Υπενθύμιση πριν (ημέρες)</label>
+                                <input
+                                  type="number"
+                                  value={reminderForm.reminder_days_before}
+                                  onChange={e => setReminderForm(f => ({ ...f, reminder_days_before: Number(e.target.value) }))}
+                                  min={1}
+                                  max={365}
+                                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                />
+                              </div>
+                              <textarea
+                                placeholder="Μήνυμα (προαιρετικό)"
+                                value={reminderForm.message}
+                                onChange={e => setReminderForm(f => ({ ...f, message: e.target.value }))}
+                                rows={2}
+                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 resize-none"
                               />
                               <div className="flex gap-2">
                                 <button
@@ -1058,6 +1242,14 @@ export default function VetClientsPage() {
                   </div>
                 ) : (
                   <div>
+                    {reminderSuccess && (
+                      <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-3 flex items-center gap-2 animate-in fade-in duration-200">
+                        <svg className="w-5 h-5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-sm font-bold text-green-700">Η υπενθύμιση δημιουργήθηκε και στάλθηκε στον ιδιοκτήτη!</p>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="font-bold text-slate-800 text-sm">Κατοικίδια ({selectedClient.pets.length})</h3>
                       <button
