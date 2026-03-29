@@ -138,6 +138,16 @@ export async function updateCustomDiagnosisTypes(types: string[]): Promise<strin
   return data.types;
 }
 
+export async function getCustomMedicationNames(): Promise<string[]> {
+  const data = await api.get<{ names: string[] }>('/vet/appointments/medication-names');
+  return data.names;
+}
+
+export async function updateCustomMedicationNames(names: string[]): Promise<string[]> {
+  const data = await api.put<{ names: string[] }>('/vet/appointments/medication-names', { names });
+  return data.names;
+}
+
 export async function rescheduleAppointment(
   appointmentId: string,
   scheduledAt: string,

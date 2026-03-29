@@ -19,6 +19,14 @@ class CustomDiagnosisTypesRequest(BaseModel):
 
 class CustomDiagnosisTypesResponse(BaseModel):
     types: list[str]
+
+
+class CustomMedicationNamesRequest(BaseModel):
+    names: list[str]
+
+
+class CustomMedicationNamesResponse(BaseModel):
+    names: list[str]
 from app.schemas.appointment import (
     AppointmentListResponse,
     AppointmentDetailResponse,
@@ -124,6 +132,33 @@ def update_custom_diagnosis_types(
     current_vet.custom_diagnosis_types = unique
     db.commit()
     return CustomDiagnosisTypesResponse(types=unique)
+
+
+@router.get("/medication-names", response_model=CustomMedicationNamesResponse)
+def get_custom_medication_names(
+    current_vet: Vet = Depends(get_current_vet),
+) -> CustomMedicationNamesResponse:
+    """Get the vet's custom medication names"""
+    return CustomMedicationNamesResponse(names=current_vet.custom_medication_names or [])
+
+
+@router.put("/medication-names", response_model=CustomMedicationNamesResponse)
+def update_custom_medication_names(
+    data: CustomMedicationNamesRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> CustomMedicationNamesResponse:
+    """Update the vet's custom medication names"""
+    cleaned = [t.strip() for t in data.names if t.strip()]
+    seen: set[str] = set()
+    unique: list[str] = []
+    for t in cleaned:
+        if t not in seen:
+            seen.add(t)
+            unique.append(t)
+    current_vet.custom_medication_names = unique
+    db.commit()
+    return CustomMedicationNamesResponse(names=unique)
 
 
 @router.get("/{appointment_id}", response_model=AppointmentDetailResponse)

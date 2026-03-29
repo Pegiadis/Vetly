@@ -8,6 +8,8 @@ import {
   updateCustomDiagnosisTypes,
   getCustomReminderTypes,
   updateCustomReminderTypes,
+  getCustomMedicationNames,
+  updateCustomMedicationNames,
   VetAppointment,
   ExaminationMedication,
 } from '@/hooks/useVetData';
@@ -59,6 +61,15 @@ export default function ExaminationDialog({
   const [editingDiagnosisName, setEditingDiagnosisName] = useState('');
   const diagnosisDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Custom medication names
+  const [customMedNames, setCustomMedNames] = useState<string[]>([]);
+  const [medNameDropdownOpen, setMedNameDropdownOpen] = useState<number | null>(null);
+  const [showAddMedName, setShowAddMedName] = useState(false);
+  const [newMedName, setNewMedName] = useState('');
+  const [editingMedNameIndex, setEditingMedNameIndex] = useState<number | null>(null);
+  const [editingMedNameValue, setEditingMedNameValue] = useState('');
+  const medNameDropdownRef = useRef<HTMLDivElement>(null);
+
   // Reminder state (optional)
   const [addReminder, setAddReminder] = useState(false);
   const [reminderType, setReminderType] = useState('checkup');
@@ -74,6 +85,7 @@ export default function ExaminationDialog({
   useEffect(() => {
     getCustomDiagnosisTypes().then(setCustomDiagnosisTypes).catch(() => {});
     getCustomReminderTypes().then(setCustomReminderTypes).catch(() => {});
+    getCustomMedicationNames().then(setCustomMedNames).catch(() => {});
   }, []);
 
   // Close reminder type dropdown on click outside
@@ -97,6 +109,18 @@ export default function ExaminationDialog({
     }
     document.addEventListener('mousedown', handleDiagClickOutside);
     return () => document.removeEventListener('mousedown', handleDiagClickOutside);
+  }, []);
+
+  // Close medication name dropdown on click outside
+  useEffect(() => {
+    function handleMedClickOutside(e: MouseEvent) {
+      if (medNameDropdownRef.current && !medNameDropdownRef.current.contains(e.target as Node)) {
+        setMedNameDropdownOpen(null);
+        setEditingMedNameIndex(null);
+      }
+    }
+    document.addEventListener('mousedown', handleMedClickOutside);
+    return () => document.removeEventListener('mousedown', handleMedClickOutside);
   }, []);
 
   const addMedication = () => {
@@ -412,7 +436,168 @@ export default function ExaminationDialog({
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs text-slate-500 mb-1 block">Όνομα *</label>
-                        <input type="text" value={med.name} onChange={(e) => updateMedication(index, 'name', e.target.value)} placeholder="π.χ. Amoxicillin" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800" />
+                        <div className="flex gap-1.5">
+                          <div className="relative flex-1" ref={medNameDropdownOpen === index ? medNameDropdownRef : undefined}>
+                            <button
+                              type="button"
+                              onClick={() => { setMedNameDropdownOpen(medNameDropdownOpen === index ? null : index); setEditingMedNameIndex(null); setShowAddMedName(false); }}
+                              className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:border-slate-300 transition-colors"
+                            >
+                              <span className={med.name ? 'text-slate-800' : 'text-slate-400'}>{med.name || 'Επιλέξτε...'}</span>
+                              <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${medNameDropdownOpen === index ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+                            {medNameDropdownOpen === index && (
+                              <div className="absolute z-20 min-w-[260px] w-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden max-h-48 overflow-y-auto">
+                                {customMedNames.length === 0 && !showAddMedName && (
+                                  <div className="px-3 py-2.5 text-sm text-slate-400 text-center">
+                                    Πατήστε + για προσθήκη
+                                  </div>
+                                )}
+                                {customMedNames.map((mn, idx) => (
+                                  <div key={idx} className="group relative">
+                                    {editingMedNameIndex === idx ? (
+                                      <div className="flex items-center gap-1.5 px-2.5 py-1.5">
+                                        <input
+                                          type="text"
+                                          value={editingMedNameValue}
+                                          onChange={(e) => setEditingMedNameValue(e.target.value)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              e.preventDefault();
+                                              const trimmed = editingMedNameValue.trim();
+                                              if (!trimmed) return;
+                                              const updated = customMedNames.map((t, i) => i === idx ? trimmed : t);
+                                              setCustomMedNames(updated);
+                                              updateCustomMedicationNames(updated).catch(() => {});
+                                              if (med.name === mn) updateMedication(index, 'name', trimmed);
+                                              setEditingMedNameIndex(null);
+                                            }
+                                            if (e.key === 'Escape') setEditingMedNameIndex(null);
+                                          }}
+                                          className="flex-1 border border-indigo-300 rounded-lg px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                          autoFocus
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const trimmed = editingMedNameValue.trim();
+                                            if (!trimmed) return;
+                                            const updated = customMedNames.map((t, i) => i === idx ? trimmed : t);
+                                            setCustomMedNames(updated);
+                                            updateCustomMedicationNames(updated).catch(() => {});
+                                            if (med.name === mn) updateMedication(index, 'name', trimmed);
+                                            setEditingMedNameIndex(null);
+                                          }}
+                                          className="text-indigo-600 hover:text-indigo-700 p-1"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={() => { updateMedication(index, 'name', mn); setMedNameDropdownOpen(null); }}
+                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors flex items-center ${med.name === mn ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                                      >
+                                        <span className="flex-1">{mn}</span>
+                                        <span className="hidden group-hover:flex items-center gap-1">
+                                          <span
+                                            role="button"
+                                            onClick={(e) => { e.stopPropagation(); setEditingMedNameIndex(idx); setEditingMedNameValue(mn); }}
+                                            className="text-slate-400 hover:text-indigo-600 p-0.5 transition-colors"
+                                          >
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                            </svg>
+                                          </span>
+                                          <span
+                                            role="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const updated = customMedNames.filter((_, i) => i !== idx);
+                                              setCustomMedNames(updated);
+                                              updateCustomMedicationNames(updated).catch(() => {});
+                                              if (med.name === mn) updateMedication(index, 'name', '');
+                                            }}
+                                            className="text-slate-400 hover:text-red-500 p-0.5 transition-colors"
+                                          >
+                                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
+                                          </span>
+                                        </span>
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                                {showAddMedName && (
+                                  <div className="border-t border-slate-100 p-2">
+                                    <div className="flex gap-1.5">
+                                      <input
+                                        type="text"
+                                        value={newMedName}
+                                        onChange={(e) => setNewMedName(e.target.value)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            const trimmed = newMedName.trim();
+                                            if (!trimmed) return;
+                                            const updated = [...customMedNames, trimmed];
+                                            setCustomMedNames(updated);
+                                            updateCustomMedicationNames(updated).catch(() => {});
+                                            updateMedication(index, 'name', trimmed);
+                                            setNewMedName('');
+                                            setShowAddMedName(false);
+                                            setMedNameDropdownOpen(null);
+                                          }
+                                          if (e.key === 'Escape') setShowAddMedName(false);
+                                        }}
+                                        placeholder="Νέο φάρμακο..."
+                                        className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                        autoFocus
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const trimmed = newMedName.trim();
+                                          if (!trimmed) return;
+                                          const updated = [...customMedNames, trimmed];
+                                          setCustomMedNames(updated);
+                                          updateCustomMedicationNames(updated).catch(() => {});
+                                          updateMedication(index, 'name', trimmed);
+                                          setNewMedName('');
+                                          setShowAddMedName(false);
+                                          setMedNameDropdownOpen(null);
+                                        }}
+                                        className="px-2 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shrink-0"
+                                      >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => { setShowAddMedName(true); setMedNameDropdownOpen(index); }}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0"
+                            title="Προσθήκη νέου φαρμάκου"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
                       <div>
                         <label className="text-xs text-slate-500 mb-1 block">Δοσολογία *</label>

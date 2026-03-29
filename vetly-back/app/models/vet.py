@@ -54,6 +54,7 @@ class Vet(BaseModel):
     # Custom types (list of strings)
     custom_reminder_types = Column(JSONB, nullable=False, server_default='[]')
     custom_diagnosis_types = Column(JSONB, nullable=False, server_default='[]')
+    custom_medication_names = Column(JSONB, nullable=False, server_default='[]')
     
     # Relationships
     appointments = relationship(
