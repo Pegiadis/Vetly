@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -132,11 +132,30 @@ export default function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
-  const { medications } = useMyMedications();
-  const { notifications } = useMyNotifications();
+  const { total: activeMedsCount, refetch: refetchMeds } = useMyMedications(true);
+  const { notifications, refetch: refetchNotifs } = useMyNotifications();
 
-  const activeMedsCount = medications.filter(m => m.is_active).length;
   const unreadNotifCount = notifications.filter(n => !n.is_read).length;
+
+  useEffect(() => {
+    const handler = () => refetchNotifs();
+    window.addEventListener('vetly:notifications-updated', handler);
+    return () => window.removeEventListener('vetly:notifications-updated', handler);
+  }, [refetchNotifs]);
+
+  useEffect(() => {
+    const handler = () => refetchMeds();
+    window.addEventListener('vetly:medications-updated', handler);
+    return () => window.removeEventListener('vetly:medications-updated', handler);
+  }, [refetchMeds]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetchNotifs();
+      refetchMeds();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [refetchNotifs, refetchMeds]);
 
   const handleLogout = () => {
     logout();

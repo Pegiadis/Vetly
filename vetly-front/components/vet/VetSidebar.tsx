@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -131,11 +132,31 @@ export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
-  const { appointments: pendingAppointments } = usePendingAppointments();
-  const { notifications } = useVetNotifications();
+  const { appointments: pendingAppointments, refetch: refetchPending } = usePendingAppointments();
+  const { notifications, refetch: refetchNotifs } = useVetNotifications();
   const { isOnCall, toggling, handleToggle: handleToggleOnCall } = useOnCall();
 
   const unreadNotifCount = notifications.filter(n => !n.is_read).length;
+
+  useEffect(() => {
+    const handler = () => refetchNotifs();
+    window.addEventListener('vetly:notifications-updated', handler);
+    return () => window.removeEventListener('vetly:notifications-updated', handler);
+  }, [refetchNotifs]);
+
+  useEffect(() => {
+    const handler = () => refetchPending();
+    window.addEventListener('vetly:pending-updated', handler);
+    return () => window.removeEventListener('vetly:pending-updated', handler);
+  }, [refetchPending]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetchNotifs();
+      refetchPending();
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [refetchNotifs, refetchPending]);
 
   const handleLogout = () => {
     logout();
