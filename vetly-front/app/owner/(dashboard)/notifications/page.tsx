@@ -83,6 +83,7 @@ export default function NotificationsPage() {
     try {
       await markNotificationRead(id);
       refetch();
+      window.dispatchEvent(new Event('vetly:notifications-updated'));
     } catch {
       toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
@@ -92,6 +93,7 @@ export default function NotificationsPage() {
     try {
       await markAllNotificationsRead();
       refetch();
+      window.dispatchEvent(new Event('vetly:notifications-updated'));
     } catch {
       toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }

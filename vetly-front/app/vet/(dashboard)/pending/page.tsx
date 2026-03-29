@@ -76,6 +76,7 @@ export default function VetPendingPage() {
     try {
       await approveAppointment(id);
       await refetch();
+      window.dispatchEvent(new Event('vetly:pending-updated'));
       toast.success('Το ραντεβού εγκρίθηκε.');
     } catch {
       toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
@@ -90,6 +91,7 @@ export default function VetPendingPage() {
     try {
       await rejectAppointment(id);
       await refetch();
+      window.dispatchEvent(new Event('vetly:pending-updated'));
       toast.success('Το ραντεβού απορρίφθηκε.');
     } catch {
       toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
@@ -261,6 +263,7 @@ export default function VetPendingPage() {
                         try {
                           await Promise.all(group.map(apt => rejectAppointment(apt.id)));
                           await refetch();
+                          window.dispatchEvent(new Event('vetly:pending-updated'));
                           toast.success('Όλα τα ραντεβού απορρίφθηκαν.');
                         } catch {
                           toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
@@ -280,6 +283,7 @@ export default function VetPendingPage() {
                         try {
                           await Promise.all(group.map(apt => approveAppointment(apt.id)));
                           await refetch();
+                          window.dispatchEvent(new Event('vetly:pending-updated'));
                           toast.success('Όλα τα ραντεβού εγκρίθηκαν.');
                         } catch {
                           toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');

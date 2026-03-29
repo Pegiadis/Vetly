@@ -68,6 +68,7 @@ export default function VetNotificationsPage() {
     try {
       await markVetNotificationRead(id);
       refetch();
+      window.dispatchEvent(new Event('vetly:notifications-updated'));
     } catch {
       alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
@@ -77,6 +78,7 @@ export default function VetNotificationsPage() {
     try {
       await markAllVetNotificationsRead();
       refetch();
+      window.dispatchEvent(new Event('vetly:notifications-updated'));
     } catch {
       alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
     }
