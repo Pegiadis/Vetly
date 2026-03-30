@@ -161,12 +161,10 @@ class ChatService:
         if pets:
             lines.append(f"\nPets ({len(pets)}):")
             for p in pets:
-                age = ""
-                if p.birth_date:
-                    years = (date.today() - p.birth_date).days // 365
-                    age = f", Age: {years}y"
+                pet_type = p.type.value if hasattr(p.type, 'value') else p.type
+                age_str = f", Age: {p.age}y" if p.age else ""
                 lines.append(
-                    f"  - {p.name} ({p.type}, {p.breed or 'unknown breed'}{age}, "
+                    f"  - {p.name} ({pet_type}, {p.breed or 'unknown breed'}{age_str}, "
                     f"Weight: {p.weight or '?'}kg)"
                 )
 
@@ -225,7 +223,8 @@ class ChatService:
         reminders = list(self.db.scalars(
             select(Reminder).where(
                 Reminder.pet_owner_id == owner_id,
-                Reminder.status == "active",
+                Reminder.is_dismissed == False,
+                Reminder.is_sent == False,
                 Reminder.due_date >= date.today(),
             )
             .order_by(Reminder.due_date.asc())
@@ -273,7 +272,7 @@ class ChatService:
             lines.append(f"\nToday's Schedule ({len(today_appts)} appointments):")
             for a in today_appts:
                 pet = self.db.scalar(select(Pet).where(Pet.id == a.pet_id))
-                pet_info = f"{pet.name} ({pet.type})" if pet else "Unknown"
+                pet_info = f"{pet.name} ({pet.type.value if hasattr(pet.type, 'value') else pet.type})" if pet else "Unknown"
                 status_val = a.status.value if hasattr(a.status, 'value') else a.status
                 lines.append(
                     f"  - {a.scheduled_at.strftime('%H:%M')}: {pet_info} ({status_val})"
@@ -307,8 +306,9 @@ class ChatService:
                 seen_pets.add(str(a.pet_id))
                 pet = self.db.scalar(select(Pet).where(Pet.id == a.pet_id))
                 if pet:
+                    pet_type = pet.type.value if hasattr(pet.type, 'value') else pet.type
                     lines.append(
-                        f"  - {pet.name} ({pet.type}, {pet.breed or '?'}) "
+                        f"  - {pet.name} ({pet_type}, {pet.breed or '?'}) "
                         f"- last visit: {a.scheduled_at.strftime('%Y-%m-%d')}"
                     )
 
@@ -316,7 +316,8 @@ class ChatService:
         reminders = list(self.db.scalars(
             select(Reminder).where(
                 Reminder.vet_id == vet_id,
-                Reminder.status == "active",
+                Reminder.is_dismissed == False,
+                Reminder.is_sent == False,
                 Reminder.due_date >= today,
             )
             .order_by(Reminder.due_date.asc())
