@@ -29,6 +29,7 @@ class AppointmentPetOwnerResponse(BaseModel):
     name: str
     email: str
     phone: str | None = None
+    image_url: str | None = None
 
 
 class AppointmentResponse(BaseModel):

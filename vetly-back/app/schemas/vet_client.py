@@ -86,6 +86,7 @@ class VetClientListItem(BaseModel):
     name: str
     email: str | None = None
     phone: str | None = None
+    image_url: str | None = None
     status: str
     pet_count: int = 0
     created_at: datetime

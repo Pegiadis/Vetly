@@ -832,8 +832,12 @@ export default function VetClientsPage() {
                   >
                     <td className="p-5">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                          <span className="text-indigo-600 font-bold">{client.name.charAt(0)}</span>
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {client.image_url ? (
+                            <img src={getImageUrl(client.image_url)} alt={client.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-indigo-600 font-bold">{client.name.charAt(0)}</span>
+                          )}
                         </div>
                         <span className="font-bold text-slate-900">{client.name}</span>
                       </div>

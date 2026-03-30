@@ -92,11 +92,13 @@ class VetClientService:
                 pet_count = len(c.pet_owner.pets) if c.pet_owner.pets else 0
             else:
                 pet_count = len(c.pets) if c.pets else 0
+            owner_image = c.pet_owner.image_url if c.pet_owner_id and c.pet_owner else None
             items.append(VetClientListItem(
                 id=c.id,
                 name=c.name,
                 email=c.email,
                 phone=c.phone,
+                image_url=owner_image,
                 status=c.status,
                 pet_count=pet_count,
                 created_at=c.created_at,
