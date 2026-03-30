@@ -110,7 +110,11 @@ export default function MedicationsPage() {
                     : 'bg-white text-slate-600 border-slate-200 hover:border-teal-300'
                 }`}
               >
-                <span className="text-base">{pet.type === 'dog' ? '🐕' : pet.type === 'cat' ? '🐈' : '🐾'}</span>
+                {pet.image_url ? (
+                  <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                ) : (
+                  <span className="text-base">{pet.type === 'dog' ? '🐕' : pet.type === 'cat' ? '🐈' : '🐾'}</span>
+                )}
                 {pet.name}
               </button>
             ))}

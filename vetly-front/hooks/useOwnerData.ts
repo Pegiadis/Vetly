@@ -812,6 +812,8 @@ export interface OwnerReminder {
   id: string;
   pet_id: string;
   pet_name: string | null;
+  pet_image_url: string | null;
+  pet_type: string | null;
   vet_id: string;
   vet_name: string | null;
   pet_owner_id: string;

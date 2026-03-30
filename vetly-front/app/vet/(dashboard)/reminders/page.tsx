@@ -15,6 +15,7 @@ import {
 } from '@/hooks/useVetData';
 import Pagination from '@/components/Pagination';
 import DatePicker from '@/components/DatePicker';
+import { getImageUrl } from '@/lib/api';
 
 const DEFAULT_TYPE_LABELS: Record<string, string> = {
   vaccination: 'Εμβολιασμός',
@@ -61,12 +62,6 @@ function getDueDateStyle(dueDateStr: string): string {
 interface CreateReminderDialogProps {
   onClose: () => void;
   onSaved: () => void;
-}
-
-function petEmoji(type: string) {
-  if (type === 'Dog') return '🐕';
-  if (type === 'Cat') return '🐈';
-  return '🐾';
 }
 
 function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
@@ -333,7 +328,13 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
                 if (!selectedPet) setSelectedPet(pet);
                 return (
                   <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
-                    <span className="text-xl">{petEmoji(pet.type)}</span>
+                    <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {pet.image_url ? (
+                        <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xl">{pet.type === 'Dog' ? '🐕' : pet.type === 'Cat' ? '🐈' : '🐾'}</span>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-indigo-900 text-sm">{pet.name}</p>
                       <p className="text-xs text-indigo-600">{pet.breed || pet.type}</p>
@@ -354,7 +355,13 @@ function CreateReminderDialog({ onClose, onSaved }: CreateReminderDialogProps) {
                         : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'
                     }`}
                   >
-                    <span className="text-lg">{petEmoji(pet.type)}</span>
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {pet.image_url ? (
+                        <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-lg">{pet.type === 'Dog' ? '🐕' : pet.type === 'Cat' ? '🐈' : '🐾'}</span>
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className={`font-bold text-sm ${selectedPet?.id === pet.id ? 'text-indigo-900' : 'text-slate-800'}`}>
                         {pet.name}
@@ -823,10 +830,12 @@ export default function VetRemindersPage() {
                     <tr key={reminder.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 flex-shrink-0">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                            </svg>
+                          <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                            {reminder.pet_image_url ? (
+                              <img src={getImageUrl(reminder.pet_image_url)} alt={reminder.pet_name || ''} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-base">{reminder.pet_type === 'Dog' ? '🐕' : reminder.pet_type === 'Cat' ? '🐈' : '🐾'}</span>
+                            )}
                           </div>
                           <span className="text-sm font-semibold text-slate-800">
                             {reminder.pet_name || '-'}

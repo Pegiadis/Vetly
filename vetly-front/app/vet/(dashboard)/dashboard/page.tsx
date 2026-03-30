@@ -16,6 +16,7 @@ import ExaminationDialog from '@/components/vet/ExaminationDialog';
 import SkeletonStats from '@/components/skeletons/SkeletonStats';
 import SkeletonAppointmentCard from '@/components/skeletons/SkeletonAppointmentCard';
 import SkeletonPetCard from '@/components/skeletons/SkeletonPetCard';
+import { getImageUrl } from '@/lib/api';
 
 function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString('el-GR', {
@@ -254,7 +255,13 @@ export default function VetDashboardPage() {
                         <div className="flex justify-between items-start gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-lg">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+                              <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                {apt.pet?.image_url ? (
+                                  <img src={getImageUrl(apt.pet.image_url)} alt={apt.pet?.name || ''} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-lg">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+                                )}
+                              </div>
                               <h4 className={`font-bold ${isCompleted ? 'text-green-900' : 'text-indigo-900'}`}>
                                 {apt.pet?.name || 'Κατοικίδιο'}
                               </h4>
@@ -272,9 +279,13 @@ export default function VetDashboardPage() {
                             </p>
                             <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-xs ${isCompleted ? 'text-green-600/80' : 'text-indigo-600/80'}`}>
                               <span className="flex items-center gap-1">
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
+                                {apt.pet_owner?.image_url ? (
+                                  <img src={getImageUrl(apt.pet_owner.image_url)} alt="" className="w-4 h-4 rounded-full object-cover" />
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                  </svg>
+                                )}
                                 {apt.pet_owner?.name || '-'}
                               </span>
                               {apt.pet_owner?.phone && (

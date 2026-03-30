@@ -14,6 +14,7 @@ import {
   ExaminationMedication,
 } from '@/hooks/useVetData';
 import DatePicker from '@/components/DatePicker';
+import { getImageUrl } from '@/lib/api';
 
 function formatTime(dateString: string): string {
   const date = new Date(dateString);
@@ -198,7 +199,13 @@ export default function ExaminationDialog({
             <h2 className="text-xl font-bold">Ολοκλήρωση Εξέτασης</h2>
             <div className="flex items-center gap-4 mt-3">
               <div className="flex items-center gap-2">
-                <span className="text-lg">{appointment.pet?.type === 'Dog' ? '🐕' : appointment.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+                <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+                  {appointment.pet?.image_url ? (
+                    <img src={getImageUrl(appointment.pet.image_url)} alt={appointment.pet?.name || ''} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-lg">{appointment.pet?.type === 'Dog' ? '🐕' : appointment.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+                  )}
+                </div>
                 <span className="font-bold">{appointment.pet?.name || 'Ασθενής'}</span>
                 {appointment.pet?.breed && <span className="text-white/70 text-sm">{appointment.pet.breed}</span>}
               </div>

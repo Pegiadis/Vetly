@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useOwnerReminders, dismissReminder } from '@/hooks/useOwnerData';
+import { getImageUrl } from '@/lib/api';
 import Pagination from '@/components/Pagination';
 import { useToast } from '@/components/Toast';
 
@@ -163,10 +164,12 @@ export default function OwnerRemindersPage() {
               >
                 <div className="flex gap-4">
                   {/* Pet Icon */}
-                  <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0 text-teal-600">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
+                  <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {reminder.pet_image_url ? (
+                      <img src={getImageUrl(reminder.pet_image_url)} alt={reminder.pet_name || ''} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">{reminder.pet_type === 'Dog' ? '🐕' : reminder.pet_type === 'Cat' ? '🐈' : '🐾'}</span>
+                    )}
                   </div>
 
                   <div className="flex-1 min-w-0">

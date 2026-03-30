@@ -14,6 +14,7 @@ export interface AppointmentPetOwner {
   name: string;
   email: string;
   phone: string | null;
+  image_url: string | null;
 }
 
 export interface VetAppointment {
@@ -851,6 +852,7 @@ export interface VetClientListItem {
   name: string;
   email: string | null;
   phone: string | null;
+  image_url: string | null;
   status: string;
   pet_count: number;
   created_at: string;
@@ -1111,6 +1113,8 @@ export interface VetReminder {
   id: string;
   pet_id: string;
   pet_name: string | null;
+  pet_image_url: string | null;
+  pet_type: string | null;
   vet_id: string;
   vet_name: string | null;
   pet_owner_id: string;

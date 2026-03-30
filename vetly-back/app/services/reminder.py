@@ -23,11 +23,15 @@ from app.schemas.reminder import (
 def _build_reminder_response(reminder: Reminder) -> ReminderResponse:
     """Build a ReminderResponse enriched with related names"""
     pet_name = reminder.pet.name if reminder.pet else None
+    pet_image_url = reminder.pet.image_url if reminder.pet else None
+    pet_type = reminder.pet.type if reminder.pet else None
     vet_name = reminder.vet.name if reminder.vet else None
     return ReminderResponse(
         id=reminder.id,
         pet_id=reminder.pet_id,
         pet_name=pet_name,
+        pet_image_url=pet_image_url,
+        pet_type=pet_type,
         vet_id=reminder.vet_id,
         vet_name=vet_name,
         pet_owner_id=reminder.pet_owner_id,

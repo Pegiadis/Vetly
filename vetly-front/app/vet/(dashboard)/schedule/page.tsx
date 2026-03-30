@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useWeekAppointments, approveAppointment, rejectAppointment, VetAppointment } from '@/hooks/useVetData';
 import CreateAppointmentDialog from '@/components/vet/CreateAppointmentDialog';
+import { getImageUrl } from '@/lib/api';
 
 const weekDayLabels = ['Δευ', 'Τρι', 'Τετ', 'Πεμ', 'Παρ', 'Σαβ', 'Κυρ'];
 const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00'];
@@ -113,7 +114,13 @@ function AppointmentCard({
           {/* Pet info */}
           <div className="space-y-2 text-sm">
             <div className="flex items-center gap-2">
-              <span className="text-lg">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+              <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {apt.pet?.image_url ? (
+                  <img src={getImageUrl(apt.pet.image_url)} alt={apt.pet?.name || ''} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-lg">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+                )}
+              </div>
               <div>
                 <p className="font-bold text-slate-800">{apt.pet?.name || 'Ασθενής'}</p>
                 <p className="text-xs text-slate-500">{apt.pet?.breed} &middot; {apt.pet?.type}</p>
@@ -123,8 +130,12 @@ function AppointmentCard({
             {/* Owner info */}
             {apt.pet_owner && (
               <div className="flex items-center gap-2 bg-slate-50 rounded-lg p-2">
-                <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs">
-                  {apt.pet_owner.name.charAt(0)}
+                <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-xs overflow-hidden">
+                  {apt.pet_owner.image_url ? (
+                    <img src={getImageUrl(apt.pet_owner.image_url)} alt={apt.pet_owner.name} className="w-full h-full object-cover" />
+                  ) : (
+                    apt.pet_owner.name.charAt(0)
+                  )}
                 </div>
                 <div>
                   <p className="font-medium text-slate-700 text-xs">{apt.pet_owner.name}</p>

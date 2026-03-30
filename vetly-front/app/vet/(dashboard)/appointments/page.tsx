@@ -20,6 +20,7 @@ import CalendarPicker from '@/components/CalendarPicker';
 import Pagination from '@/components/Pagination';
 import { useToast } from '@/components/Toast';
 import ExaminationDialog from '@/components/vet/ExaminationDialog';
+import { getImageUrl } from '@/lib/api';
 
 function formatTime(dateString: string): string {
   const date = new Date(dateString);
@@ -91,7 +92,13 @@ function RescheduleDialog({
             </button>
             <h2 className="text-xl font-bold">Αναπρογραμματισμός Ραντεβού</h2>
             <div className="flex items-center gap-2 mt-2">
-              <span className="text-lg">{appointment.pet?.type === 'Dog' ? '🐕' : appointment.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+              <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
+                {appointment.pet?.image_url ? (
+                  <img src={getImageUrl(appointment.pet.image_url)} alt={appointment.pet?.name || ''} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-lg">{appointment.pet?.type === 'Dog' ? '🐕' : appointment.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+                )}
+              </div>
               <span className="font-bold">{appointment.pet?.name || 'Ασθενής'}</span>
             </div>
             {appointment.pet_owner && (
@@ -513,8 +520,12 @@ export default function VetAppointmentsPage() {
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
-                        <div className="text-2xl mt-0.5">
-                          {apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden mt-0.5">
+                          {apt.pet?.image_url ? (
+                            <img src={getImageUrl(apt.pet.image_url)} alt={apt.pet?.name || ''} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-2xl">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+                          )}
                         </div>
                         <div>
                           <div className="flex items-center gap-2 mb-1">
@@ -695,9 +706,13 @@ export default function VetAppointmentsPage() {
                       return (
                         <div key={apt.id} className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">
-                              {apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}
-                            </span>
+                            <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                              {apt.pet?.image_url ? (
+                                <img src={getImageUrl(apt.pet.image_url)} alt={apt.pet?.name || ''} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-lg">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
+                              )}
+                            </div>
                             <div>
                               <span className="font-bold text-sm text-slate-800">{apt.pet?.name || 'Ασθενής'}</span>
                               <span className="text-xs text-slate-500 ml-2">{apt.type}</span>

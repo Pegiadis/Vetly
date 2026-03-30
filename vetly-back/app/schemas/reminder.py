@@ -38,6 +38,8 @@ class ReminderResponse(BaseModel):
     id: UUID
     pet_id: UUID
     pet_name: str | None = None
+    pet_image_url: str | None = None
+    pet_type: str | None = None
     vet_id: UUID
     vet_name: str | None = None
     pet_owner_id: UUID

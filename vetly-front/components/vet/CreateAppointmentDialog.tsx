@@ -11,6 +11,7 @@ import {
   LinkedPet,
 } from '@/hooks/useVetData';
 import CalendarPicker from '@/components/CalendarPicker';
+import { getImageUrl } from '@/lib/api';
 
 const APPOINTMENT_TYPES = [
   'Εξέταση',
@@ -22,12 +23,6 @@ const APPOINTMENT_TYPES = [
 ];
 
 const DURATION_OPTIONS = [15, 30, 45, 60];
-
-function petEmoji(type: string) {
-  if (type === 'Dog') return '🐕';
-  if (type === 'Cat') return '🐈';
-  return '🐾';
-}
 
 interface CreateAppointmentDialogProps {
   open: boolean;
@@ -323,7 +318,13 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                     if (!selectedPet) setSelectedPet(pet);
                     return (
                       <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
-                        <span className="text-xl">{petEmoji(pet.type)}</span>
+                        <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {pet.image_url ? (
+                            <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xl">{pet.type === 'Dog' ? '🐕' : pet.type === 'Cat' ? '🐈' : '🐾'}</span>
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-indigo-900 text-sm">{pet.name}</p>
                           <p className="text-xs text-indigo-600">{pet.breed || pet.type}</p>
@@ -343,7 +344,13 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                             : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'
                         }`}
                       >
-                        <span className="text-lg">{petEmoji(pet.type)}</span>
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {pet.image_url ? (
+                            <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-lg">{pet.type === 'Dog' ? '🐕' : pet.type === 'Cat' ? '🐈' : '🐾'}</span>
+                          )}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className={`font-bold text-sm ${selectedPet?.id === pet.id ? 'text-indigo-900' : 'text-slate-800'}`}>
                             {pet.name}
