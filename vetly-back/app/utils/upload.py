@@ -55,10 +55,18 @@ async def save_upload(file: UploadFile, prefix: str, max_size_bytes: int) -> str
 
 
 def delete_upload(url: str | None) -> None:
-    """Delete a previously uploaded file by its URL path."""
+    """Delete a previously uploaded file by its URL path.
+
+    Defense in depth: even if a malicious value somehow lands in an image_url
+    column (e.g. via an unvalidated update endpoint), the resolved filesystem
+    path must still live under UPLOAD_DIR or this function silently no-ops.
+    """
     if not url or not url.startswith("/uploads/"):
         return
     relative = url.split("/uploads/", 1)[-1]
-    filepath = UPLOAD_DIR / relative
+    upload_root = UPLOAD_DIR.resolve()
+    filepath = (upload_root / relative).resolve()
+    if not filepath.is_relative_to(upload_root):
+        return
     if filepath.exists():
         filepath.unlink()

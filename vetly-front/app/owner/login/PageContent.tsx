@@ -23,7 +23,6 @@ export default function OwnerLoginPageContent() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
   const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('expired') === 'true';
 
@@ -38,7 +37,7 @@ export default function OwnerLoginPageContent() {
         password,
       });
 
-      await login(response.access_token, 'pet_owner', rememberMe);
+      await login(response.access_token, 'pet_owner');
       router.push('/owner/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
@@ -123,20 +122,7 @@ export default function OwnerLoginPageContent() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 border-slate-300 rounded text-teal-600 focus:ring-teal-500"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-900">
-                Απομνημόνευση
-              </label>
-            </div>
+          <div className="flex items-center justify-end">
             <Link
               href="/forgot-password?userType=pet_owner"
               className="text-sm font-medium text-teal-600 hover:text-teal-500"

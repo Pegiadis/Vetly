@@ -78,7 +78,11 @@ class VetUpdateRequest(BaseModel):
     address: str | None = Field(None, min_length=5, max_length=500)
     city: str | None = Field(None, min_length=2, max_length=100)
     description: str | None = Field(None, max_length=2000)
-    image_url: str | None = Field(None, max_length=500)
+    image_url: str | None = Field(
+        None,
+        max_length=500,
+        pattern=r"^/uploads/(vet|pet|pet_cover|owner)/[a-f0-9]{32}\.(jpg|png)$",
+    )
     coordinates_lat: Decimal | None = Field(None, ge=-90, le=90)
     coordinates_lng: Decimal | None = Field(None, ge=-180, le=180)
 
