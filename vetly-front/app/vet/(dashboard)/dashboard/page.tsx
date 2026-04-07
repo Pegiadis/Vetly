@@ -355,7 +355,15 @@ export default function VetDashboardPage() {
           {/* Profile Card */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 text-center">
             <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-4 border-4 border-slate-50 bg-indigo-100 flex items-center justify-center">
-              <span className="text-indigo-600 font-bold text-2xl">{user?.name?.charAt(0) || '?'}</span>
+              {getImageUrl(user?.image_url) ? (
+                <img
+                  src={getImageUrl(user?.image_url)!}
+                  alt={user?.name || 'Κτηνίατρος'}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-indigo-600 font-bold text-2xl">{user?.name?.charAt(0) || '?'}</span>
+              )}
             </div>
             <h3 className="font-bold text-slate-900">{user?.name || 'Κτηνίατρος'}</h3>
             <div className="flex justify-center gap-2 text-xs text-slate-500 mt-2 mb-4">

@@ -28,13 +28,15 @@ async def lifespan(app: FastAPI):
     print("Shutting down Vetly API...")
 
 
+_is_production = settings.ENVIRONMENT == "production"
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="Veterinary Care Platform API - Connecting pet owners with veterinary services",
     version=settings.VERSION,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    docs_url=f"{settings.API_V1_STR}/docs",
-    redoc_url=f"{settings.API_V1_STR}/redoc",
+    openapi_url=None if _is_production else f"{settings.API_V1_STR}/openapi.json",
+    docs_url=None if _is_production else f"{settings.API_V1_STR}/docs",
+    redoc_url=None if _is_production else f"{settings.API_V1_STR}/redoc",
     lifespan=lifespan,
 )
 
