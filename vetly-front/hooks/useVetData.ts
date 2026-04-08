@@ -370,9 +370,42 @@ export function usePatientHistory(petId: string | null) {
   }, [petId]);
 
   useEffect(() => {
-    if (petId) fetchHistory();
-    else setEvents([]);
-  }, [petId, fetchHistory]);
+    if (!petId) {
+      setEvents([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    // Clear previous pet's data immediately so we don't flash stale history
+    // when switching between pets. Without this, there's one render where the
+    // new pet's history block is mounted but `events` still holds the old data.
+    setEvents([]);
+    setError(null);
+    setLoading(true);
+
+    let cancelled = false;
+    api.get<MedicalHistoryResponse>(`/vet/patients/${petId}/history`)
+      .then(data => {
+        if (cancelled) return;
+        setEvents(data.items);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : 'Failed to fetch history');
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+
+    // Cleanup: if petId changes (or component unmounts) before the request
+    // resolves, ignore the response so a slow request for an old pet can't
+    // overwrite the state of the currently selected one.
+    return () => {
+      cancelled = true;
+    };
+  }, [petId]);
 
   return { events, loading, error, refetch: fetchHistory };
 }
