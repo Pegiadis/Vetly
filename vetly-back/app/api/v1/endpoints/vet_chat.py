@@ -81,6 +81,13 @@ def vet_send_message(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
+    if assistant_msg is None:
+        # Gemini generation failed. The user message was persisted so they
+        # can retry without re-typing, but there's no assistant reply.
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="AI assistant is temporarily unavailable. Please try again.",
+        )
     return ChatSendMessageResponse(
         conversation_id=conversation.id,
         user_message=ChatMessageResponse.model_validate(user_msg),

@@ -107,6 +107,24 @@ class ChatRepository:
         )
         return list(self.db.scalars(query).all())
 
+    def get_recent_messages(
+        self,
+        conversation_id: UUID,
+        limit: int = 20,
+    ) -> list[ChatMessage]:
+        """Return the most recent N messages in chronological order.
+
+        Used when building Gemini conversation history — capping prevents
+        unbounded token growth as conversations get long.
+        """
+        query = (
+            select(ChatMessage)
+            .where(ChatMessage.conversation_id == conversation_id)
+            .order_by(ChatMessage.created_at.desc())
+            .limit(limit)
+        )
+        return list(reversed(list(self.db.scalars(query).all())))
+
     def delete_conversation(self, conversation: ChatConversation) -> None:
         """Delete a conversation and all its messages"""
         self.db.delete(conversation)

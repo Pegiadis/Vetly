@@ -3,6 +3,7 @@ Chat service - handles AI chat logic with Google Gemini
 Uses the new google-genai SDK (replaces deprecated google-generativeai)
 """
 
+import logging
 from datetime import date
 from uuid import UUID
 
@@ -13,16 +14,25 @@ from app.core.config import settings
 from app.db.base import Pet, PetOwner, Vet, Appointment, MedicalEvent, Medication, Reminder
 from app.repositories.chat import ChatRepository
 
+logger = logging.getLogger(__name__)
+
+# Maximum number of past messages sent to Gemini on each turn. Prevents
+# unbounded token growth and keeps latency stable as conversations age.
+MAX_HISTORY_MESSAGES = 20
+
 BASE_SYSTEM_PROMPT = (
-    "You are Vetly AI, a helpful veterinary assistant. "
-    "You help pet owners and veterinarians with general pet-health questions, "
-    "appointment guidance, medication reminders, and common veterinary topics. "
-    "Always recommend consulting a licensed veterinarian for serious medical concerns. "
-    "Reply in the same language as the user's message.\n\n"
-    "IMPORTANT: You have been given context about this specific user below. "
-    "Use this information to give personalized, relevant answers. "
-    "Never reveal data about other users, pets, or vets that is not in your context. "
-    "If the user asks about data you don't have, say you don't have access to that information."
+    "ΚΡΙΣΙΜΟ: Απαντάς ΠΑΝΤΑ στα ελληνικά, ΑΝΕΞΑΙΡΕΤΩΣ. "
+    "Ακόμα κι αν ο χρήστης γράψει στα αγγλικά, γαλλικά, γερμανικά ή οποιαδήποτε άλλη γλώσσα, "
+    "εσύ απαντάς πάντα στα ελληνικά.\n\n"
+    "Είσαι ο Vetly AI, ένας φιλικός κτηνιατρικός βοηθός. "
+    "Βοηθάς ιδιοκτήτες κατοικιδίων και κτηνιάτρους με γενικές ερωτήσεις σχετικά με την υγεία των ζώων, "
+    "καθοδήγηση για ραντεβού, υπενθυμίσεις φαρμάκων και συνηθισμένα κτηνιατρικά θέματα. "
+    "Για σοβαρά ιατρικά ζητήματα, πάντα συνιστάς να συμβουλευτεί ο χρήστης έναν αδειοδοτημένο κτηνίατρο.\n\n"
+    "ΣΗΜΑΝΤΙΚΟ: Έχεις στη διάθεσή σου συγκεκριμένες πληροφορίες για αυτόν τον χρήστη παρακάτω. "
+    "Χρησιμοποίησέ τες για να δώσεις εξατομικευμένες, σχετικές απαντήσεις. "
+    "Ποτέ μην αποκαλύπτεις δεδομένα για άλλους χρήστες, κατοικίδια ή κτηνιάτρους που δεν είναι στο context σου. "
+    "Αν ο χρήστης ρωτήσει για δεδομένα που δεν έχεις, πες του ότι δεν έχεις πρόσβαση σε αυτές τις πληροφορίες.\n\n"
+    "ΥΠΕΝΘΥΜΙΣΗ: Η απάντησή σου ΠΡΕΠΕΙ να είναι στα ελληνικά."
 )
 
 
@@ -67,7 +77,15 @@ class ChatService:
         pet_owner_id: UUID | None = None,
         vet_id: UUID | None = None,
     ):
-        """Send a user message and get an AI response"""
+        """Send a user message and get an AI response.
+
+        Returns (conversation, user_msg, assistant_msg). If the conversation
+        can't be found, returns (None, None, None). If Gemini fails to
+        generate a response, returns (conversation, user_msg, None) — the
+        caller is expected to raise an HTTP 502. On failure the user message
+        IS still persisted so the user can retry without re-typing, but no
+        garbage assistant row is left behind.
+        """
         # Get or create conversation
         if conversation_id:
             conversation = self.repository.get_conversation_by_id(
@@ -88,8 +106,11 @@ class ChatService:
                 vet_id=vet_id,
             )
 
-        # Get existing messages for context
-        existing_messages = self.repository.get_messages(conversation.id)
+        # Cap history at the most recent MAX_HISTORY_MESSAGES turns so token
+        # cost and latency stay bounded as conversations get long.
+        existing_messages = self.repository.get_recent_messages(
+            conversation.id, limit=MAX_HISTORY_MESSAGES
+        )
 
         # Save user message
         user_msg = self.repository.add_message(
@@ -105,6 +126,11 @@ class ChatService:
         ai_response = self._generate_response(
             existing_messages, user_message, system_prompt
         )
+
+        if ai_response is None:
+            # Gemini failed. Leave the user message in place so the user
+            # can retry, but don't persist a garbage assistant row.
+            return conversation, user_msg, None
 
         # Save assistant message
         assistant_msg = self.repository.add_message(
@@ -254,7 +280,6 @@ class ChatService:
 
         from datetime import datetime
         today = date.today()
-        now = datetime.now()
         today_start = datetime.combine(today, datetime.min.time())
         today_end = datetime.combine(today, datetime.max.time())
 
@@ -268,11 +293,53 @@ class ChatService:
             )
             .order_by(Appointment.scheduled_at.asc())
         ).all())
+
+        # Recent patients (last 10 completed appointments)
+        recent = list(self.db.scalars(
+            select(Appointment).where(
+                Appointment.vet_id == vet_id,
+                Appointment.status == "completed",
+            )
+            .order_by(Appointment.scheduled_at.desc())
+            .limit(10)
+        ).all())
+
+        # Active reminders this vet created
+        reminders = list(self.db.scalars(
+            select(Reminder).where(
+                Reminder.vet_id == vet_id,
+                Reminder.is_dismissed == False,
+                Reminder.is_sent == False,
+                Reminder.due_date >= today,
+            )
+            .order_by(Reminder.due_date.asc())
+            .limit(10)
+        ).all())
+
+        # Batch-fetch every pet referenced by any of the above, in ONE query.
+        # Replaces the previous N+1 pattern (one SELECT Pet per appointment/reminder).
+        pet_ids = (
+            {a.pet_id for a in today_appts}
+            | {a.pet_id for a in recent}
+            | {r.pet_id for r in reminders}
+        )
+        pets_by_id: dict = {}
+        if pet_ids:
+            pets_by_id = {
+                p.id: p
+                for p in self.db.scalars(
+                    select(Pet).where(Pet.id.in_(pet_ids))
+                ).all()
+            }
+
         if today_appts:
             lines.append(f"\nToday's Schedule ({len(today_appts)} appointments):")
             for a in today_appts:
-                pet = self.db.scalar(select(Pet).where(Pet.id == a.pet_id))
-                pet_info = f"{pet.name} ({pet.type.value if hasattr(pet.type, 'value') else pet.type})" if pet else "Unknown"
+                pet = pets_by_id.get(a.pet_id)
+                pet_info = (
+                    f"{pet.name} ({pet.type.value if hasattr(pet.type, 'value') else pet.type})"
+                    if pet else "Unknown"
+                )
                 status_val = a.status.value if hasattr(a.status, 'value') else a.status
                 lines.append(
                     f"  - {a.scheduled_at.strftime('%H:%M')}: {pet_info} ({status_val})"
@@ -288,15 +355,6 @@ class ChatService:
         if pending_count:
             lines.append(f"\nPending Appointments: {pending_count}")
 
-        # Recent patients (last 10 completed appointments)
-        recent = list(self.db.scalars(
-            select(Appointment).where(
-                Appointment.vet_id == vet_id,
-                Appointment.status == "completed",
-            )
-            .order_by(Appointment.scheduled_at.desc())
-            .limit(10)
-        ).all())
         if recent:
             lines.append(f"\nRecent Patients:")
             seen_pets: set[str] = set()
@@ -304,7 +362,7 @@ class ChatService:
                 if str(a.pet_id) in seen_pets:
                     continue
                 seen_pets.add(str(a.pet_id))
-                pet = self.db.scalar(select(Pet).where(Pet.id == a.pet_id))
+                pet = pets_by_id.get(a.pet_id)
                 if pet:
                     pet_type = pet.type.value if hasattr(pet.type, 'value') else pet.type
                     lines.append(
@@ -312,21 +370,10 @@ class ChatService:
                         f"- last visit: {a.scheduled_at.strftime('%Y-%m-%d')}"
                     )
 
-        # Active reminders this vet created
-        reminders = list(self.db.scalars(
-            select(Reminder).where(
-                Reminder.vet_id == vet_id,
-                Reminder.is_dismissed == False,
-                Reminder.is_sent == False,
-                Reminder.due_date >= today,
-            )
-            .order_by(Reminder.due_date.asc())
-            .limit(10)
-        ).all())
         if reminders:
             lines.append(f"\nActive Reminders ({len(reminders)}):")
             for r in reminders:
-                pet = self.db.scalar(select(Pet).where(Pet.id == r.pet_id))
+                pet = pets_by_id.get(r.pet_id)
                 pet_name = pet.name if pet else "?"
                 lines.append(
                     f"  - {r.due_date}: {r.title} ({r.type}) for {pet_name}"
@@ -336,13 +383,16 @@ class ChatService:
 
     def _generate_response(
         self, existing_messages: list, new_message: str, system_prompt: str
-    ) -> str:
-        """Generate an AI response using Google Gemini (google-genai SDK)"""
+    ) -> str | None:
+        """Generate an AI response using Google Gemini (google-genai SDK).
+
+        Returns the full response text on success, or None on failure.
+        Callers should treat None as "AI unavailable" and surface an
+        appropriate HTTP error — never persist None as a chat message.
+        """
         if not settings.GEMINI_API_KEY:
-            return (
-                "AI assistant is not configured. "
-                "Please set the GEMINI_API_KEY environment variable."
-            )
+            logger.error("Chat requested but GEMINI_API_KEY is not configured")
+            return None
 
         try:
             from google import genai
@@ -371,8 +421,6 @@ class ChatService:
 
             response = chat.send_message(new_message)
             return response.text
-        except (ConnectionError, TimeoutError, ValueError) as exc:
-            return "Λυπάμαι, αντιμετώπισα ένα πρόβλημα. Παρακαλώ δοκιμάστε ξανά."
-        except Exception as exc:
-            print(f"[CHAT ERROR] Unexpected error: {exc}")
-            return "Λυπάμαι, αντιμετώπισα ένα πρόβλημα. Παρακαλώ δοκιμάστε ξανά."
+        except Exception:
+            logger.exception("Chat generation failed")
+            return None
