@@ -29,6 +29,34 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 
 # ---------------------------------------------------------------------------
+# Global safety: never hit Resend from tests
+# ---------------------------------------------------------------------------
+#
+# `app.core.email.send_email` is the single bottleneck every email path
+# funnels through — registration verification, password reset, client
+# invites, and the whole notification-email system (appointment events,
+# reminders, reviews). Patching it here with `autouse=True` guarantees no
+# test can ever fire a real email to Resend, regardless of what's in the
+# project `.env` or whether `EMAIL_NOTIFICATIONS_ENABLED` is true.
+#
+# If a future test needs to assert that an email WOULD have been sent, it
+# can still do so by inspecting the mock's call list.
+@pytest.fixture(autouse=True)
+def _no_real_emails(monkeypatch):
+    """Replace send_email with a no-op for every test. See block comment above."""
+    def _noop(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr("app.core.email.send_email", _noop)
+    # Also patch the re-imported names in modules that did
+    # `from app.core.email import send_email` — Python's import binds a
+    # local reference at import time, so patching the source module alone
+    # isn't enough for these callers.
+    monkeypatch.setattr("app.core.email_templates.send_email", _noop, raising=False)
+    monkeypatch.setattr("app.services.vet_client.send_email", _noop, raising=False)
+
+
+# ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
