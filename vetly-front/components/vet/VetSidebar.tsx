@@ -170,26 +170,18 @@ export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
   const sidebarContent = (
     <aside className="h-full w-64 bg-white border-r border-slate-100 flex flex-col">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-100">
-        <Link href="/vet/dashboard" className="flex items-center gap-3" onClick={handleNavClick}>
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          </div>
-          <div>
-            <span className="text-xl font-bold text-slate-900">Vetly</span>
-            <span className="text-xs text-indigo-600 font-semibold ml-1">Pro</span>
-          </div>
+      <div className="py-3 px-4 border-b border-slate-100">
+        <Link href="/vet/dashboard" className="flex items-center justify-center" onClick={handleNavClick}>
+          <img src="/images/2-tight.jpg" alt="Vetly Pro" className="h-14 w-auto object-contain" />
         </Link>
       </div>
 
       {/* On-Call Toggle */}
-      <div className="px-4 py-3 border-b border-slate-100">
+      <div className="px-3 py-2 border-b border-slate-100">
         <button
           onClick={handleToggleOnCall}
           disabled={toggling}
-          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all ${
+          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
             isOnCall
               ? 'bg-green-50 border border-green-200'
               : 'bg-slate-50 border border-slate-200'
@@ -211,7 +203,7 @@ export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-2 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -219,7 +211,7 @@ export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
               key={item.href}
               href={item.href}
               onClick={handleNavClick}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 isActive
                   ? 'bg-indigo-50 text-indigo-700'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -245,7 +237,7 @@ export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="p-4 border-t border-slate-100">
+      <div className="px-3 py-2 border-t border-slate-100">
         {bottomNavItems.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -253,7 +245,7 @@ export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
               key={item.href}
               href={item.href}
               onClick={handleNavClick}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 isActive
                   ? 'bg-indigo-50 text-indigo-700'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
@@ -270,7 +262,7 @@ export default function VetSidebar({ isOpen, onClose }: VetSidebarProps) {
         {/* Logout */}
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all mt-2 w-full"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-all mt-1 w-full"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

@@ -62,14 +62,11 @@ export default function OwnerLoginPageContent() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-3xl shadow-xl relative z-10 border border-slate-100">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 rounded-full flex items-center justify-center mb-4 bg-teal-100 text-teal-600">
-            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-          </div>
-          <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
-            Vetly
-          </h2>
+          <img
+            src="/images/1-tight.jpg"
+            alt="Vetly"
+            className="mx-auto h-16 w-auto object-contain mb-2"
+          />
           <p className="mt-2 text-sm text-slate-600">
             Διαχειριστείτε τα κατοικίδιά σας με ευκολία.
           </p>

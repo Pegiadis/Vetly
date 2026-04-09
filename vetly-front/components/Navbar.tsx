@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogoIcon, MenuIcon, XIcon, StethoscopeIcon } from './Icons';
+import { MenuIcon, XIcon, StethoscopeIcon } from './Icons';
 
 const Navbar: React.FC = () => {
     const router = useRouter();
@@ -38,14 +38,15 @@ const Navbar: React.FC = () => {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                     {/* Logo */}
-                    <div 
+                    <div
                         className="flex items-center cursor-pointer group"
                         onClick={() => router.push('/')}
                     >
-                        <LogoIcon className="h-8 w-8 text-teal-600 group-hover:scale-110 transition-transform" />
-                        <span className="ml-2 text-xl font-bold text-slate-800 tracking-tight">
-                            Vetly
-                        </span>
+                        <img
+                            src="/images/1-tight.jpg"
+                            alt="Vetly"
+                            className="h-9 w-auto object-contain group-hover:scale-105 transition-transform"
+                        />
                     </div>
 
                     {/* Desktop Navigation */}
