@@ -2,8 +2,10 @@
 Owner chat API endpoints
 """
 
+import json
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_pet_owner
@@ -92,6 +94,47 @@ def owner_send_message(
         conversation_id=conversation.id,
         user_message=ChatMessageResponse.model_validate(user_msg),
         assistant_message=ChatMessageResponse.model_validate(assistant_msg),
+    )
+
+
+@router.post("/send/stream")
+def owner_send_message_stream(
+    body: ChatSendMessageRequest,
+    current_owner: PetOwner = Depends(get_current_pet_owner),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """Stream an AI response chunk-by-chunk as Server-Sent Events.
+
+    Response events (each line: ``data: {"type": ..., ...}\\n\\n``):
+      - start: conversation_id + persisted user_message
+      - chunk: incremental text fragment
+      - done: final persisted assistant_message
+      - error: {"code": ...}
+
+    Stays sync (per CLAUDE.md) — FastAPI's ``StreamingResponse`` iterates
+    sync generators on the threadpool worker that's already handling the
+    request, and the Gemini SDK's ``send_message_stream`` has a sync
+    variant that we use directly.
+    """
+    service = ChatService(db)
+
+    def event_generator():
+        for event_type, payload in service.stream_message(
+            user_message=body.message,
+            conversation_id=body.conversation_id,
+            pet_owner_id=current_owner.id,
+        ):
+            data = {"type": event_type, **payload}
+            yield f"data: {json.dumps(data, default=str)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            # Disable proxy buffering (nginx, etc.) so chunks flush immediately.
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

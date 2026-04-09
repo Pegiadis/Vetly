@@ -2,8 +2,10 @@
 Vet chat API endpoints
 """
 
+import json
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_vet
@@ -92,6 +94,37 @@ def vet_send_message(
         conversation_id=conversation.id,
         user_message=ChatMessageResponse.model_validate(user_msg),
         assistant_message=ChatMessageResponse.model_validate(assistant_msg),
+    )
+
+
+@router.post("/send/stream")
+def vet_send_message_stream(
+    body: ChatSendMessageRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """Stream an AI response chunk-by-chunk as Server-Sent Events.
+
+    See ``owner_send_message_stream`` for the event protocol — identical.
+    """
+    service = ChatService(db)
+
+    def event_generator():
+        for event_type, payload in service.stream_message(
+            user_message=body.message,
+            conversation_id=body.conversation_id,
+            vet_id=current_vet.id,
+        ):
+            data = {"type": event_type, **payload}
+            yield f"data: {json.dumps(data, default=str)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 

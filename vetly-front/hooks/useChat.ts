@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '@/lib/api';
+import { getStoredToken } from '@/contexts/AuthContext';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
 export interface ChatMessage {
   id: string;
@@ -130,4 +133,126 @@ export async function deleteChatConversation(
 ): Promise<void> {
   const prefix = role === 'owner' ? '/owner/chat' : '/vet/chat';
   return api.delete<void>(`${prefix}/conversations/${conversationId}`);
+}
+
+// --- Streaming chat (Server-Sent Events) ---
+
+export interface StreamStartPayload {
+  conversation_id: string;
+  user_message: ChatMessage;
+}
+
+export interface StreamDonePayload {
+  assistant_message: ChatMessage;
+}
+
+export interface StreamHandlers {
+  onStart: (payload: StreamStartPayload) => void;
+  onChunk: (text: string) => void;
+  onDone: (payload: StreamDonePayload) => void;
+  onError: (code: string) => void;
+}
+
+/**
+ * Send a message and consume the streaming SSE response from the backend.
+ *
+ * Returns void (not the full response) — all data is delivered via the
+ * handlers callback. Supports cancellation via AbortSignal.
+ */
+export async function sendChatMessageStream(
+  role: 'owner' | 'vet',
+  message: string,
+  conversationId: string | null | undefined,
+  handlers: StreamHandlers,
+  signal?: AbortSignal,
+): Promise<void> {
+  const prefix = role === 'owner' ? '/owner/chat' : '/vet/chat';
+  const url = `${API_BASE_URL}${prefix}/send/stream`;
+
+  const token = getStoredToken();
+  const body: { message: string; conversation_id?: string } = { message };
+  if (conversationId) {
+    body.conversation_id = conversationId;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (err) {
+    // Includes AbortError — caller handles via signal if needed
+    if ((err as Error).name === 'AbortError') return;
+    handlers.onError('network_error');
+    return;
+  }
+
+  if (!response.ok || !response.body) {
+    handlers.onError(`http_${response.status}`);
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      // SSE frames are separated by a blank line (\n\n)
+      let sepIndex: number;
+      while ((sepIndex = buffer.indexOf('\n\n')) !== -1) {
+        const frame = buffer.slice(0, sepIndex);
+        buffer = buffer.slice(sepIndex + 2);
+
+        // Each frame has one or more "data: ..." lines; we only emit one
+        // "data:" line per frame from the backend.
+        const line = frame.split('\n').find((l) => l.startsWith('data:'));
+        if (!line) continue;
+        const json = line.slice(5).trim();
+        if (!json) continue;
+
+        try {
+          const payload = JSON.parse(json) as {
+            type: 'start' | 'chunk' | 'done' | 'error';
+            [k: string]: unknown;
+          };
+          switch (payload.type) {
+            case 'start':
+              handlers.onStart({
+                conversation_id: payload.conversation_id as string,
+                user_message: payload.user_message as ChatMessage,
+              });
+              break;
+            case 'chunk':
+              handlers.onChunk(payload.text as string);
+              break;
+            case 'done':
+              handlers.onDone({
+                assistant_message: payload.assistant_message as ChatMessage,
+              });
+              break;
+            case 'error':
+              handlers.onError((payload.code as string) || 'unknown');
+              break;
+          }
+        } catch {
+          // Malformed frame — skip it
+        }
+      }
+    }
+  } catch (err) {
+    if ((err as Error).name !== 'AbortError') {
+      handlers.onError('stream_read_error');
+    }
+  }
 }

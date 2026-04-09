@@ -7,10 +7,16 @@ import ChatConversationList from './ChatConversationList';
 import {
   useChatConversations,
   useChatMessages,
-  sendChatMessage,
+  sendChatMessageStream,
   deleteChatConversation,
 } from '@/hooks/useChat';
 import type { ChatMessage } from '@/hooks/useChat';
+
+// Messages use real UUIDs when persisted; we generate temporary ids for
+// optimistic rendering before the server responds.
+function makeTempId(prefix: 'user' | 'assistant'): string {
+  return `pending-${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 const windowColorMap: Record<string, {
   spinner: string;
@@ -44,6 +50,8 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
   const colors = windowColorMap[accentColor] || windowColorMap.teal;
 
   const {
@@ -59,32 +67,116 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
     setMessages,
   } = useChatMessages(role, activeConversationId);
 
+  // Scroll to bottom only if the user is already near the bottom — prevents
+  // yanking them away if they scrolled up to read older messages.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    const distanceFromBottom =
+      container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (distanceFromBottom < 150) {
+      // Use 'auto' (not 'smooth') during streaming so the browser doesn't
+      // fight the token-by-token updates with chained smooth-scroll animations.
+      messagesEndRef.current?.scrollIntoView({
+        behavior: sending ? 'auto' : 'smooth',
+      });
+    }
+  }, [messages, sending]);
+
+  // Abort any in-flight stream when the user switches conversations or the
+  // component unmounts — leaving an orphan stream in the background would
+  // append chunks to a conversation the user isn't looking at anymore.
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      abortRef.current = null;
+    };
+  }, [activeConversationId]);
 
   const handleSend = async (text: string) => {
     if (sending) return;
+
+    // Optimistic rows: show the user's message instantly and a placeholder
+    // assistant message that we'll progressively fill in from the stream.
+    const tempUserId = makeTempId('user');
+    const tempAssistantId = makeTempId('assistant');
+    const nowIso = new Date().toISOString();
+    const optimisticConvId = activeConversationId || 'pending-conv';
+
+    setMessages((prev: ChatMessage[]) => [
+      ...prev,
+      {
+        id: tempUserId,
+        conversation_id: optimisticConvId,
+        role: 'user',
+        content: text,
+        created_at: nowIso,
+      },
+      {
+        id: tempAssistantId,
+        conversation_id: optimisticConvId,
+        role: 'assistant',
+        content: '',
+        created_at: nowIso,
+      },
+    ]);
+
     setSending(true);
-    try {
-      const resp = await sendChatMessage(role, text, activeConversationId);
-      if (!activeConversationId) {
-        setActiveConversationId(resp.conversation_id);
-      }
-      setMessages((prev: ChatMessage[]) => [
-        ...prev,
-        resp.user_message,
-        resp.assistant_message,
-      ]);
-      refetchConversations();
-    } catch {
-      // silent
-    } finally {
-      setSending(false);
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    await sendChatMessageStream(
+      role,
+      text,
+      activeConversationId,
+      {
+        onStart: ({ conversation_id, user_message }) => {
+          // Replace the optimistic user row with the real persisted one,
+          // and store the real conversation id (especially important for
+          // newly-created conversations).
+          if (!activeConversationId) {
+            setActiveConversationId(conversation_id);
+          }
+          setMessages((prev: ChatMessage[]) =>
+            prev.map((m) => (m.id === tempUserId ? user_message : m)),
+          );
+        },
+        onChunk: (chunkText) => {
+          // Append chunk text to the placeholder assistant message.
+          setMessages((prev: ChatMessage[]) =>
+            prev.map((m) =>
+              m.id === tempAssistantId
+                ? { ...m, content: m.content + chunkText }
+                : m,
+            ),
+          );
+        },
+        onDone: ({ assistant_message }) => {
+          // Replace the placeholder with the real persisted assistant row.
+          setMessages((prev: ChatMessage[]) =>
+            prev.map((m) => (m.id === tempAssistantId ? assistant_message : m)),
+          );
+          refetchConversations();
+        },
+        onError: () => {
+          // Leave the user message so they can retry without re-typing.
+          // Drop the empty assistant placeholder.
+          setMessages((prev: ChatMessage[]) =>
+            prev.filter((m) => m.id !== tempAssistantId),
+          );
+        },
+      },
+      controller.signal,
+    );
+
+    setSending(false);
+    if (abortRef.current === controller) {
+      abortRef.current = null;
     }
   };
 
   const handleNewConversation = () => {
+    abortRef.current?.abort();
     setActiveConversationId(null);
   };
 
@@ -92,6 +184,7 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
     try {
       await deleteChatConversation(role, id);
       if (activeConversationId === id) {
+        abortRef.current?.abort();
         setActiveConversationId(null);
       }
       refetchConversations();
@@ -138,7 +231,7 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-6 py-4 bg-slate-50/50">
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-6 py-4 bg-slate-50/50">
           {msgsLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className={`animate-spin rounded-full h-6 w-6 border-b-2 ${colors.spinner}`} />
@@ -160,29 +253,24 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
             </div>
           ) : (
             <>
-              {messages.map((msg) => (
-                <ChatMessageComponent
-                  key={msg.id}
-                  role={msg.role}
-                  content={msg.content}
-                  createdAt={msg.created_at}
-                  accentColor={accentColor}
-                />
-              ))}
-              {sending && (
-                <div className="flex justify-start mb-4">
-                  <div className={`w-8 h-8 rounded-full ${colors.avatarBg} flex items-center justify-center mr-3 flex-shrink-0 mt-1`}>
-                    <div className={`animate-spin rounded-full h-3 w-3 border-b-2 ${colors.spinner}`} />
-                  </div>
-                  <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3">
-                    <div className="flex gap-1">
-                      <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-2 h-2 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  </div>
-                </div>
-              )}
+              {messages.map((msg) => {
+                // The assistant placeholder being actively streamed shows
+                // a blinking cursor instead of the normal timestamp row.
+                const isStreamingPlaceholder =
+                  sending &&
+                  msg.role === 'assistant' &&
+                  msg.id.startsWith('pending-assistant-');
+                return (
+                  <ChatMessageComponent
+                    key={msg.id}
+                    role={msg.role}
+                    content={msg.content}
+                    createdAt={msg.created_at}
+                    accentColor={accentColor}
+                    streaming={isStreamingPlaceholder}
+                  />
+                );
+              })}
               <div ref={messagesEndRef} />
             </>
           )}

@@ -139,6 +139,155 @@ class ChatService:
 
         return conversation, user_msg, assistant_msg
 
+    def stream_message(
+        self,
+        user_message: str,
+        conversation_id: UUID | None = None,
+        pet_owner_id: UUID | None = None,
+        vet_id: UUID | None = None,
+    ):
+        """Sync generator that streams AI chat responses chunk-by-chunk.
+
+        Yields (event_type, payload) tuples where event_type is one of:
+          - 'start': conversation created/loaded, user message persisted
+          - 'chunk': a single text fragment from Gemini (append to UI)
+          - 'done': full response persisted, provides the real assistant row
+          - 'error': Gemini generation failed, payload has 'code'
+
+        On client disconnect (GeneratorExit), stops cleanly and does NOT
+        persist a partial assistant row — a truncated reply is worse than
+        none at all.
+        """
+        # Get or create conversation
+        if conversation_id:
+            conversation = self.repository.get_conversation_by_id(
+                conversation_id,
+                pet_owner_id=pet_owner_id,
+                vet_id=vet_id,
+            )
+            if not conversation:
+                yield ("error", {"code": "conversation_not_found"})
+                return
+        else:
+            title = user_message[:50].strip()
+            if len(user_message) > 50:
+                title += "..."
+            conversation = self.repository.create_conversation(
+                title=title,
+                pet_owner_id=pet_owner_id,
+                vet_id=vet_id,
+            )
+
+        # Read recent history (capped) BEFORE persisting the new user message,
+        # matching send_message's behavior.
+        existing_messages = self.repository.get_recent_messages(
+            conversation.id, limit=MAX_HISTORY_MESSAGES
+        )
+
+        # Persist user message
+        user_msg = self.repository.add_message(
+            conversation.id, "user", user_message
+        )
+
+        # Emit start event so the frontend can swap its optimistic user row
+        # for the real persisted one and know the conversation id.
+        yield (
+            "start",
+            {
+                "conversation_id": str(conversation.id),
+                "user_message": {
+                    "id": str(user_msg.id),
+                    "conversation_id": str(conversation.id),
+                    "role": user_msg.role,
+                    "content": user_msg.content,
+                    "created_at": user_msg.created_at.isoformat(),
+                },
+            },
+        )
+
+        # Build system prompt (sync DB work — same helpers as send_message)
+        system_prompt = self._build_system_prompt(
+            pet_owner_id=pet_owner_id, vet_id=vet_id
+        )
+
+        # Stream from Gemini
+        if not settings.GEMINI_API_KEY:
+            logger.error("Chat stream requested but GEMINI_API_KEY is not configured")
+            yield ("error", {"code": "not_configured"})
+            return
+
+        accumulated = ""
+        try:
+            from google import genai
+            from google.genai import types
+
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+            history = []
+            for msg in existing_messages:
+                role = "user" if msg.role == "user" else "model"
+                history.append(
+                    types.Content(
+                        role=role,
+                        parts=[types.Part.from_text(text=msg.content)],
+                    )
+                )
+
+            chat = client.chats.create(
+                model="gemini-2.0-flash",
+                history=history,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                ),
+            )
+
+            # SYNC streaming — the google-genai SDK exposes this alongside
+            # the async variant, so no async endpoint is needed.
+            for chunk in chat.send_message_stream(user_message):
+                # Metadata-only chunks (finish_reason, usage_metadata) have
+                # text=None; skip them.
+                if chunk.text:
+                    accumulated += chunk.text
+                    yield ("chunk", {"text": chunk.text})
+        except GeneratorExit:
+            # Client disconnected mid-stream. Stop cleanly without persisting
+            # the partial assistant response. FastAPI re-raises after cleanup.
+            logger.info(
+                "Chat stream cancelled by client after %d chars (conv=%s)",
+                len(accumulated),
+                conversation.id,
+            )
+            raise
+        except Exception:
+            logger.exception("Chat stream generation failed")
+            yield ("error", {"code": "generation_failed"})
+            return
+
+        if not accumulated:
+            # Gemini returned zero text — treat as a generation failure so
+            # the user can retry. No assistant row persisted.
+            logger.warning("Chat stream completed with empty response")
+            yield ("error", {"code": "empty_response"})
+            return
+
+        # Persist the final assistant message
+        assistant_msg = self.repository.add_message(
+            conversation.id, "assistant", accumulated
+        )
+
+        yield (
+            "done",
+            {
+                "assistant_message": {
+                    "id": str(assistant_msg.id),
+                    "conversation_id": str(conversation.id),
+                    "role": assistant_msg.role,
+                    "content": assistant_msg.content,
+                    "created_at": assistant_msg.created_at.isoformat(),
+                },
+            },
+        )
+
     def delete_conversation(
         self,
         conversation_id: UUID,
