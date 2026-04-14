@@ -2,14 +2,17 @@ services:
   postgres:
     image: postgres:17-alpine
     container_name: vetly-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: vetly
       POSTGRES_USER: vetly
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vetly_default
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U vetly -d vetly"]
       interval: 10s
@@ -19,27 +22,56 @@ services:
   backend:
     build: ./vetly-back
     container_name: vetly-backend
-    ports:
-      - "8000:8000"
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://vetly:${DB_PASSWORD}@postgres:5432/vetly
       SECRET_KEY: ${SECRET_KEY}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ENVIRONMENT: production
+      ALLOWED_ORIGINS: '["https://vetly.gr"]'
+      EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-false}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-Vetly <noreply@vetly.gr>}
+      FRONTEND_URL: ${FRONTEND_URL:-https://vetly.gr}
+    ports:
+      - "127.0.0.1:8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
-      - ./vetly-back:/app
+      - /opt/apps/vetly/uploads:/app/uploads
+    networks:
+      - vetly_default
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
 
   frontend:
-    build: ./vetly-front
+    build:
+      context: ./vetly-front
+      args:
+        NEXT_PUBLIC_API_URL: https://vetly.gr/api/v1
     container_name: vetly-frontend
+    restart: unless-stopped
     ports:
-      - "3000:3000"
-    environment:
-      API_URL: http://backend:8000/api/v1
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      - "127.0.0.1:3000:3000"
     depends_on:
       - backend
+    networks:
+      - vetly_default
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
 
 volumes:
   postgres_data:
+
+networks:
+  vetly_default:
+    name: vetly_default

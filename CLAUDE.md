@@ -114,4 +114,60 @@ All routes under `/api/v1/`. Router assembly in `app/api/v1/router.py`. Main gro
 
 - Backend `.env`: `DATABASE_URL`, `SECRET_KEY`, `ALLOWED_ORIGINS`, `GEMINI_API_KEY` (optional)
 - Frontend `.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`
-- Docker exposes: PostgreSQL :5432, Backend :8000, Frontend :3000
+- Docker exposes: PostgreSQL :5432, Backend :8000, Frontend :3000 (all bound to `127.0.0.1` in production)
+- Full list of prod env vars: see `.env.example`
+
+## Deployment
+
+**Convention: app-owned deployment.** This repo owns its compose file, scripts,
+and deploy conventions. Server-level concerns (Caddy, monitoring, firewall,
+incidents) live in the separate `vps-manager` repo — do not duplicate them here.
+
+### Server layout (moltbot, Hetzner Cloud)
+
+| Path | Purpose |
+|------|---------|
+| `/home/moltbot/source/Vetly/` | Source checkout — `git pull` updates here |
+| `/home/moltbot/source/Vetly/docker-compose.yml` | Canonical prod compose |
+| `/home/moltbot/source/Vetly/.env` | Prod secrets (chmod 600) |
+| `/home/moltbot/source/Vetly/scripts/` | Deploy + backup scripts |
+| `/opt/apps/vetly/uploads/` | Bind-mounted user photos (persists across redeploys) |
+| `/opt/apps/vetly/backups/` | DB dumps + uploads snapshots |
+
+There must be **exactly one** compose file on the server. If you see a
+`/opt/apps/vetly/docker-compose.yml`, it's a leftover from an older convention
+and should be deleted — the one at `/home/moltbot/source/Vetly/` is canonical.
+
+### Deploy
+
+```bash
+ssh moltbot 'cd /home/moltbot/source/Vetly && ./scripts/deploy.sh'
+```
+
+The script does pre-deploy `pg_dump`, fast-forward pull, `compose build + up -d`,
+`alembic upgrade head`, health-check wait, and smoke-tests `https://vetly.gr/health`.
+See `scripts/README.md` for flags and rollback.
+
+### Shared infrastructure on moltbot
+
+- **Postgres**: the `vetly-postgres` container currently hosts both Vetly's DB
+  and sports-holics' `sportsholics_cms` DB. This coupling is an accident, not a
+  design — a future migration will give sports-holics its own Postgres.
+  Meanwhile, DO NOT `docker compose down -v` on this stack: it would destroy
+  sports-holics' data too.
+- **Network**: `vetly_default` is declared with an explicit name in this
+  compose. sports-holics joins it via `networks: vetly_default` with
+  `external: true`. Keep the name stable.
+- **Caddy**: reverse-proxy at `vetly.gr` points to `127.0.0.1:8000` (backend)
+  and `127.0.0.1:3000` (frontend). Managed in the `vps-manager` repo.
+
+### Port bindings (production)
+
+All container ports bind to `127.0.0.1` only — never public. Public access
+goes through Caddy at `https://vetly.gr`.
+
+| Container | Host port | Container port |
+|-----------|-----------|----------------|
+| vetly-postgres | 127.0.0.1:5432 | 5432 |
+| vetly-backend | 127.0.0.1:8000 | 8000 |
+| vetly-frontend | 127.0.0.1:3000 | 3000 |
