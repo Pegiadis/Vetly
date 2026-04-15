@@ -155,9 +155,10 @@ See `scripts/README.md` for flags and rollback.
   design — a future migration will give sports-holics its own Postgres.
   Meanwhile, DO NOT `docker compose down -v` on this stack: it would destroy
   sports-holics' data too.
-- **Network**: `vetly_default` is declared with an explicit name in this
-  compose. sports-holics joins it via `networks: vetly_default` with
-  `external: true`. Keep the name stable.
+- **Network**: `vetly_default` is a shared external network. Both Vetly and
+  sports-holics declare it with `external: true` — neither compose owns it.
+  If it ever needs to be recreated: `docker network create vetly_default`
+  then restart both app stacks.
 - **Caddy**: reverse-proxy at `vetly.gr` points to `127.0.0.1:8000` (backend)
   and `127.0.0.1:3000` (frontend). Managed in the `vps-manager` repo.
 
