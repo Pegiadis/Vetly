@@ -36,11 +36,20 @@ function ServiceDialog({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+  const handleDurationChange = (value: string) => {
+    if (!value) {
+      setForm(f => ({ ...f, duration_minutes: '' }));
+      return;
+    }
+
+    const normalized = value.replace(/^0+/, '');
+    setForm(f => ({ ...f, duration_minutes: normalized }));
+  };
 
   const fieldErrors: Record<string, string> = {};
   if (form.name.length > 0 && form.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
   if (form.price && (isNaN(parseFloat(form.price)) || parseFloat(form.price) < 0)) fieldErrors.price = 'Εισάγετε έγκυρη τιμή.';
-  if (form.duration_minutes && parseInt(form.duration_minutes) < 5) fieldErrors.duration_minutes = 'Τουλάχιστον 5 λεπτά.';
+  if (form.duration_minutes && parseInt(form.duration_minutes) < 15) fieldErrors.duration_minutes = 'Τουλάχιστον 15 λεπτά.';
 
   const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
 
@@ -154,10 +163,10 @@ function ServiceDialog({
               <label className="block text-sm font-bold text-slate-700 mb-1">Διάρκεια (λεπτά)</label>
               <input
                 type="number"
-                min={5}
+                min={15}
                 max={480}
                 value={form.duration_minutes}
-                onChange={e => { setForm(f => ({ ...f, duration_minutes: e.target.value })); setTouched(t => ({ ...t, duration_minutes: true })); }}
+                onChange={e => { handleDurationChange(e.target.value); setTouched(t => ({ ...t, duration_minutes: true })); }}
                 onBlur={() => handleBlur('duration_minutes')}
                 className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('duration_minutes')}`}
                 placeholder="π.χ. 30"

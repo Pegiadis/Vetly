@@ -49,6 +49,7 @@ interface ChatWindowProps {
 export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowProps) {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -175,9 +176,15 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
     }
   };
 
+  const handleSelectConversation = (id: string) => {
+    setActiveConversationId(id);
+    setSidebarOpen(false);
+  };
+
   const handleNewConversation = () => {
     abortRef.current?.abort();
     setActiveConversationId(null);
+    setSidebarOpen(false);
   };
 
   const handleDelete = async (id: string) => {
@@ -194,36 +201,74 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
   };
 
   return (
-    <div className="flex h-[calc(100vh-140px)] bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="relative flex h-[calc(100dvh-220px)] min-h-[430px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm sm:min-h-[520px] md:h-[calc(100vh-140px)]">
+      {sidebarOpen && (
+        <button
+          type="button"
+          aria-label="Κλείσιμο συνομιλιών"
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-slate-900/40 md:hidden"
+        />
+      )}
+
       {/* Sidebar */}
-      <div className="w-72 border-r border-slate-200 bg-slate-50 flex-shrink-0">
-        {convsLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className={`animate-spin rounded-full h-6 w-6 border-b-2 ${colors.spinner}`} />
-          </div>
-        ) : (
-          <ChatConversationList
-            conversations={conversations}
-            activeId={activeConversationId}
-            onSelect={setActiveConversationId}
-            onNew={handleNewConversation}
-            onDelete={handleDelete}
-            accentColor={accentColor}
-          />
-        )}
-      </div>
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-80 max-w-[86vw] flex-shrink-0 flex-col border-r border-slate-200 bg-slate-50 shadow-2xl transition-transform duration-200 md:static md:z-auto md:h-auto md:w-72 md:max-w-none md:translate-x-0 md:shadow-none ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3 md:hidden">
+          <h2 className="text-sm font-bold text-slate-900">Συνομιλίες</h2>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(false)}
+            className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Κλείσιμο"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="min-h-0 flex-1">
+          {convsLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <div className={`animate-spin rounded-full h-6 w-6 border-b-2 ${colors.spinner}`} />
+            </div>
+          ) : (
+            <ChatConversationList
+              conversations={conversations}
+              activeId={activeConversationId}
+              onSelect={handleSelectConversation}
+              onNew={handleNewConversation}
+              onDelete={handleDelete}
+              accentColor={accentColor}
+            />
+          )}
+        </div>
+      </aside>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* Header */}
-        <div className="border-b border-slate-200 px-6 py-4 flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-full ${colors.avatarBg} flex items-center justify-center`}>
+        <div className="flex items-center gap-3 border-b border-slate-200 bg-white px-3 py-3 sm:px-6 sm:py-4">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition-colors hover:bg-slate-50 md:hidden"
+            aria-label="Άνοιγμα συνομιλιών"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h8M8 14h5M5 5h14a2 2 0 012 2v9a2 2 0 01-2 2H9l-4 4v-4H5a2 2 0 01-2-2V7a2 2 0 012-2z" />
+            </svg>
+          </button>
+          <div className={`w-8 h-8 rounded-full ${colors.avatarBg} flex flex-shrink-0 items-center justify-center`}>
             <svg className={`w-4 h-4 ${colors.avatarIcon}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714a2.25 2.25 0 00.659 1.591L19 14.5M14.25 3.104c.251.023.501.05.75.082M19 14.5l-2.47 2.47a2.25 2.25 0 01-1.59.659H9.06a2.25 2.25 0 01-1.591-.659L5 14.5m14 0V5a2 2 0 00-2-2H7a2 2 0 00-2 2v9.5" />
             </svg>
           </div>
-          <div>
-            <h2 className="font-bold text-slate-900 text-sm">
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-bold text-slate-900">
               {activeConversationId && title ? title : 'AI Βοηθός'}
             </h2>
             <p className="text-xs text-slate-400">Vetly AI</p>
@@ -231,7 +276,7 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
         </div>
 
         {/* Messages */}
-        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-6 py-4 bg-slate-50/50">
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto bg-slate-50/50 px-3 py-4 sm:px-6">
           {msgsLoading ? (
             <div className="flex items-center justify-center h-full">
               <div className={`animate-spin rounded-full h-6 w-6 border-b-2 ${colors.spinner}`} />

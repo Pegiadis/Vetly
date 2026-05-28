@@ -252,9 +252,9 @@ export default function VetDashboardPage() {
                       <div className="w-12 text-sm font-bold text-slate-500 pt-1">{formatTime(apt.scheduled_at)}</div>
                       <div className={`w-3 h-3 rounded-full mt-2 relative z-10 ring-4 ring-white group-hover:ring-slate-50 ${isCompleted ? 'bg-green-500' : 'bg-indigo-500'}`} />
                       <div className={`flex-1 p-5 rounded-xl border ${isCompleted ? 'bg-green-50 border-green-100' : 'bg-indigo-50 border-indigo-100'}`}>
-                        <div className="flex justify-between items-start gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="mb-1 flex flex-wrap items-center gap-2">
                               <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                                 {apt.pet?.image_url ? (
                                   <img src={getImageUrl(apt.pet.image_url)} alt={apt.pet?.name || ''} className="w-full h-full object-cover" />
@@ -262,7 +262,7 @@ export default function VetDashboardPage() {
                                   <span className="text-lg">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
                                 )}
                               </div>
-                              <h4 className={`font-bold ${isCompleted ? 'text-green-900' : 'text-indigo-900'}`}>
+                              <h4 className={`break-words font-bold ${isCompleted ? 'text-green-900' : 'text-indigo-900'}`}>
                                 {apt.pet?.name || 'Κατοικίδιο'}
                               </h4>
                               {apt.pet?.breed && (
@@ -304,7 +304,7 @@ export default function VetDashboardPage() {
                               </span>
                             </div>
                             {apt.notes && (
-                              <p className={`text-xs mt-2 italic px-2 py-1 rounded-lg ${isCompleted ? 'bg-green-100/50 text-green-700' : 'bg-indigo-100/50 text-indigo-700'}`}>
+                              <p className={`mt-2 break-words rounded-lg px-2 py-1 text-xs italic ${isCompleted ? 'bg-green-100/50 text-green-700' : 'bg-indigo-100/50 text-indigo-700'}`}>
                                 {apt.notes}
                               </p>
                             )}
@@ -312,7 +312,7 @@ export default function VetDashboardPage() {
                           {isConfirmed && (
                             <button
                               onClick={() => setExamAppointment(apt)}
-                              className="shrink-0 px-4 py-2 text-sm font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
+                              className="flex w-full shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-indigo-700 sm:w-auto"
                             >
                               Εξέταση
                             </button>

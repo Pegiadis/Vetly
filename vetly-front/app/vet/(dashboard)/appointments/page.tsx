@@ -518,8 +518,8 @@ export default function VetAppointmentsPage() {
                     key={apt.id}
                     className={`p-4 rounded-xl border transition-all ${cfg.bg}`}
                   >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex min-w-0 items-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden mt-0.5">
                           {apt.pet?.image_url ? (
                             <img src={getImageUrl(apt.pet.image_url)} alt={apt.pet?.name || ''} className="w-full h-full object-cover" />
@@ -527,44 +527,44 @@ export default function VetAppointmentsPage() {
                             <span className="text-2xl">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
                           )}
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-bold text-slate-800">{apt.pet?.name || 'Ασθενής'}</h4>
+                        <div className="min-w-0">
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <h4 className="break-words font-bold text-slate-800">{apt.pet?.name || 'Ασθενής'}</h4>
                             <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${cfg.text} ${apt.status === 'pending' ? 'bg-amber-200' : apt.status === 'completed' ? 'bg-green-200' : apt.status === 'cancelled' ? 'bg-red-200' : 'bg-indigo-200'}`}>
                               {cfg.label}
                             </span>
                           </div>
-                          <p className="text-sm text-slate-600">{apt.type}</p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                          <p className="break-words text-sm text-slate-600">{apt.type}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                             <span>{formatDate(apt.scheduled_at)}</span>
                             <span>{formatTime(apt.scheduled_at)}</span>
                             <span>{apt.duration_minutes} λεπτά</span>
                           </div>
                           {apt.pet_owner && (
-                            <p className="text-xs text-slate-500 mt-1">
+                            <p className="mt-1 break-words text-xs text-slate-500">
                               Ιδιοκτήτης: {apt.pet_owner.name}
                               {apt.pet_owner.phone && ` · ${apt.pet_owner.phone}`}
                             </p>
                           )}
                           {apt.notes && (
-                            <p className="text-xs text-slate-500 mt-2 italic bg-white/50 rounded-lg px-2 py-1">
+                            <p className="mt-2 break-words rounded-lg bg-white/50 px-2 py-1 text-xs italic text-slate-500">
                               {apt.notes}
                             </p>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex w-full flex-wrap items-stretch gap-2 shrink-0 lg:w-auto lg:justify-end">
                         {apt.status === 'pending' && (
                           <>
                             <button
                               onClick={() => handleReject(apt.id)}
-                              className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                              className="flex flex-1 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-bold text-red-600 transition-colors hover:bg-red-100 sm:flex-none"
                             >
                               Απόρριψη
                             </button>
                             <button
                               onClick={() => handleApprove(apt.id)}
-                              className="px-3 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                              className="flex flex-1 items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-center text-xs font-bold text-white transition-colors hover:bg-green-700 sm:flex-none"
                             >
                               Έγκριση
                             </button>
@@ -574,19 +574,19 @@ export default function VetAppointmentsPage() {
                           <>
                             <button
                               onClick={() => setExamAppointment(apt)}
-                              className="px-3 py-2 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                              className="flex flex-1 items-center justify-center rounded-lg bg-indigo-600 px-3 py-2 text-center text-xs font-bold text-white transition-colors hover:bg-indigo-700 sm:flex-none"
                             >
                               Εξέταση
                             </button>
                             <button
                               onClick={() => setRescheduleDialog(apt)}
-                              className="px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+                              className="flex flex-1 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 sm:flex-none"
                             >
                               Αναπρογρ.
                             </button>
                             <button
                               onClick={() => setCancelDialog(apt)}
-                              className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                              className="flex flex-1 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-bold text-red-600 transition-colors hover:bg-red-100 sm:flex-none"
                             >
                               Ακύρωση
                             </button>
@@ -596,7 +596,7 @@ export default function VetAppointmentsPage() {
                           <button
                             onClick={() => handleDownloadPrescription(apt.id)}
                             disabled={downloadingId === apt.id}
-                            className="px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                            className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
                           >
                             {downloadingId === apt.id ? (
                               <>
@@ -635,9 +635,9 @@ export default function VetAppointmentsPage() {
                   className={`p-4 rounded-xl border transition-all ${cfg.bg}`}
                 >
                   {/* Group header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
+                  <div className="mb-3 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="mb-1 flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
                           {group.length} κατοικίδια
                         </span>
@@ -645,36 +645,36 @@ export default function VetAppointmentsPage() {
                           {cfg.label}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                         <span>{formatDate(first.scheduled_at)}</span>
                         <span>{formatTime(first.scheduled_at)}</span>
                         <span>{first.duration_minutes} λεπτά</span>
                       </div>
                       {ownerName && (
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="mt-1 break-words text-xs text-slate-500">
                           Ιδιοκτήτης: {ownerName}
                           {ownerPhone && ` · ${ownerPhone}`}
                         </p>
                       )}
                       {first.notes && (
-                        <p className="text-xs text-slate-500 mt-2 italic bg-white/50 rounded-lg px-2 py-1">
+                        <p className="mt-2 break-words rounded-lg bg-white/50 px-2 py-1 text-xs italic text-slate-500">
                           {first.notes}
                         </p>
                       )}
                     </div>
                     {/* Group-level actions */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex w-full flex-wrap items-stretch gap-2 shrink-0 lg:w-auto lg:justify-end">
                       {allPending && (
                         <>
                           <button
                             onClick={() => handleReject(first.id)}
-                            className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                            className="flex flex-1 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-bold text-red-600 transition-colors hover:bg-red-100 sm:flex-none"
                           >
                             Απόρριψη Όλων
                           </button>
                           <button
                             onClick={() => handleApprove(first.id)}
-                            className="px-3 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                            className="flex flex-1 items-center justify-center rounded-lg bg-green-600 px-3 py-2 text-center text-xs font-bold text-white transition-colors hover:bg-green-700 sm:flex-none"
                           >
                             Έγκριση Όλων
                           </button>
@@ -684,13 +684,13 @@ export default function VetAppointmentsPage() {
                         <>
                           <button
                             onClick={() => setRescheduleDialog(first)}
-                            className="px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+                            className="flex flex-1 items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-center text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 sm:flex-none"
                           >
                             Αναπρογρ.
                           </button>
                           <button
                             onClick={() => setCancelDialog(first)}
-                            className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
+                            className="flex flex-1 items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-bold text-red-600 transition-colors hover:bg-red-100 sm:flex-none"
                           >
                             Ακύρωση Όλων
                           </button>
@@ -704,8 +704,8 @@ export default function VetAppointmentsPage() {
                     {group.map((apt) => {
                       const petCfg = statusConfig[apt.status] || statusConfig.confirmed;
                       return (
-                        <div key={apt.id} className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
-                          <div className="flex items-center gap-2">
+                        <div key={apt.id} className="flex flex-col gap-3 rounded-lg bg-white/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex min-w-0 items-center gap-2">
                             <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                               {apt.pet?.image_url ? (
                                 <img src={getImageUrl(apt.pet.image_url)} alt={apt.pet?.name || ''} className="w-full h-full object-cover" />
@@ -713,16 +713,16 @@ export default function VetAppointmentsPage() {
                                 <span className="text-lg">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
                               )}
                             </div>
-                            <div>
-                              <span className="font-bold text-sm text-slate-800">{apt.pet?.name || 'Ασθενής'}</span>
-                              <span className="text-xs text-slate-500 ml-2">{apt.type}</span>
+                            <div className="min-w-0">
+                              <span className="block break-words font-bold text-sm text-slate-800">{apt.pet?.name || 'Ασθενής'}</span>
+                              <span className="block text-xs text-slate-500">{apt.type}</span>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                             {apt.status === 'confirmed' && (
                               <button
                                 onClick={() => setExamAppointment(apt)}
-                                className="px-2 py-1 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+                                className="flex flex-1 items-center justify-center rounded-lg bg-indigo-600 px-2 py-1 text-xs font-bold text-white transition-colors hover:bg-indigo-700 sm:flex-none"
                               >
                                 Εξέταση
                               </button>
@@ -731,7 +731,7 @@ export default function VetAppointmentsPage() {
                               <button
                                 onClick={() => handleDownloadPrescription(apt.id)}
                                 disabled={downloadingId === apt.id}
-                                className="px-2 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 flex items-center gap-1"
+                                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2 py-1 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100 disabled:opacity-50 sm:flex-none"
                               >
                                 {downloadingId === apt.id ? (
                                   <>

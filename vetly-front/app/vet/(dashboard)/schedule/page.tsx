@@ -80,8 +80,8 @@ function AppointmentCard({
         onClick={() => setShowPopover(!showPopover)}
         className={`border rounded-lg p-2 text-xs mb-1 cursor-pointer transition-shadow hover:shadow-md ${statusColors[apt.status] || 'bg-slate-100 border-slate-200 text-slate-700'}`}
       >
-        <div className="font-bold">{apt.pet?.name || 'Ασθενής'}</div>
-        <div className="opacity-75">{apt.type}</div>
+        <div className="truncate font-bold">{apt.pet?.name || 'Ασθενής'}</div>
+        <div className="truncate opacity-75">{apt.type}</div>
         {apt.pet_owner && (
           <div className="opacity-60 truncate">{apt.pet_owner.name}</div>
         )}
@@ -90,7 +90,7 @@ function AppointmentCard({
       {showPopover && (
         <div
           ref={popoverRef}
-          className="absolute z-50 w-72 bg-white rounded-xl shadow-xl border border-slate-200 p-4 left-1/2 -translate-x-1/2 mt-1"
+          className="absolute z-50 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-xl border border-slate-200 p-4 left-1/2 -translate-x-1/2 mt-1"
           style={{ top: '100%' }}
         >
           {/* Arrow */}
@@ -274,31 +274,31 @@ export default function VetSchedulePage() {
           <Link href="/vet/dashboard" className="text-slate-500 text-sm font-bold mb-2 hover:text-indigo-600 block">
             &larr; Dashboard
           </Link>
-          <h1 className="text-3xl font-bold text-slate-900">Πρόγραμμα Εβδομάδας</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Πρόγραμμα Εβδομάδας</h1>
           <p className="text-slate-500 text-sm mt-1">{weekLabel}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
           <button
             onClick={goToPrevWeek}
-            className="px-4 py-2 bg-slate-100 rounded-xl text-slate-600 font-medium hover:bg-slate-200"
+            className="flex-1 px-4 py-2 bg-slate-100 rounded-xl text-slate-600 font-medium hover:bg-slate-200 sm:flex-none"
           >
             &larr; Προηγ.
           </button>
           <button
             onClick={goToToday}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700"
+            className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 sm:flex-none"
           >
             Σήμερα
           </button>
           <button
             onClick={goToNextWeek}
-            className="px-4 py-2 bg-slate-100 rounded-xl text-slate-600 font-medium hover:bg-slate-200"
+            className="flex-1 px-4 py-2 bg-slate-100 rounded-xl text-slate-600 font-medium hover:bg-slate-200 sm:flex-none"
           >
             Επόμ. &rarr;
           </button>
           <button
             onClick={() => setShowCreateAppt(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm"
+            className="flex flex-1 items-center justify-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors shadow-sm sm:flex-none"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -321,47 +321,49 @@ export default function VetSchedulePage() {
       )}
 
       {!loading && !error && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-visible">
-          {/* Days Header */}
-          <div className="grid grid-cols-8 border-b border-slate-100">
-            <div className="p-4 bg-slate-50 rounded-tl-2xl" />
-            {weekDates.map((date, i) => {
-              const isToday = date.getTime() === today.getTime();
-              return (
-                <div key={i} className={`p-4 text-center border-l border-slate-100 ${isToday ? 'bg-indigo-50' : ''} ${i === 6 ? 'rounded-tr-2xl' : ''}`}>
-                  <span className={`text-sm font-bold ${isToday ? 'text-indigo-600' : 'text-slate-600'}`}>
-                    {weekDayLabels[i]}
-                  </span>
-                  <div className={`text-lg font-bold mt-1 ${isToday ? 'text-indigo-900' : 'text-slate-800'}`}>
-                    {formatShortDate(date)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Time Slots */}
-          {timeSlots.map(time => (
-            <div key={time} className="grid grid-cols-8 border-b border-slate-50 last:border-0">
-              <div className="p-4 bg-slate-50 text-sm font-bold text-slate-500">{time}</div>
-              {weekDates.map((_, dayIndex) => {
-                const key = `${dayIndex}-${time}`;
-                const apts = grid[key] || [];
+        <div className="-mx-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:px-0">
+          <div className="min-w-[920px] lg:min-w-0 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-visible">
+            {/* Days Header */}
+            <div className="grid grid-cols-[88px_repeat(7,minmax(112px,1fr))] border-b border-slate-100">
+              <div className="p-3 sm:p-4 bg-slate-50 rounded-tl-2xl" />
+              {weekDates.map((date, i) => {
+                const isToday = date.getTime() === today.getTime();
                 return (
-                  <div key={dayIndex} className="p-2 border-l border-slate-50 min-h-[80px] relative overflow-visible">
-                    {apts.map(apt => (
-                      <AppointmentCard
-                        key={apt.id}
-                        apt={apt}
-                        onApprove={handleApprove}
-                        onReject={handleReject}
-                      />
-                    ))}
+                  <div key={i} className={`p-3 sm:p-4 text-center border-l border-slate-100 ${isToday ? 'bg-indigo-50' : ''} ${i === 6 ? 'rounded-tr-2xl' : ''}`}>
+                    <span className={`text-sm font-bold ${isToday ? 'text-indigo-600' : 'text-slate-600'}`}>
+                      {weekDayLabels[i]}
+                    </span>
+                    <div className={`text-base sm:text-lg font-bold mt-1 ${isToday ? 'text-indigo-900' : 'text-slate-800'}`}>
+                      {formatShortDate(date)}
+                    </div>
                   </div>
                 );
               })}
             </div>
-          ))}
+
+            {/* Time Slots */}
+            {timeSlots.map(time => (
+              <div key={time} className="grid grid-cols-[88px_repeat(7,minmax(112px,1fr))] border-b border-slate-50 last:border-0">
+                <div className="p-3 sm:p-4 bg-slate-50 text-sm font-bold text-slate-500">{time}</div>
+                {weekDates.map((_, dayIndex) => {
+                  const key = `${dayIndex}-${time}`;
+                  const apts = grid[key] || [];
+                  return (
+                    <div key={dayIndex} className="p-2 border-l border-slate-50 min-h-[80px] relative overflow-visible">
+                      {apts.map(apt => (
+                        <AppointmentCard
+                          key={apt.id}
+                          apt={apt}
+                          onApprove={handleApprove}
+                          onReject={handleReject}
+                        />
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
