@@ -167,18 +167,18 @@ export default function VetPendingPage() {
                   }`}
                 >
                   <div className={`absolute top-0 left-0 w-1 h-full ${isSelected ? 'bg-indigo-500' : 'bg-amber-400'}`} />
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
+                  <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                    <div className="flex min-w-0 items-start gap-4">
                       <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-lg flex-shrink-0">
                         {petName.charAt(0)}
                       </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-lg">
+                      <div className="min-w-0">
+                        <h4 className="break-words font-bold text-lg text-slate-800">
                           {petName}{' '}
                           <span className="text-slate-400 font-normal text-sm">({ownerName})</span>
                         </h4>
-                        <p className="text-slate-600">{apt.type}</p>
-                        <div className="flex items-center gap-4 mt-2">
+                        <p className="break-words text-slate-600">{apt.type}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
                           <span className="flex items-center gap-1 text-sm text-amber-600 bg-amber-50 px-2 py-1 rounded">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -192,21 +192,21 @@ export default function VetPendingPage() {
                             {formatTime(apt.scheduled_at)}
                           </span>
                         </div>
-                        {apt.notes && <p className="text-sm text-slate-500 mt-2 italic">&ldquo;{apt.notes}&rdquo;</p>}
+                        {apt.notes && <p className="mt-2 break-words text-sm italic text-slate-500">&ldquo;{apt.notes}&rdquo;</p>}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex w-full flex-wrap gap-2 lg:w-auto lg:justify-end">
                       <button
                         onClick={(e) => handleReject(apt.id, e)}
                         disabled={isProcessing}
-                        className="px-4 py-2 text-red-600 border border-red-200 rounded-xl font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
+                        className="flex flex-1 items-center justify-center rounded-xl border border-red-200 px-4 py-2 font-bold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 sm:flex-none"
                       >
                         Απόρριψη
                       </button>
                       <button
                         onClick={(e) => handleApprove(apt.id, e)}
                         disabled={isProcessing}
-                        className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-2 font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 sm:flex-none"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -231,15 +231,15 @@ export default function VetPendingPage() {
               >
                 <div className="absolute top-0 left-0 w-1 h-full bg-amber-400" />
                 {/* Group header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
+                <div className="mb-4 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+                  <div className="min-w-0">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
                       <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
                         {group.length} κατοικίδια
                       </span>
                       <span className="text-slate-400 text-sm">({ownerName})</span>
                     </div>
-                    <div className="flex items-center gap-4 mt-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
                       <span className="flex items-center gap-1 text-sm text-amber-600 bg-amber-50 px-2 py-1 rounded">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -253,9 +253,9 @@ export default function VetPendingPage() {
                         {formatTime(first.scheduled_at)}
                       </span>
                     </div>
-                    {first.notes && <p className="text-sm text-slate-500 mt-2 italic">&ldquo;{first.notes}&rdquo;</p>}
+                    {first.notes && <p className="mt-2 break-words text-sm italic text-slate-500">&ldquo;{first.notes}&rdquo;</p>}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex w-full flex-wrap gap-2 lg:w-auto lg:justify-end">
                     <button
                       onClick={async (e) => {
                         e.stopPropagation();
@@ -272,7 +272,7 @@ export default function VetPendingPage() {
                         }
                       }}
                       disabled={isProcessing}
-                      className="px-4 py-2 text-red-600 border border-red-200 rounded-xl font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
+                      className="flex flex-1 items-center justify-center rounded-xl border border-red-200 px-4 py-2 font-bold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 sm:flex-none"
                     >
                       Απόρριψη Όλων
                     </button>
@@ -292,7 +292,7 @@ export default function VetPendingPage() {
                         }
                       }}
                       disabled={isProcessing}
-                      className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-2 font-bold text-white transition-colors hover:bg-indigo-700 disabled:opacity-50 sm:flex-none"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -308,7 +308,7 @@ export default function VetPendingPage() {
                     <div
                       key={apt.id}
                       onClick={() => setSelectedPetId(apt.pet_id)}
-                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${
+                      className={`flex min-w-0 items-center gap-3 rounded-xl p-3 cursor-pointer transition-colors ${
                         selectedPetId === apt.pet_id
                           ? 'bg-indigo-50 border border-indigo-200'
                           : 'bg-slate-50 border border-slate-100 hover:bg-slate-100'
@@ -317,9 +317,9 @@ export default function VetPendingPage() {
                       <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold flex-shrink-0">
                         {(apt.pet?.name || '?').charAt(0)}
                       </div>
-                      <div>
-                        <span className="font-bold text-slate-800">{apt.pet?.name || 'Κατοικίδιο'}</span>
-                        <span className="text-sm text-slate-500 ml-2">{apt.type}</span>
+                      <div className="min-w-0">
+                        <span className="block break-words font-bold text-slate-800">{apt.pet?.name || 'Κατοικίδιο'}</span>
+                        <span className="block text-sm text-slate-500">{apt.type}</span>
                       </div>
                     </div>
                   ))}

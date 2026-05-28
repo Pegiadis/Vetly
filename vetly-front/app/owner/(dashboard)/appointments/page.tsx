@@ -331,8 +331,8 @@ function AppointmentCard({
 
   return (
     <div onClick={() => router.push(`/owner/appointments/${apt.id}`)} className="block bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:border-teal-200 transition-all cursor-pointer">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-start gap-4">
+      <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+        <div className="flex min-w-0 items-start gap-4">
           <div className="w-14 h-14 rounded-xl overflow-hidden border-2 border-slate-100 flex-shrink-0 bg-teal-50 flex items-center justify-center">
             {petImage ? (
               <img src={petImage} alt={petName} className="w-full h-full object-cover" />
@@ -340,14 +340,14 @@ function AppointmentCard({
               <span className="text-teal-600 font-bold text-lg">{petName.charAt(0)}</span>
             )}
           </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-bold text-slate-900">{petName}</h3>
+          <div className="min-w-0">
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <h3 className="break-words font-bold text-slate-900">{petName}</h3>
               <StatusBadge status={apt.status} />
             </div>
-            <p className="text-sm text-slate-600 font-medium">{appointmentTypeLabels[apt.type] || apt.type}</p>
-            <p className="text-sm text-slate-500">{vetName}{vetSpecialty ? ` • ${vetSpecialty}` : ''}</p>
-            <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+            <p className="break-words text-sm font-medium text-slate-600">{appointmentTypeLabels[apt.type] || apt.type}</p>
+            <p className="break-words text-sm text-slate-500">{vetName}{vetSpecialty ? ` • ${vetSpecialty}` : ''}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
               <span className="flex items-center gap-1">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -364,12 +364,12 @@ function AppointmentCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex w-full flex-wrap items-stretch gap-2 lg:w-auto lg:justify-end">
           {showActions && (
             <>
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); onReschedule(apt); }}
-                className="px-4 py-2 bg-teal-50 text-teal-700 rounded-xl font-bold text-sm hover:bg-teal-100 transition-colors flex items-center gap-1.5"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-teal-50 px-4 py-2 text-sm font-bold text-teal-700 transition-colors hover:bg-teal-100 sm:flex-none"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -378,7 +378,7 @@ function AppointmentCard({
               </button>
               <button
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); onCancel(apt); }}
-                className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold text-sm hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-red-50 px-4 py-2 text-sm font-bold text-red-600 transition-colors hover:bg-red-100 sm:flex-none"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -391,7 +391,7 @@ function AppointmentCard({
             <Link
               href="/owner/reviews"
               onClick={(e) => e.stopPropagation()}
-              className="px-4 py-2 bg-amber-50 text-amber-700 rounded-xl font-bold text-sm hover:bg-amber-100 transition-colors flex items-center gap-1"
+              className="flex flex-1 items-center justify-center gap-1 rounded-xl bg-amber-50 px-4 py-2 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100 sm:flex-none"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
@@ -403,7 +403,7 @@ function AppointmentCard({
       </div>
 
       {address && (
-        <div className="mt-4 pt-4 border-t border-slate-100 text-sm text-slate-500">
+        <div className="mt-4 break-words border-t border-slate-100 pt-4 text-sm text-slate-500">
           <a
             href={
               apt.vet?.coordinates_lat && apt.vet?.coordinates_lng
@@ -413,7 +413,7 @@ function AppointmentCard({
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
-            className="flex items-center gap-2 hover:text-teal-600 transition-colors cursor-pointer"
+            className="flex items-start gap-2 break-words transition-colors cursor-pointer hover:text-teal-600"
           >
             <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
