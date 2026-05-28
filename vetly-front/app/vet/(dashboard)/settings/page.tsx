@@ -488,7 +488,7 @@ export default function VetSettingsPage() {
         </div>
 
         {/* Working Hours */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6">
           <h2 className="text-lg font-bold text-slate-800 mb-4">Ωράριο Λειτουργίας</h2>
           <div className="space-y-4">
             {dayOrder.map(day => {
@@ -496,8 +496,8 @@ export default function VetSettingsPage() {
               const hasAfternoon = !!schedule.afternoon;
               return (
                 <div key={day} className="border border-slate-100 rounded-xl p-3">
-                  <div className="flex items-center gap-4 mb-2">
-                    <span className="w-24 text-sm font-medium text-slate-700">{dayNames[day]}</span>
+                  <div className="mb-3 flex flex-wrap items-center gap-3 sm:gap-4">
+                    <span className="min-w-0 flex-1 text-sm font-bold text-slate-700 sm:w-24 sm:flex-none sm:font-medium">{dayNames[day]}</span>
                     <label className="flex items-center gap-2">
                       <input
                         type="checkbox"
@@ -512,63 +512,68 @@ export default function VetSettingsPage() {
                     {schedule.closed && <span className="text-sm text-slate-400 italic">Κλειστά</span>}
                   </div>
                   {!schedule.closed && (
-                    <div className="ml-28 space-y-2">
+                    <div className="space-y-3 sm:ml-28 sm:space-y-2">
                       {/* Morning shift */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-slate-500 w-20">Πρωί</span>
-                        <select
-                          value={schedule.morning?.open || ''}
-                          onChange={e => setHours({ ...hours, [day]: { ...schedule, morning: { open: e.target.value, close: schedule.morning?.close || '' } } })}
-                          className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                          <option value="">--:--</option>
-                          {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                        <span className="text-slate-400">-</span>
-                        <select
-                          value={schedule.morning?.close || ''}
-                          onChange={e => setHours({ ...hours, [day]: { ...schedule, morning: { open: schedule.morning?.open || '', close: e.target.value } } })}
-                          className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                          <option value="">--:--</option>
-                          {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-                        </select>
-                      </div>
-                      {/* Afternoon shift */}
-                      {hasAfternoon ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium text-slate-500 w-20">Απόγευμα</span>
+                      <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                        <span className="text-xs font-medium text-slate-500 sm:w-20">Πρωί</span>
+                        <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:w-auto">
                           <select
-                            value={schedule.afternoon?.open || ''}
-                            onChange={e => setHours({ ...hours, [day]: { ...schedule, afternoon: { open: e.target.value, close: schedule.afternoon?.close || '' } } })}
-                            className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={schedule.morning?.open || ''}
+                            onChange={e => setHours({ ...hours, [day]: { ...schedule, morning: { open: e.target.value, close: schedule.morning?.close || '' } } })}
+                            className="min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-24 sm:py-1.5"
                           >
                             <option value="">--:--</option>
                             {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
                           <span className="text-slate-400">-</span>
                           <select
-                            value={schedule.afternoon?.close || ''}
-                            onChange={e => setHours({ ...hours, [day]: { ...schedule, afternoon: { open: schedule.afternoon?.open || '', close: e.target.value } } })}
-                            className="px-2 py-1.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={schedule.morning?.close || ''}
+                            onChange={e => setHours({ ...hours, [day]: { ...schedule, morning: { open: schedule.morning?.open || '', close: e.target.value } } })}
+                            className="min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-24 sm:py-1.5"
                           >
                             <option value="">--:--</option>
                             {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
+                        </div>
+                      </div>
+                      {/* Afternoon shift */}
+                      {hasAfternoon ? (
+                        <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-2">
+                          <span className="text-xs font-medium text-slate-500 sm:w-20">Απόγευμα</span>
+                          <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto] items-center gap-2 sm:w-auto">
+                            <select
+                              value={schedule.afternoon?.open || ''}
+                              onChange={e => setHours({ ...hours, [day]: { ...schedule, afternoon: { open: e.target.value, close: schedule.afternoon?.close || '' } } })}
+                              className="min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-24 sm:py-1.5"
+                            >
+                              <option value="">--:--</option>
+                              {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <span className="text-slate-400">-</span>
+                            <select
+                              value={schedule.afternoon?.close || ''}
+                              onChange={e => setHours({ ...hours, [day]: { ...schedule, afternoon: { open: schedule.afternoon?.open || '', close: e.target.value } } })}
+                              className="min-w-0 w-full rounded-lg border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:w-24 sm:py-1.5"
+                            >
+                              <option value="">--:--</option>
+                              {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                            </select>
                           <button
                             type="button"
                             onClick={() => setHours({ ...hours, [day]: { ...schedule, afternoon: null } })}
-                            className="text-red-400 hover:text-red-600 text-xs ml-1"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg text-red-400 transition-colors hover:bg-red-50 hover:text-red-600 sm:h-auto sm:w-auto sm:ml-1"
                             title="Αφαίρεση απογευματινού"
+                            aria-label="Αφαίρεση απογευματινού"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
+                          </div>
                         </div>
                       ) : (
                         <button
                           type="button"
                           onClick={() => setHours({ ...hours, [day]: { ...schedule, afternoon: { open: '17:00', close: '21:00' } } })}
-                          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1"
+                          className="flex w-full items-center justify-center gap-1 rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-600 transition-colors hover:text-indigo-800 sm:w-fit sm:justify-start sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:font-medium"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                           Προσθήκη απογευματινού ωραρίου
