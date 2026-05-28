@@ -42,8 +42,8 @@ export default function ChatInput({ onSend, disabled, accentColor = 'teal' }: Ch
   const btnColor = btnColorMap[accentColor] || btnColorMap.teal;
 
   return (
-    <div className="border-t border-slate-200 bg-white p-4">
-      <div className="flex items-end gap-3">
+    <div className="border-t border-slate-200 bg-white p-3 sm:p-4">
+      <div className="flex items-end gap-2 sm:gap-3">
         <textarea
           ref={textareaRef}
           value={message}
@@ -52,12 +52,13 @@ export default function ChatInput({ onSend, disabled, accentColor = 'teal' }: Ch
           placeholder="Γράψτε ένα μήνυμα..."
           disabled={disabled}
           rows={1}
-          className="flex-1 resize-none rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-slate-300 disabled:opacity-50 disabled:bg-slate-50"
+          className="min-w-0 flex-1 resize-none rounded-xl border border-slate-200 px-3 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-slate-300 disabled:opacity-50 disabled:bg-slate-50 sm:px-4"
         />
         <button
           onClick={handleSend}
           disabled={disabled || !message.trim()}
           className={`${btnColor} disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl p-3 transition-colors flex-shrink-0`}
+          aria-label="Αποστολή μηνύματος"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
