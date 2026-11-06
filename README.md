@@ -197,13 +197,13 @@ cd vetly-back
 # Create virtual environment and install dependencies
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-uv pip install -r pyproject.toml
+uv pip install -r requirements-dev.txt
 ```
 
 Or install manually:
 
 ```bash
-uv pip install fastapi uvicorn sqlalchemy alembic psycopg2-binary pydantic pydantic-settings python-jose passlib redis celery
+python -m pip install -r requirements-dev.txt
 ```
 
 ### 3. Set Up Environment Variables
@@ -590,7 +590,7 @@ pg_isready -h localhost -p 5432
 python --version  # Should be 3.11+
 
 # Reinstall dependencies
-uv pip install -r pyproject.toml --force-reinstall
+uv pip install -r requirements-dev.txt --reinstall
 ```
 
 #### Frontend build errors

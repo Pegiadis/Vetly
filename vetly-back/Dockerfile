@@ -1,5 +1,5 @@
 # Multi-stage build for FastAPI backend
-FROM python:3.12-slim as builder
+FROM python:3.12-slim AS builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -13,9 +13,9 @@ WORKDIR /app
 # Copy dependency files
 COPY requirements.txt requirements-pilot.lock ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Install only runtime dependencies; development tools live in requirements-dev.txt.
+RUN python -m pip install --no-cache-dir --upgrade pip==26.3 && \
+    python -m pip install --no-cache-dir -r requirements.txt
 
 # Production stage
 FROM python:3.12-slim
@@ -26,6 +26,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+
+# Remove the base image's pip before copying the patched builder installation.
+# COPY overlays files and otherwise leaves the old pip dist-info behind.
+RUN python -m pip uninstall --yes pip
 
 # Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages

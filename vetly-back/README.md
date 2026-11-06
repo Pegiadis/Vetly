@@ -110,9 +110,63 @@ python -m venv venv
 # Activate (Linux/Mac)
 source venv/bin/activate
 
-# Install dependencies
-pip install -r requirements.txt
+# Install runtime dependencies plus testing/development tools
+pip install -r requirements-dev.txt
 ```
+
+Production installs only `requirements.txt`. Both files use the shared exact
+versions in `requirements-pilot.lock`; do not bypass those constraints when
+updating dependencies. See [dependency security validation](#dependency-security).
+
+### Dependency security
+
+Security update on 6 November 2026:
+
+- `dnspython` 2.8.0 → 2.9.0 fixes CVE-2026-114605
+  ([upstream advisory](https://github.com/rthalley/dnspython/security/advisories/GHSA-45c3-73f7-pv4m)).
+- `pyasn1` 0.6.4 → 0.6.5 fixes CVE-2026-119194, CVE-2026-119195,
+  CVE-2026-119196 and CVE-2026-119197
+  ([upstream advisories](https://github.com/pyasn1/pyasn1/security/advisories)).
+- `pylint` 3.0.3 → 4.0.9 fixes CVE-2026-114608
+  ([upstream advisory](https://github.com/pylint-dev/pylint/security/advisories/GHSA-22qq-2fwx-7p67)).
+  Its compatible parser is pinned to `astroid` 4.0.4.
+- Test and lint dependencies are in `requirements-dev.txt`, separate from the
+  production dependency installation. The Docker build pins `pip` to 26.3 and
+  removes the runtime base image's old pip before copying the builder packages,
+  preventing stale duplicate package metadata.
+
+To repeat the local checks with an activated Python 3.12 environment:
+
+```bash
+uv pip install -r requirements-dev.txt
+uv pip check
+python -m pytest tests -q
+uvx pip-audit --path .venv-local/Lib/site-packages
+```
+
+The final command uses this workspace's Windows environment path. On Linux,
+pass the environment's `lib/python3.12/site-packages` directory instead.
+Audit the production image separately: export its complete installed package
+list using `python -m pip list --format freeze`, then audit that snapshot with
+`uvx pip-audit -r <snapshot> --no-deps --disable-pip`. These flags are appropriate
+only for the complete, exact-version snapshot; do not use them to skip resolution
+of the application requirements file.
+
+Validation on 6 November 2026:
+
+- Installed development environment: 82 packages audited, zero known findings;
+  dependency compatibility check passed.
+- Full backend suite: 112 tests passed. Existing deprecation warnings remain.
+- Production Docker image: build succeeded; 57 installed Python packages audited,
+  zero known findings; dependency compatibility check passed.
+- Production-mode application startup and `/health` passed in an isolated
+  container with dummy settings and no network. Development tools and duplicate
+  package metadata were confirmed absent.
+
+This validates the Python dependency fixes, not a complete security assessment.
+It does not audit operating-system packages, prove production database readiness,
+or replace deployment configuration and end-to-end release acceptance. The live
+server has not been updated by these checks.
 
 ### 4. Run Migrations
 
@@ -313,7 +367,7 @@ python scripts/seed_data.py
 # You should see (venv) in your terminal
 
 # Reinstall dependencies
-pip install -r requirements.txt --upgrade
+pip install -r requirements-dev.txt
 ```
 
 ## API Documentation

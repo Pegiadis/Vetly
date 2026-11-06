@@ -1,4 +1,4 @@
-# Reproduce the dependency set tested for the closed pilot.
+# Runtime dependencies. For local development and tests use requirements-dev.txt.
 -c requirements-pilot.lock
 # Vetly Backend - Python Dependencies
 # FastAPI Backend for Veterinary Platform
@@ -52,26 +52,6 @@ python-dateutil==2.8.2
 # PDF Generation
 # ============================================================================
 reportlab==4.4.10
-
-# ============================================================================
-# Testing
-# ============================================================================
-pytest==9.1.1
-pytest-asyncio==1.4.0
-pytest-cov==4.1.0
-pytest-mock==3.12.0
-faker==23.2.1
-
-# ============================================================================
-# Code Quality
-# ============================================================================
-black==26.10.1
-isort==5.13.2
-flake8==7.0.0
-mypy==1.8.0
-pylint==3.0.3
-autopep8==2.0.4
-
 
 # IANA time zones on Windows
 tzdata==2025.2
