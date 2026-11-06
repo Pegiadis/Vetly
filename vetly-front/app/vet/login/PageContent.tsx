@@ -54,12 +54,10 @@ export default function VetLoginPageContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-indigo-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-ink-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background decorations */}
-      <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-indigo-600/10 rounded-full filter blur-[80px]" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-teal-600/5 rounded-full filter blur-[80px]" />
 
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-3xl shadow-xl relative z-10 border border-slate-100">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-sm relative z-10 border border-ink-200">
         {/* Header */}
         <div className="text-center">
           <img
@@ -67,7 +65,7 @@ export default function VetLoginPageContent() {
             alt="Vetly Pro"
             className="mx-auto h-16 w-auto object-contain mb-2"
           />
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-ink-600">
             Πύλη εισόδου για επαγγελματίες κτηνιάτρους.
           </p>
         </div>
@@ -99,7 +97,7 @@ export default function VetLoginPageContent() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-indigo-500 focus:border-indigo-500"
+                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-ink-300 placeholder-ink-500 text-ink-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-clinic-500 focus:border-clinic-500"
                 placeholder="Επαγγελματικό Email"
               />
             </div>
@@ -113,7 +111,7 @@ export default function VetLoginPageContent() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-indigo-500 focus:border-indigo-500"
+                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-ink-300 placeholder-ink-500 text-ink-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-clinic-500 focus:border-clinic-500"
                 placeholder="Κωδικός Πρόσβασης"
               />
             </div>
@@ -122,7 +120,7 @@ export default function VetLoginPageContent() {
           <div className="flex items-center justify-end">
             <Link
               href="/forgot-password?userType=vet"
-              className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+              className="text-sm font-medium text-clinic-600 hover:text-clinic-500"
             >
               Ξεχάσατε τον κωδικό;
             </Link>
@@ -132,7 +130,7 @@ export default function VetLoginPageContent() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-70 bg-indigo-900 hover:bg-indigo-800"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-70 bg-clinic-900 hover:bg-clinic-800"
             >
               {loading ? (
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -148,14 +146,14 @@ export default function VetLoginPageContent() {
 
         {/* Registration Link */}
         <div className="text-center mt-4">
-          <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100">
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Εγγραφή Ιατρείου</h3>
-            <p className="text-sm text-slate-600 mb-4">
+          <div className="bg-clinic-50 p-6 rounded-xl border border-clinic-100">
+            <h3 className="text-lg font-semibold text-ink-800 mb-2">Εγγραφή Ιατρείου</h3>
+            <p className="text-sm text-ink-600 mb-4">
               Δημιουργήστε επαγγελματικό λογαριασμό και αποκτήστε πρόσβαση στο δίκτυο του Vetly.
             </p>
             <Link
               href="/vet/register"
-              className="w-full inline-flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 transition-all"
+              className="w-full inline-flex items-center justify-center gap-2 py-3 bg-clinic-600 hover:bg-clinic-700 text-white rounded-xl font-semibold shadow-lg shadow-clinic-200 transition-all"
             >
               Ξεκινήστε Εδώ
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -165,10 +163,10 @@ export default function VetLoginPageContent() {
           </div>
 
           {/* User Login Link */}
-          <div className="border-t border-slate-100 pt-4 mt-6">
+          <div className="border-t border-ink-200 pt-4 mt-6">
             <Link
               href="/owner/login"
-              className="text-xs font-medium text-slate-400 hover:text-teal-600 flex items-center justify-center gap-1 mx-auto transition-colors"
+              className="text-xs font-medium text-ink-400 hover:text-teal-600 flex items-center justify-center gap-1 mx-auto transition-colors"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

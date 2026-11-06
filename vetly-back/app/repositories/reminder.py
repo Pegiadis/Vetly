@@ -88,13 +88,16 @@ class ReminderRepository:
         )
         return items, total
 
-    def get_due_reminders(self, check_date: date) -> list[Reminder]:
+    def get_due_reminders(self, check_date: date, vet_id: UUID | None = None) -> list[Reminder]:
         """Get all reminders due on or before the given date that haven't been sent or dismissed"""
         query = select(Reminder).where(
             Reminder.reminder_date <= check_date,
             Reminder.is_sent == False,
             Reminder.is_dismissed == False,
         )
+        if vet_id is not None:
+            query = query.where(Reminder.vet_id == vet_id)
+        query = query.with_for_update(skip_locked=True)
         return list(self.db.scalars(query).all())
 
     def mark_sent(self, reminder: Reminder) -> None:

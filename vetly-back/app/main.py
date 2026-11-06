@@ -3,7 +3,11 @@ Vetly Backend API - Main Application Entry Point
 FastAPI application configuration and startup
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
+from app.core.deps import get_db
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
@@ -75,3 +79,13 @@ async def health_check():
         "version": settings.VERSION,
         "environment": settings.ENVIRONMENT
     }
+
+
+@app.get("/ready")
+def readiness_check(db: Session = Depends(get_db)):
+    """Readiness includes the database, unlike the liveness endpoint."""
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        raise HTTPException(503, "Database unavailable") from None
+    return {"status": "ready"}

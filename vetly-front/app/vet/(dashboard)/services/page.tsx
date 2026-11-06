@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
+
+import { ClinicButton, ClinicPanel, ClinicTextarea, ClinicPageHeader, ClinicListRow, ClinicPagination, ClinicLoading, ClinicEmptyState } from '@/components/vet/ClinicUI';
+import { useState, useRef, useEffect } from 'react';
 import {
   useServiceTypes,
   createServiceType,
@@ -11,24 +12,26 @@ import {
 } from '@/hooks/useVetData';
 
 function formatPrice(price: number | string): string {
-  return `${Number(price).toFixed(2)} €`;
+  return new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(Number(price));
 }
 
-// --- Service Dialog (Create / Edit) ---
-function ServiceDialog({
+// --- Service side panel (Create / Edit) ---
+function ServicePanel({
   service,
   onClose,
   onSaved,
+  onBusyChange,
 }: {
   service?: ServiceType | null;
   onClose: () => void;
   onSaved: () => void;
+  onBusyChange: (busy: boolean) => void;
 }) {
   const [form, setForm] = useState({
     name: service?.name || '',
     description: service?.description || '',
     price: service?.price?.toString() || '',
-    duration_minutes: service?.duration_minutes?.toString() || '',
+    duration_minutes: service?.duration_minutes?.toString() || '30',
     is_active: service?.is_active ?? true,
   });
   const [submitting, setSubmitting] = useState(false);
@@ -39,30 +42,31 @@ function ServiceDialog({
 
   const fieldErrors: Record<string, string> = {};
   if (form.name.length > 0 && form.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
-  if (form.price && (isNaN(parseFloat(form.price)) || parseFloat(form.price) < 0)) fieldErrors.price = 'Εισάγετε έγκυρη τιμή.';
-  if (form.duration_minutes && parseInt(form.duration_minutes) < 5) fieldErrors.duration_minutes = 'Τουλάχιστον 5 λεπτά.';
+  if (form.price && (isNaN(parseFloat(form.price)) || parseFloat(form.price) <= 0)) fieldErrors.price = 'Η τιμή πρέπει να είναι μεγαλύτερη από 0.';
+  if (form.duration_minutes && (!Number.isInteger(Number(form.duration_minutes)) || Number(form.duration_minutes) < 5 || Number(form.duration_minutes) > 480)) fieldErrors.duration_minutes = 'Από 5 έως 480 λεπτά, σε ακέραιο αριθμό.';
 
-  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-ink-200';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.price) return;
+    if (submitting || !form.name.trim() || !form.price || Object.keys(fieldErrors).length) return;
 
     const price = parseFloat(form.price);
-    if (isNaN(price) || price < 0) {
+    if (isNaN(price) || price <= 0) {
       setError('Εισάγετε έγκυρη τιμή');
       return;
     }
 
     setSubmitting(true);
+    onBusyChange(true);
     setError('');
 
     try {
       const payload = {
         name: form.name.trim(),
-        description: form.description.trim() || undefined,
+        description: form.description.trim(),
         price,
-        duration_minutes: form.duration_minutes ? parseInt(form.duration_minutes) : undefined,
+        duration_minutes: form.duration_minutes ? Number(form.duration_minutes) : 30,
         is_active: form.is_active,
       };
 
@@ -76,103 +80,113 @@ function ServiceDialog({
       setError(err instanceof Error ? err.message : 'Αποτυχία αποθήκευσης');
     } finally {
       setSubmitting(false);
+      onBusyChange(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-t-2xl">
+    <div aria-label="Φόρμα υπηρεσίας">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs w-full overflow-hidden">
+        <div className="border-b border-ink-200 p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">
+            <h2 className="text-base font-semibold text-ink-900">
               {service ? 'Επεξεργασία Υπηρεσίας' : 'Νέα Υπηρεσία'}
             </h2>
-            <button
+            <ClinicButton variant="secondary"
               onClick={onClose}
-              className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors"
+              aria-label="Κλείσιμο φόρμας υπηρεσίας"
+              disabled={submitting}
+              className=""
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </ClinicButton>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit}><fieldset disabled={submitting} className="min-w-0 p-5 space-y-4"><p className="text-xs leading-5 text-ink-500">{service ? 'Ενημέρωσε τα στοιχεία της υπηρεσίας στον τιμοκατάλογό σου.' : 'Πρόσθεσε την υπηρεσία, την τιμή και τη διάρκειά της.'}</p>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Όνομα *</label>
+            <label htmlFor="service-name" className="block text-xs font-medium text-ink-700 mb-1.5">Όνομα *</label>
             <input
+              id="service-name"
               type="text"
               required
               maxLength={255}
               value={form.name}
               onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setTouched(t => ({ ...t, name: true })); }}
               onBlur={() => handleBlur('name')}
-              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('name')}`}
+              className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-clinic-500 ${inputErr('name')}`}
               placeholder="π.χ. Γενική Εξέταση"
             />
             {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Περιγραφή</label>
-            <textarea
+            <label htmlFor="service-description" className="block text-xs font-medium text-ink-700 mb-1.5">Περιγραφή</label>
+            <ClinicTextarea
+              id="service-description"
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               rows={3}
               maxLength={2000}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full px-3 py-2.5 resize-none"
               placeholder="Περιγράψτε την υπηρεσία..."
             />
             {form.description.length > 1800 && (
-              <p className="text-xs text-slate-400 mt-1 text-right">{form.description.length}/2000</p>
+              <p className="text-xs text-ink-400 mt-1 text-right">{form.description.length}/2000</p>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="border-t border-ink-200 pt-4"><h3 className="mb-3 text-sm font-semibold">Χρέωση & διάρκεια</h3><div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Τιμή (€) *</label>
+              <label htmlFor="service-price" className="block text-xs font-medium text-ink-700 mb-1.5">Τιμή (€) *</label>
               <div className="relative">
                 <input
+                  id="service-price"
                   type="number"
                   required
-                  min={0}
+                  min={0.01}
                   step={0.01}
                   value={form.price}
                   onChange={e => { setForm(f => ({ ...f, price: e.target.value })); setTouched(t => ({ ...t, price: true })); }}
                   onBlur={() => handleBlur('price')}
-                  className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-8 ${inputErr('price')}`}
+                  className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-clinic-500 pr-8 ${inputErr('price')}`}
                   placeholder="0.00"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">€</span>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 text-sm font-semibold">€</span>
               </div>
               {touched.price && fieldErrors.price && <p className="text-xs text-red-600 mt-1">{fieldErrors.price}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Διάρκεια (λεπτά)</label>
+              <label htmlFor="service-duration" className="block text-xs font-medium text-ink-700 mb-1.5">Διάρκεια (λεπτά)</label>
               <input
+                id="service-duration"
                 type="number"
                 min={5}
                 max={480}
                 value={form.duration_minutes}
                 onChange={e => { setForm(f => ({ ...f, duration_minutes: e.target.value })); setTouched(t => ({ ...t, duration_minutes: true })); }}
                 onBlur={() => handleBlur('duration_minutes')}
-                className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('duration_minutes')}`}
+                className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-clinic-500 ${inputErr('duration_minutes')}`}
                 placeholder="π.χ. 30"
               />
               {touched.duration_minutes && fieldErrors.duration_minutes && <p className="text-xs text-red-600 mt-1">{fieldErrors.duration_minutes}</p>}
             </div>
           </div>
 
+          </div>
           {service && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 rounded-lg border border-clinic-100 bg-clinic-50/50 p-3">
               <button
                 type="button"
+                role="switch"
+                aria-label="Ενεργή υπηρεσία"
+                aria-checked={form.is_active}
                 onClick={() => setForm(f => ({ ...f, is_active: !f.is_active }))}
                 className={`w-11 h-6 rounded-full relative transition-colors ${
-                  form.is_active ? 'bg-indigo-600' : 'bg-slate-300'
+                  form.is_active ? 'bg-clinic-600' : 'bg-ink-300'
                 }`}
               >
                 <div
@@ -180,261 +194,90 @@ function ServiceDialog({
                   style={{ left: form.is_active ? '22px' : '2px' }}
                 />
               </button>
-              <span className="text-sm font-bold text-slate-700">
+              <span className="text-sm font-semibold text-ink-700">
                 {form.is_active ? 'Ενεργή' : 'Ανενεργή'}
               </span>
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+            <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
               {error}
             </div>
           )}
 
           <div className="flex gap-3 pt-2">
-            <button
+            <ClinicButton variant="secondary"
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+              className="flex-1"
             >
               Ακύρωση
-            </button>
-            <button
+            </ClinicButton>
+            <ClinicButton variant="primary"
               type="submit"
               disabled={submitting || !form.name.trim() || !form.price || Object.keys(fieldErrors).length > 0}
-              className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              className="flex-1 disabled:opacity-50 bg-clinic-600! border-clinic-700! text-white!"
             >
               {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
-            </button>
+            </ClinicButton>
           </div>
-        </form>
+        </fieldset></form>
       </div>
     </div>
   );
 }
 
-// --- Delete Confirm Dialog ---
-function DeleteConfirmDialog({
-  service,
-  onConfirm,
-  onClose,
-}: {
-  service: ServiceType;
-  onConfirm: () => void;
-  onClose: () => void;
-}) {
-  const [deleting, setDeleting] = useState(false);
-
-  const handleConfirm = async () => {
-    setDeleting(true);
-    await onConfirm();
-    setDeleting(false);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
-        <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-          <svg className="w-7 h-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-bold text-slate-900 mb-1">Διαγραφή Υπηρεσίας</h3>
-        <p className="text-sm text-slate-500 mb-5">
-          Είστε σίγουροι ότι θέλετε να διαγράψετε &quot;{service.name}&quot;;
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
-          >
-            Ακύρωση
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={deleting}
-            className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
-          >
-            {deleting ? 'Διαγραφή...' : 'Διαγραφή'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function DeleteConfirmDialog({ service, onConfirm, onClose, busy }: { service: ServiceType; onConfirm: () => Promise<void>; onClose: () => void; busy: boolean }) {
+  const [error, setError] = useState('');
+  return <ClinicPanel className="p-5"><h2 className="text-base font-semibold">Διαγραφή Υπηρεσίας</h2><p className="my-4 break-words text-sm text-ink-600">Να διαγραφεί η υπηρεσία «{service.name}»; Μπορείτε επίσης να την ορίσετε ως ανενεργή από την επεξεργασία.</p>{error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}<div className="flex gap-2"><ClinicButton disabled={busy} onClick={onClose}>Ακύρωση</ClinicButton><ClinicButton disabled={busy} variant="danger" onClick={async () => { setError(''); try { await onConfirm(); } catch (err) { setError(err instanceof Error ? err.message : 'Η διαγραφή δεν ολοκληρώθηκε.'); } }}>{busy ? 'Διαγραφή...' : 'Διαγραφή'}</ClinicButton></div></ClinicPanel>;
 }
 
-// --- Main Page ---
 export default function VetServicesPage() {
-  const { services, loading, error, refetch } = useServiceTypes();
+  const [page, setPage] = useState(1);
+  const { services, total, totalPages, loading, error, refetch } = useServiceTypes(page, 10);
   const [showDialog, setShowDialog] = useState(false);
   const [editingService, setEditingService] = useState<ServiceType | null>(null);
   const [deletingService, setDeletingService] = useState<ServiceType | null>(null);
-
-  const handleSaved = () => {
-    setShowDialog(false);
-    setEditingService(null);
-    refetch();
-  };
-
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState('');
+  const panelRef = useRef<HTMLDivElement>(null);
+  const deleteLock = useRef(false);
+  const panelOpen = showDialog || !!editingService || !!deletingService;
+  useEffect(() => {
+    if (panelOpen) { panelRef.current?.focus({ preventScroll: true }); if (window.innerWidth < 1280) panelRef.current?.scrollIntoView({ block: 'start' }); }
+  }, [panelOpen, editingService, deletingService]);
+  const close = () => { setShowDialog(false); setEditingService(null); setDeletingService(null); };
+  const edit = (service: ServiceType) => { setEditingService(service); setShowDialog(true); setDeletingService(null); setNotice(''); };
+  const handleSaved = () => { setNotice(editingService ? 'Η υπηρεσία ενημερώθηκε.' : 'Η υπηρεσία δημιουργήθηκε.'); close(); void refetch(); };
   const handleDelete = async () => {
-    if (!deletingService) return;
+    if (!deletingService || deleteLock.current) return;
+    deleteLock.current = true; setSaving(true);
     try {
       await deleteServiceType(deletingService.id);
-      refetch();
-    } catch {
-      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
-    }
-    setDeletingService(null);
+      close(); setNotice('Η υπηρεσία διαγράφηκε.');
+      if (page > 1 && services.length === 1) setPage(page - 1); else await refetch();
+    } finally { deleteLock.current = false; setSaving(false); }
   };
-
-  return (
-    <div className="max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <Link href="/vet/dashboard" className="text-slate-500 text-sm font-bold mb-2 hover:text-indigo-600 block">
-            &larr; Dashboard
-          </Link>
-          <h1 className="text-3xl font-bold text-slate-900">Υπηρεσίες</h1>
-          <p className="text-slate-500 mt-1">Διαχείριση τιμοκαταλόγου υπηρεσιών</p>
-        </div>
-        <button
-          onClick={() => { setEditingService(null); setShowDialog(true); }}
-          className="px-5 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Νέα Υπηρεσία
-        </button>
+  return <div>
+    <ClinicPageHeader title="Υπηρεσίες" description="Ο τιμοκατάλογος του κτηνιατρείου: υπηρεσίες, χρεώσεις και διάρκεια επίσκεψης." actions={<ClinicButton variant="primary" disabled={saving} onClick={() => { close(); setShowDialog(true); setNotice(''); }}>Νέα Υπηρεσία</ClinicButton>} />
+    {notice && <p role="status" className="mb-4 rounded-lg border border-clinic-200 bg-clinic-50 p-3 text-sm">{notice}</p>}
+    <div className={`grid items-start gap-4 ${panelOpen ? 'xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}>
+      <div className="order-2 min-w-0 xl:order-1">
+        <ClinicPanel className="overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b border-ink-200 px-4 py-3"><h2 className="text-sm font-semibold">Τιμοκατάλογος</h2><span className="text-xs text-ink-500">{loading ? 'Φόρτωση…' : `${total} υπηρεσίες`}</span></div>
+          {loading ? <ClinicLoading label="Φόρτωση υπηρεσιών…" /> : error ? <div role="alert" className="p-5"><p className="mb-3 text-sm text-red-700">{error}</p><ClinicButton onClick={() => void refetch()}>Δοκιμή ξανά</ClinicButton></div> : !services.length ? <ClinicEmptyState title="Δεν υπάρχουν υπηρεσίες" description="Προσθέστε την πρώτη υπηρεσία με την τιμή και τη διάρκειά της." /> : services.map(service => <ClinicListRow key={service.id} className={editingService?.id === service.id || deletingService?.id === service.id ? 'bg-clinic-50/60! shadow-[inset_3px_0_0_var(--color-clinic-600)]' : ''}>
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3">
+              <div className="min-w-0"><button disabled={saving} aria-label={`Επεξεργασία: ${service.name}`} aria-expanded={editingService?.id === service.id} className="break-words text-left text-sm font-semibold text-ink-900 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-clinic-600" onClick={() => edit(service)}>{service.name} <span aria-hidden="true" className="text-ink-400">↗</span></button><p className="mt-1.5 line-clamp-2 break-words text-sm leading-5 text-ink-500">{service.description || 'Χωρίς περιγραφή'}</p><span className={`mt-2 inline-block rounded-md px-2 py-1 text-xs font-medium ${service.is_active ? 'bg-clinic-50 text-clinic-800' : 'bg-ink-100 text-ink-500'}`}>{service.is_active ? 'Ενεργή' : 'Ανενεργή'}</span></div>
+              <div className="text-right"><p className="whitespace-nowrap text-sm font-semibold tabular-nums text-ink-900">{formatPrice(service.price)}</p><p className="mt-1.5 text-xs text-ink-500">{service.duration_minutes ? `${service.duration_minutes} λεπτά` : 'Χωρίς διάρκεια'}</p></div>
+            </div>
+          </ClinicListRow>)}
+        </ClinicPanel>
+        <div inert={saving}><ClinicPagination page={page} totalPages={totalPages} onPageChange={value => { setPage(value); close(); }} /></div>
       </div>
-
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center min-h-[300px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-        </div>
-      ) : error ? (
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-          <p className="text-red-700 font-medium">{error}</p>
-        </div>
-      ) : services.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-16 text-center">
-          <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-indigo-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-            </svg>
-          </div>
-          <h3 className="text-xl font-bold text-slate-800 mb-2">Δεν υπάρχουν υπηρεσίες</h3>
-          <p className="text-slate-500 mb-6">Προσθέστε την πρώτη σας υπηρεσία για να ξεκινήσετε.</p>
-          <button
-            onClick={() => setShowDialog(true)}
-            className="px-5 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors inline-flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Νέα Υπηρεσία
-          </button>
-        </div>
-      ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100">
-                  <th className="p-5 font-bold">Υπηρεσία</th>
-                  <th className="p-5 font-bold">Περιγραφή</th>
-                  <th className="p-5 font-bold text-right">Τιμή</th>
-                  <th className="p-5 font-bold text-center">Διάρκεια</th>
-                  <th className="p-5 font-bold text-center">Κατάσταση</th>
-                  <th className="p-5 font-bold text-right">Ενέργειες</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                {services.map(service => (
-                  <tr
-                    key={service.id}
-                    className="border-b border-slate-50 last:border-0 hover:bg-indigo-50/30 transition-colors"
-                  >
-                    <td className="p-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                          </svg>
-                        </div>
-                        <span className="font-bold text-slate-900">{service.name}</span>
-                      </div>
-                    </td>
-                    <td className="p-5 text-slate-500 max-w-xs">
-                      <span className="line-clamp-2">{service.description || '-'}</span>
-                    </td>
-                    <td className="p-5 text-right">
-                      <span className="font-bold text-slate-900">{formatPrice(service.price)}</span>
-                    </td>
-                    <td className="p-5 text-center text-slate-600">
-                      {service.duration_minutes ? `${service.duration_minutes} λεπτά` : '-'}
-                    </td>
-                    <td className="p-5 text-center">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          service.is_active
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {service.is_active ? 'Ενεργή' : 'Ανενεργή'}
-                      </span>
-                    </td>
-                    <td className="p-5">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => { setEditingService(service); setShowDialog(true); }}
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Επεξεργασία"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => setDeletingService(service)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Διαγραφή"
-                        >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Dialogs */}
-      {(showDialog || editingService) && (
-        <ServiceDialog
-          service={editingService}
-          onClose={() => { setShowDialog(false); setEditingService(null); }}
-          onSaved={handleSaved}
-        />
-      )}
-
-      {deletingService && (
-        <DeleteConfirmDialog
-          service={deletingService}
-          onConfirm={handleDelete}
-          onClose={() => setDeletingService(null)}
-        />
-      )}
+      {panelOpen && <div ref={panelRef} tabIndex={-1} aria-label="Πάνελ υπηρεσίας" className="order-1 min-w-0 scroll-mt-20 outline-none xl:order-2 xl:sticky xl:top-20 xl:max-h-[calc(100dvh-6rem)] xl:overflow-y-auto">
+        {deletingService ? <DeleteConfirmDialog key={deletingService.id} service={deletingService} busy={saving} onConfirm={handleDelete} onClose={() => setDeletingService(null)} /> : <><ServicePanel key={editingService?.id || 'new-service'} onBusyChange={setSaving} service={editingService} onClose={close} onSaved={handleSaved} />{editingService && <div className="mt-3 rounded-lg border border-ink-200 bg-white p-4"><p className="mb-3 text-xs text-ink-500">Για να διατηρήσετε την υπηρεσία χωρίς να είναι διαθέσιμη, ορίστε την ως ανενεργή.</p><ClinicButton variant="danger" disabled={saving} aria-label={`Διαγραφή: ${editingService.name}`} onClick={() => setDeletingService(editingService)}>Διαγραφή υπηρεσίας</ClinicButton></div>}</>}
+      </div>}
     </div>
-  );
+  </div>;
 }

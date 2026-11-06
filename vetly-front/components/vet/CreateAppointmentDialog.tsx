@@ -1,5 +1,8 @@
 'use client';
 
+
+import ClinicDrawer from './ClinicDrawer';
+import { ClinicButton, ClinicInput, ClinicPanel, ClinicSelect, ClinicTextarea } from '@/components/vet/ClinicUI';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -28,9 +31,12 @@ interface CreateAppointmentDialogProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  embedded?: boolean;
+  initialDate?: string;
+  initialTime?: string;
 }
 
-export default function CreateAppointmentDialog({ open, onClose, onSuccess }: CreateAppointmentDialogProps) {
+export default function CreateAppointmentDialog({ open, onClose, onSuccess, embedded = false, initialDate, initialTime }: CreateAppointmentDialogProps) {
   const { user } = useAuth();
   const vetId = user?.id ?? null;
 
@@ -48,8 +54,8 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
 
   // Form state
   const [appointmentType, setAppointmentType] = useState('Εξέταση');
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialDate || null);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(initialTime || null);
   const [duration, setDuration] = useState(30);
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -58,7 +64,7 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
   // Data hooks
   const { clients, loading: clientsLoading } = useVetClients(1, 20, debouncedSearch || undefined);
   const { client: clientDetail, loading: clientDetailLoading } = useVetClient(selectedClientId);
-  const { slots, loading: slotsLoading } = useVetAvailableSlots(vetId, selectedPet ? selectedDate : null);
+  const { slots, loading: slotsLoading } = useVetAvailableSlots(vetId, selectedPet ? selectedDate : null, duration);
 
   // Derived state
   const availablePets = clientDetail?.linked_pets ?? [];
@@ -95,8 +101,8 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
 
   // Reset slot when date changes
   useEffect(() => {
-    setSelectedSlot(null);
-  }, [selectedDate]);
+    setSelectedSlot(selectedDate === initialDate && duration === 30 ? initialTime || null : null);
+  }, [selectedDate, duration, initialDate, initialTime]);
 
   // Reset pet when client changes
   useEffect(() => {
@@ -136,6 +142,7 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
     if (!selectedPet) {
       setError('Επιλέξτε κατοικίδιο');
       return;
@@ -144,8 +151,8 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
       setError('Επιλέξτε ημερομηνία');
       return;
     }
-    if (!selectedSlot) {
-      setError('Επιλέξτε ώρα');
+    if (!selectedSlot || slotsLoading || !slots.includes(selectedSlot)) {
+      setError('Επιλέξτε διαθέσιμη ώρα για τον ασθενή και τη διάρκεια.');
       return;
     }
 
@@ -173,14 +180,12 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
   const disabledInput = 'opacity-50 pointer-events-none';
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <ClinicDrawer label="Νέο ραντεβού" embedded={embedded} busy={submitting} onClose={onClose}>
+        <div className={embedded ? 'bg-white rounded-xl border border-ink-200 overflow-hidden' : 'bg-white w-full'} onClick={(e) => e.stopPropagation()}>
           {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-t-2xl p-6 text-white relative">
+          <div className="border-b border-ink-200 p-5 relative [&_span]:text-ink-600 [&_p]:text-ink-500 [&_button]:text-ink-700">
             <button
-              onClick={onClose}
+              onClick={onClose} disabled={submitting} aria-label="Κλείσιμο φόρμας"
               className="absolute top-4 right-4 bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -194,7 +199,7 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                 </svg>
               </div>
               <div>
-                <h2 className="text-xl font-bold">Νέο Ραντεβού</h2>
+                <h2 className="text-xl font-semibold">Νέο Ραντεβού</h2>
                 <p className="text-white/70 text-sm mt-0.5">Προγραμματίστε ραντεβού για κατοικίδιο</p>
               </div>
             </div>
@@ -203,83 +208,83 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
           {/* Body — all fields always visible */}
           <div className="p-6 space-y-5">
             {/* Row 1: Client + Pet side by side */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className={embedded ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 sm:grid-cols-2 gap-4'}>
               {/* Client (Owner) Search */}
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-ink-700 mb-2">
                   Κάτοχος <span className="text-red-500">*</span>
                 </label>
 
                 {selectedClientId ? (
-                  <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
-                    <div className="w-9 h-9 bg-indigo-200 rounded-full flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
+                  <div className="flex items-center gap-3 bg-clinic-50 border border-clinic-200 rounded-xl px-4 py-3">
+                    <div className="w-9 h-9 bg-clinic-200 rounded-full flex items-center justify-center text-clinic-700 font-semibold text-sm shrink-0">
                       {selectedClientName.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-indigo-900 text-sm truncate">{selectedClientName}</p>
+                      <p className="font-semibold text-clinic-900 text-sm truncate">{selectedClientName}</p>
                       {clientDetail && (
-                        <p className="text-xs text-indigo-600 truncate">
+                        <p className="text-xs text-clinic-600 truncate">
                           {clientDetail.email || clientDetail.phone || ''}
                         </p>
                       )}
                     </div>
-                    <button
+                    <ClinicButton variant="ghost"
                       onClick={handleClearClient}
-                      className="text-indigo-400 hover:text-indigo-600 transition-colors p-0.5 shrink-0"
+                      className="shrink-0"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
-                    </button>
+                    </ClinicButton>
                   </div>
                 ) : (
                   <div className="relative">
                     <div className="relative">
-                      <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-ink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
-                      <input
+                      <ClinicInput
                         ref={inputRef}
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Αναζήτηση κατόχου..."
-                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800"
+                        className="w-full pl-12 pr-4 py-3"
                       />
                       {clientsLoading && searchTerm.length >= 2 && (
                         <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600" />
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-clinic-600" />
                         </div>
                       )}
                     </div>
 
                     {showDropdown && (
-                      <div
+                      <ClinicPanel
                         ref={dropdownRef}
-                        className="absolute z-10 w-full mt-2 bg-white rounded-xl shadow-xl border border-slate-200 max-h-80 overflow-y-auto"
+                        className="absolute z-10 w-full mt-2 max-h-80 overflow-y-auto"
                       >
                         {clients.map((c) => (
-                          <button
+                          <ClinicButton variant="secondary"
                             key={c.id}
                             onClick={() => handleSelectClient(c)}
-                            className="w-full flex items-center gap-4 px-5 py-4 hover:bg-indigo-50 transition-colors text-left first:rounded-t-xl last:rounded-b-xl border-b border-slate-100 last:border-b-0"
+                            className="w-full text-left"
                           >
-                            <div className="w-11 h-11 bg-slate-100 rounded-full flex items-center justify-center text-slate-600 font-bold text-base shrink-0">
+                            <div className="w-11 h-11 bg-ink-100 rounded-full flex items-center justify-center text-ink-600 font-semibold text-base shrink-0">
                               {c.name.charAt(0)}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-bold text-slate-800">{c.name}</p>
-                              <p className="text-sm text-slate-500 truncate mt-0.5">
+                              <p className="font-semibold text-ink-800">{c.name}</p>
+                              <p className="text-sm text-ink-500 truncate mt-0.5">
                                 {c.email || c.phone || ''}
                                 {c.pet_count > 0 && ` · ${c.pet_count} κατοικίδια`}
                               </p>
                             </div>
                             {c.status === 'linked' && (
-                              <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full shrink-0">Vetly</span>
+                              <span className="text-xs font-semibold text-clinic-600 bg-clinic-50 px-2.5 py-1 rounded-full shrink-0">Vetly</span>
                             )}
-                          </button>
+                          </ClinicButton>
                         ))}
-                      </div>
+                      </ClinicPanel>
                     )}
                   </div>
                 )}
@@ -287,20 +292,20 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
 
               {/* Pet Selection */}
               <div className={!hasClient ? disabledInput : ''}>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-ink-700 mb-2">
                   Κατοικίδιο <span className="text-red-500">*</span>
                 </label>
 
                 {!hasClient ? (
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-400 text-sm">
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-ink-200 bg-ink-50 text-ink-400 text-sm">
                     <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                     Επιλέξτε πρώτα κάτοχο
                   </div>
                 ) : clientDetailLoading ? (
-                  <div className="flex items-center justify-center py-3 rounded-xl border border-slate-200">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
+                  <div className="flex items-center justify-center py-3 rounded-xl border border-ink-200">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-clinic-600" />
                   </div>
                 ) : !isLinkedClient ? (
                   <div className="px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
@@ -308,8 +313,8 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                     <p className="text-amber-600 text-xs mt-0.5">Στείλτε πρόσκληση πρώτα</p>
                   </div>
                 ) : availablePets.length === 0 ? (
-                  <div className="px-4 py-3 rounded-xl border border-dashed border-slate-200 bg-slate-50">
-                    <p className="text-slate-400 text-sm">Δεν υπάρχουν κατοικίδια</p>
+                  <div className="px-4 py-3 rounded-xl border border-dashed border-ink-200 bg-ink-50">
+                    <p className="text-ink-400 text-sm">Δεν υπάρχουν κατοικίδια</p>
                   </div>
                 ) : availablePets.length === 1 ? (
                   // Auto-select single pet, show as selected chip
@@ -317,8 +322,8 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                     const pet = availablePets[0];
                     if (!selectedPet) setSelectedPet(pet);
                     return (
-                      <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
-                        <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      <div className="flex items-center gap-3 bg-clinic-50 border border-clinic-200 rounded-xl px-4 py-3">
+                        <div className="w-9 h-9 rounded-full bg-clinic-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                           {pet.image_url ? (
                             <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
                           ) : (
@@ -326,8 +331,8 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-indigo-900 text-sm">{pet.name}</p>
-                          <p className="text-xs text-indigo-600">{pet.breed || pet.type}</p>
+                          <p className="font-semibold text-clinic-900 text-sm">{pet.name}</p>
+                          <p className="text-xs text-clinic-600">{pet.breed || pet.type}</p>
                         </div>
                       </div>
                     );
@@ -340,11 +345,11 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                         onClick={() => setSelectedPet(selectedPet?.id === pet.id ? null : pet)}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl border text-left transition-all ${
                           selectedPet?.id === pet.id
-                            ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-200'
-                            : 'bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                            ? 'bg-clinic-50 border-clinic-300 ring-2 ring-clinic-200'
+                            : 'bg-white border-ink-200 hover:bg-ink-50 hover:border-ink-300'
                         }`}
                       >
-                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-clinic-100 flex items-center justify-center overflow-hidden flex-shrink-0">
                           {pet.image_url ? (
                             <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
                           ) : (
@@ -352,16 +357,16 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className={`font-bold text-sm ${selectedPet?.id === pet.id ? 'text-indigo-900' : 'text-slate-800'}`}>
+                          <p className={`font-semibold text-sm ${selectedPet?.id === pet.id ? 'text-clinic-900' : 'text-ink-800'}`}>
                             {pet.name}
                           </p>
-                          <p className="text-xs text-slate-500 truncate">
+                          <p className="text-xs text-ink-500 truncate">
                             {pet.breed || pet.type}
                             {pet.age != null && ` · ${pet.age} ετών`}
                           </p>
                         </div>
                         {selectedPet?.id === pet.id && (
-                          <svg className="w-5 h-5 text-indigo-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className="w-5 h-5 text-clinic-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                           </svg>
                         )}
@@ -375,42 +380,42 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
             {/* Row 2: Type + Duration */}
             <div className={`grid grid-cols-2 gap-4 ${!hasPet ? disabledInput : ''}`}>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-ink-700 mb-2">
                   Τύπος <span className="text-red-500">*</span>
                 </label>
-                <select
+                <ClinicSelect
                   value={appointmentType}
                   onChange={(e) => setAppointmentType(e.target.value)}
                   disabled={!hasPet}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800 bg-white disabled:bg-slate-50 disabled:text-slate-400"
+                  className="w-full px-4 py-3"
                 >
                   {APPOINTMENT_TYPES.map((t) => (
                     <option key={t} value={t}>{t}</option>
                   ))}
-                </select>
+                </ClinicSelect>
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-ink-700 mb-2">
                   Διάρκεια
                 </label>
-                <select
+                <ClinicSelect
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
                   disabled={!hasPet}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800 bg-white disabled:bg-slate-50 disabled:text-slate-400"
+                  className="w-full px-4 py-3"
                 >
                   {DURATION_OPTIONS.map((d) => (
                     <option key={d} value={d}>{d} λεπτά</option>
                   ))}
-                </select>
+                </ClinicSelect>
               </div>
             </div>
 
             {/* Row 3: Date + Time side by side */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className={embedded ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 sm:grid-cols-2 gap-4'}>
               {/* Date Picker */}
               <div className={!hasPet ? disabledInput : ''}>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-ink-700 mb-2">
                   Ημερομηνία <span className="text-red-500">*</span>
                 </label>
                 <CalendarPicker
@@ -423,17 +428,17 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
 
               {/* Time Slots */}
               <div className={!hasPet ? disabledInput : ''}>
-                <label className="block text-sm font-bold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-ink-700 mb-2">
                   Ώρα <span className="text-red-500">*</span>
                 </label>
 
                 {!selectedDate ? (
-                  <div className="flex items-center justify-center py-8 rounded-xl border border-dashed border-slate-200 bg-slate-50">
-                    <p className="text-slate-400 text-sm">Επιλέξτε ημερομηνία</p>
+                  <div className="flex items-center justify-center py-8 rounded-xl border border-dashed border-ink-200 bg-ink-50">
+                    <p className="text-ink-400 text-sm">Επιλέξτε ημερομηνία</p>
                   </div>
                 ) : slotsLoading ? (
-                  <div className="flex items-center justify-center py-8 rounded-xl border border-slate-200">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
+                  <div className="flex items-center justify-center py-8 rounded-xl border border-ink-200">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-clinic-600" />
                   </div>
                 ) : slots.length > 0 ? (
                   <div className="grid grid-cols-3 gap-1.5 max-h-[280px] overflow-y-auto pr-1">
@@ -441,10 +446,10 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                       <button
                         key={slot}
                         onClick={() => setSelectedSlot(slot)}
-                        className={`px-2 py-2 rounded-lg text-sm font-bold transition-all ${
+                        className={`px-2 py-2 rounded-lg text-sm font-semibold transition-all ${
                           selectedSlot === slot
-                            ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700'
+                            ? 'bg-clinic-600 text-white shadow-sm'
+                            : 'bg-ink-50 text-ink-700 border border-ink-200 hover:bg-clinic-50 hover:border-clinic-200 hover:text-clinic-700'
                         }`}
                       >
                         {slot}
@@ -452,8 +457,8 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                     ))}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-center py-8 rounded-xl border border-dashed border-slate-200 bg-slate-50">
-                    <p className="text-slate-400 text-sm">Δεν υπάρχουν διαθέσιμα slots</p>
+                  <div className="flex items-center justify-center py-8 rounded-xl border border-dashed border-ink-200 bg-ink-50">
+                    <p className="text-ink-400 text-sm">Δεν υπάρχουν διαθέσιμα slots</p>
                   </div>
                 )}
               </div>
@@ -461,16 +466,16 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
 
             {/* Row 4: Notes */}
             <div className={!hasPet ? disabledInput : ''}>
-              <label className="block text-sm font-bold text-slate-700 mb-2">
+              <label className="block text-sm font-semibold text-ink-700 mb-2">
                 Σημειώσεις
               </label>
-              <textarea
+              <ClinicTextarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 disabled={!hasPet}
                 placeholder="Σημειώσεις (προαιρετικό)..."
                 rows={2}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800 resize-none disabled:bg-slate-50 disabled:text-slate-400"
+                className="w-full px-4 py-3 resize-none"
               />
             </div>
 
@@ -483,18 +488,18 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
 
             {/* Actions */}
             <div className="flex gap-3 pt-1">
-              <button
+              <ClinicButton variant="secondary"
                 type="button"
-                onClick={onClose}
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+                onClick={onClose} disabled={submitting}
+                className="flex-1"
               >
                 Ακύρωση
-              </button>
-              <button
+              </ClinicButton>
+              <ClinicButton variant="primary"
                 type="button"
                 onClick={handleSubmit}
                 disabled={submitting || !selectedPet}
-                className="flex-1 px-4 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2">
@@ -507,11 +512,10 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess }: Cr
                 ) : (
                   'Δημιουργία Ραντεβού'
                 )}
-              </button>
+              </ClinicButton>
             </div>
           </div>
         </div>
-      </div>
-    </>
+    </ClinicDrawer>
   );
 }

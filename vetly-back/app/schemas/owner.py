@@ -62,9 +62,8 @@ class AppointmentCreateRequest(BaseModel):
     @field_validator('scheduled_at')
     @classmethod
     def must_be_future(cls, v: datetime) -> datetime:
-        if v.replace(tzinfo=None) <= datetime.utcnow():
-            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
-        return v
+        from app.services.scheduling import validate_future
+        return validate_future(v)
 
 
 class AppointmentBatchCreateRequest(BaseModel):
@@ -80,9 +79,8 @@ class AppointmentBatchCreateRequest(BaseModel):
     @field_validator('scheduled_at')
     @classmethod
     def must_be_future(cls, v: datetime) -> datetime:
-        if v.replace(tzinfo=None) <= datetime.utcnow():
-            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
-        return v
+        from app.services.scheduling import validate_future
+        return validate_future(v)
 
 
 class AppointmentRescheduleRequest(BaseModel):
@@ -92,9 +90,8 @@ class AppointmentRescheduleRequest(BaseModel):
     @field_validator('scheduled_at')
     @classmethod
     def must_be_future(cls, v: datetime) -> datetime:
-        if v.replace(tzinfo=None) <= datetime.utcnow():
-            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
-        return v
+        from app.services.scheduling import validate_future
+        return validate_future(v)
 
 
 class AppointmentPetInfo(BaseModel):
@@ -292,6 +289,7 @@ class NotificationResponse(BaseModel):
     """Notification response for owner endpoints"""
     model_config = ConfigDict(from_attributes=True)
 
+    appointment_id: UUID | None = None
     id: UUID
     type: str
     title: str

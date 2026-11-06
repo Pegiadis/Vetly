@@ -1,0 +1,47 @@
+Vetly web pilot preparation — validation on 18 October 2026
+
+PASS
+- 70 backend tests (48 previous + 22 new regression cases).
+- Regression coverage: unrelated pet access and reminders; owner/vet rescheduling;
+  full-duration shift boundaries; split shifts and missing hours; service ownership;
+  duration-aware availability and authenticated self-exclusion; professional vet
+  approval; public listing exclusion; pilot allowlist and existing JWT access;
+  invite email verification; token-purpose separation; idempotent scoped reminders;
+  independent concurrent PostgreSQL transactions; database readiness endpoint.
+- Next.js 16.4.2 production build and TypeScript, 41 generated pages.
+- Local production HTTP smoke: /, /owner/login, /vet/login, /register,
+  /verify-email/pending and /owner/book all returned 200.
+  This does not test browser hydration or authenticated interactions.
+- Backend Docker image built using Python 3.12 and tested dependency constraints.
+  A cached rebuild hit a Docker snapshot error; rebuilding without cache succeeded.
+  Container import and /health smoke passed with dummy configuration, no database.
+- Alembic reports a3b4c5d6e7f8 (head). No schema migration introduced.
+- uv pip check: installed packages compatible.
+- pip-audit of the installed backend environment: no known vulnerabilities found.
+- npm audit --omit=dev: zero reported vulnerabilities.
+- ESLint: zero errors, 122 warnings. The obsolete next lint script was replaced by
+  ESLint flat configuration. React Compiler migration rules are warnings because
+  the compiler is not enabled; runtime Hooks rules remain errors. Those warnings
+  are explicitly deferred, not fixed or hidden. Includes other existing warnings.
+- docker compose --profile pilot config --quiet validates structure; deployment
+  secrets are not configured in this workspace's root environment.
+- git diff --check: no whitespace errors.
+
+NOT YET A RELEASE SIGN-OFF
+- The read-only pilot prerequisite command reports local development settings:
+  production mode, invited-email list, HTTPS/CORS and a strong deployment secret
+  still need configuration. Email credentials exist locally, but no delivery was
+  attempted and their presence does not establish sender/domain readiness.
+- Five development-tool dependency advisory entries remain in the ESLint/fast-glob/
+  micromatch/braces chain. The audit's offered forced fix downgrades the Next ESLint
+  config; it was not applied. Production dependency audit is clean.
+- No real-user emails, approvals, invitations or deployment were performed.
+- Actual HTTPS host, full desktop/mobile browser acceptance, real email delivery,
+  scheduled-worker operation, backup restore and operational/privacy procedures
+  must pass the gates in CLOSED_PILOT.txt before inviting real users.
+- The test suite reports deprecation warnings from existing datetime/SQLAlchemy/
+  TestClient usage; these are not test failures.
+
+DESIGN
+No CSS, colors, layouts or design direction changed. Frontend changes are limited
+to booking availability parameters and registration/verification behavior/text.

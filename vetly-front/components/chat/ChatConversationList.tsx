@@ -9,8 +9,8 @@ const listColorMap: Record<string, { btn: string; active: string }> = {
     active: 'bg-teal-50 text-teal-700',
   },
   indigo: {
-    btn: 'bg-indigo-600 hover:bg-indigo-700',
-    active: 'bg-indigo-50 text-indigo-700',
+    btn: 'bg-clinic-600 hover:bg-clinic-700',
+    active: 'bg-clinic-50 text-clinic-700',
   },
 };
 

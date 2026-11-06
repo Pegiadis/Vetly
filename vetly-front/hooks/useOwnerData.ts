@@ -145,7 +145,7 @@ export interface PublicVetService {
   duration_minutes: number;
 }
 
-export function useVetServices(vetId: string | null) {
+export function useVetServices(vetId: string | null, refreshKey = 0) {
   const [services, setServices] = useState<PublicVetService[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -185,7 +185,7 @@ export function useVetServices(vetId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [vetId]);
+  }, [vetId, refreshKey]);
 
   return { services, loading, error };
 }
@@ -259,45 +259,37 @@ export function useOnCallVets() {
   return { vets, loading, error, refetch: fetchOnCallVets };
 }
 
-export function useAvailableSlots(vetId: string | null, date: string | null) {
+export function useAvailableSlots(vetId: string | null, date: string | null, durationMinutes = 30, excludeId?: string) {
   const [slots, setSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const vetIdRef = useRef(vetId);
-  const dateRef = useRef(date);
-  vetIdRef.current = vetId;
-  dateRef.current = date;
 
+  const requestVersion = useRef(0);
   const fetchSlots = useCallback(async () => {
-    const v = vetIdRef.current;
-    const d = dateRef.current;
-    if (!v || !d) {
+    const request = ++requestVersion.current;
+    if (!vetId || !date) {
       setSlots([]);
+      setLoading(false);
+      setError(null);
       return;
     }
     try {
       setLoading(true);
       setError(null);
-      const data = await api.get<{ date: string; vet_id: string; slots: string[] }>(
-        `/vets/${v}/available-slots?date=${d}`
-      );
-      setSlots(data.slots);
+      const query = new URLSearchParams({ date, duration_minutes: String(durationMinutes) });
+      if (excludeId) query.set('exclude_appointment_id', excludeId);
+      const data = await api.get<{ slots: string[] }>(`/vets/${vetId}/available-slots?${query}`);
+      if (request === requestVersion.current) setSlots(data.slots);
     } catch (err) {
+      if (request !== requestVersion.current) return;
       setError(err instanceof Error ? err.message : 'Failed to fetch available slots');
       setSlots([]);
     } finally {
-      setLoading(false);
+      if (request === requestVersion.current) setLoading(false);
     }
-  }, []);
+  }, [vetId, date, durationMinutes, excludeId]);
 
-  useEffect(() => {
-    if (!vetId || !date) {
-      setSlots([]);
-      return;
-    }
-    fetchSlots();
-  }, [vetId, date, fetchSlots]);
-
+  useEffect(() => { void fetchSlots(); return () => { requestVersion.current++; }; }, [fetchSlots]);
   return { slots, loading, error, refetch: fetchSlots };
 }
 
@@ -314,7 +306,9 @@ export function useMyAppointments(page = 1, pageSize = 10, filters: AppointmentF
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const version = useRef(0);
   const fetchAppointments = useCallback(async () => {
+    const request = ++version.current;
     try {
       setLoading(true);
       const params = new URLSearchParams();
@@ -325,18 +319,20 @@ export function useMyAppointments(page = 1, pageSize = 10, filters: AppointmentF
       if (filters.dateTo) params.set('date_to', filters.dateTo);
       if (filters.petName) params.set('pet_name', filters.petName);
       const data = await api.get<PaginatedResponse<Appointment>>(`/owner/appointments?${params.toString()}`);
+      if (request !== version.current) return;
       setAppointments(data.items);
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
+      if (request === version.current) setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
     } finally {
-      setLoading(false);
+      if (request === version.current) setLoading(false);
     }
   }, [page, pageSize, filters.status, filters.dateFrom, filters.dateTo, filters.petName]);
 
   useEffect(() => {
-    fetchAppointments();
+    void fetchAppointments();
+    return () => { version.current++; };
   }, [fetchAppointments]);
 
   return { appointments, total, totalPages: Math.ceil(total / pageSize), loading, error, refetch: fetchAppointments };

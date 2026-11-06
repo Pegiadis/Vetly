@@ -79,9 +79,8 @@ class VetCreateAppointmentRequest(BaseModel):
     @field_validator('scheduled_at')
     @classmethod
     def must_be_future(cls, v: datetime) -> datetime:
-        if v.replace(tzinfo=None) <= datetime.utcnow():
-            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
-        return v
+        from app.services.scheduling import validate_future
+        return validate_future(v)
 
 
 class AppointmentStatusUpdate(BaseModel):
@@ -102,9 +101,8 @@ class VetRescheduleRequest(BaseModel):
     @field_validator('scheduled_at')
     @classmethod
     def must_be_future(cls, v: datetime) -> datetime:
-        if v.replace(tzinfo=None) <= datetime.utcnow():
-            raise ValueError('Η ημερομηνία πρέπει να είναι στο μέλλον.')
-        return v
+        from app.services.scheduling import validate_future
+        return validate_future(v)
 
 
 class ExaminationMedicationItem(BaseModel):

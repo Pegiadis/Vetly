@@ -1,10 +1,9 @@
 'use client';
 
+
+import { ClinicButton, ClinicPanel, ClinicTextarea, ClinicPageHeader } from '@/components/vet/ClinicUI';
 import { useState } from 'react';
-import Link from 'next/link';
 import { useVetReviews, useVetReviewStats, replyToReview, updateReviewReply, deleteReviewReply } from '@/hooks/useVetData';
-import { getImageUrl } from '@/lib/api';
-import Pagination from '@/components/Pagination';
 import { useToast } from '@/components/Toast';
 
 function formatDate(dateStr: string): string {
@@ -13,6 +12,10 @@ function formatDate(dateStr: string): string {
     month: 'long',
     year: 'numeric',
   });
+}
+
+function ReviewStars({ rating }: { rating: number }) {
+  return <span role="img" aria-label={`${rating} από 5 αστέρια`} className="inline-flex gap-0.5">{[1, 2, 3, 4, 5].map(star => <svg key={star} aria-hidden="true" className={`h-3.5 w-3.5 ${star <= Math.round(rating) ? 'text-clinic-600' : 'text-ink-200'}`} fill="currentColor" viewBox="0 0 24 24"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8-6.2-3.2L5.8 21 7 14.2 2 9.3l6.9-1z" /></svg>)}</span>;
 }
 
 export default function VetReviewsPage() {
@@ -76,7 +79,7 @@ export default function VetReviewsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-clinic-600" />
       </div>
     );
   }
@@ -84,7 +87,7 @@ export default function VetReviewsPage() {
   if (error) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-red-700 font-medium">{error}</p>
         </div>
       </div>
@@ -96,216 +99,67 @@ export default function VetReviewsPage() {
   const distribution = stats?.rating_distribution ?? [];
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-6">
-        <Link href="/vet/dashboard" className="text-slate-500 text-sm font-bold mb-2 hover:text-indigo-600 block">
-          &larr; Dashboard
-        </Link>
-        <h1 className="text-3xl font-bold text-slate-900">Αξιολογήσεις</h1>
-      </div>
-
-      {/* Stats */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6">
-        <div className="flex items-center gap-8">
-          <div className="text-center">
-            <div className="text-5xl font-bold text-slate-900">{avgRating}</div>
-            <div className="flex items-center justify-center gap-1 mt-2">
-              {[1, 2, 3, 4, 5].map(star => (
-                <svg
-                  key={star}
-                  className={`w-5 h-5 ${star <= Math.round(parseFloat(avgRating)) ? 'text-amber-400' : 'text-slate-200'}`}
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                </svg>
-              ))}
+    <div className="max-w-6xl mx-auto">
+      <ClinicPageHeader title="Αξιολογήσεις" description="Τα σχόλια των κηδεμόνων και οι απαντήσεις του κτηνιατρείου σας." />
+      <div className="grid items-start gap-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-8">
+        <aside aria-label="Σύνοψη αξιολογήσεων" className="space-y-4 lg:sticky lg:top-20">
+          <ClinicPanel className="overflow-hidden">
+            <div className="border-b border-ink-200 p-4">
+              <h2 className="text-sm font-semibold text-ink-900">Συνολική εικόνα</h2>
+              <div className="mt-4 flex items-baseline gap-1"><strong className="text-3xl font-semibold tracking-tight text-ink-900">{totalReviews ? avgRating : '—'}</strong><span className="text-xs text-ink-500">/ 5</span></div>
+              <div className="mt-2"><ReviewStars rating={Number(avgRating)} /></div>
+              <p className="mt-1 text-xs text-ink-500">{totalReviews} αξιολογήσεις συνολικά</p>
             </div>
-            <div className="text-slate-500 text-sm mt-1">{totalReviews} αξιολογήσεις</div>
+            <div className="space-y-2 p-4" aria-label="Κατανομή βαθμολογίας">
+              {[5, 4, 3, 2, 1].map(stars => {
+                const entry = distribution.find(d => d.rating === stars);
+                return <div key={stars} className="flex items-center gap-2 text-xs text-ink-500" aria-label={`${stars} αστέρια: ${entry?.count ?? 0} αξιολογήσεις`}>
+                  <span className="w-7 shrink-0 whitespace-nowrap">{stars} ★</span><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-ink-100"><div className="h-full rounded-full bg-clinic-400" style={{ width: `${Math.max(0, Math.min(100, entry?.percentage ?? 0))}%` }} /></div><span className="w-5 text-right tabular-nums">{entry?.count ?? 0}</span>
+                </div>;
+              })}
+            </div>
+          </ClinicPanel>
+          <div className="px-1"><h2 className="text-xs font-semibold text-ink-800">Η απάντησή σας μετράει</h2><p className="mt-2 text-xs leading-5 text-ink-500">Ευχαριστήστε τους κηδεμόνες και απαντήστε στα σχόλιά τους. Οι απαντήσεις εμφανίζονται στο δημόσιο προφίλ σας.</p></div>
+        </aside>
+        <ClinicPanel className="min-w-0 overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
+            <h2 className="text-sm font-semibold text-ink-900">Σχόλια κηδεμόνων</h2><span className="text-xs text-ink-500">Σελίδα {page} από {Math.max(1, totalPages)}</span>
           </div>
-          <div className="flex-1 space-y-2">
-            {[5, 4, 3, 2, 1].map(stars => {
-              const entry = distribution.find(d => d.rating === stars);
-              const count = entry?.count ?? 0;
-              const percentage = entry?.percentage ?? 0;
-              return (
-                <div key={stars} className="flex items-center gap-2">
-                  <span className="text-sm text-slate-500 w-3">{stars}</span>
-                  <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                  </svg>
-                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-amber-400 rounded-full" style={{ width: `${percentage}%` }} />
+          {reviews.length === 0 ? <div className="px-5 py-14 text-center"><h3 className="text-sm font-semibold text-ink-800">Δεν υπάρχουν αξιολογήσεις</h3><p className="mt-2 text-xs text-ink-500">Τα σχόλια των κηδεμόνων θα εμφανίζονται εδώ.</p></div> : <div className="divide-y divide-ink-200">
+            {reviews.map(review => {
+              const isEditing = editingReply === review.id;
+              const formOpen = isEditing || replyingTo === review.id;
+              return <article key={review.id} className="p-4 sm:p-5" aria-labelledby={`review-${review.id}`}>
+                <header className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0"><h3 id={`review-${review.id}`} className="break-words text-sm font-semibold text-ink-900">{review.pet_owner?.name || 'Κηδεμόνας'}</h3><div className="mt-1.5 flex flex-wrap items-center gap-2"><ReviewStars rating={review.rating} /><time dateTime={review.created_at} className="text-xs text-ink-500">{formatDate(review.created_at)}</time></div></div>
+                  <span className={`rounded-md px-2 py-1 text-[11px] ${review.reply ? 'bg-clinic-100 text-clinic-700' : 'bg-ink-100 text-ink-600'}`}>{review.reply ? 'Απαντήθηκε' : 'Χωρίς απάντηση'}</span>
+                </header>
+                <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{review.comment || 'Ο κηδεμόνας άφησε μόνο βαθμολογία.'}</p>
+                {review.reply && !isEditing && <div className="mt-4 rounded-lg border border-ink-200 bg-ink-50/60 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-xs font-semibold text-ink-800">Απάντηση κτηνιατρείου</h4><div className="flex gap-1">
+                    <ClinicButton variant="ghost" disabled={submitting} onClick={() => { setEditingReply(review.id); setReplyingTo(null); setReplyText(review.reply || ''); }}>Επεξεργασία</ClinicButton>
+                    <ClinicButton variant="danger" disabled={submitting} onClick={() => handleDeleteReply(review.id)}>Διαγραφή</ClinicButton>
+                  </div></div>
+                  <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{review.reply}</p>
+                </div>}
+                {!review.reply && !formOpen && <ClinicButton variant="secondary" disabled={submitting} className="mt-4" onClick={() => { setReplyingTo(review.id); setEditingReply(null); setReplyText(''); }}>Απάντηση</ClinicButton>}
+                {formOpen && <form className="mt-4 overflow-hidden rounded-lg border border-ink-200" onSubmit={e => { e.preventDefault(); if (!submitting) void (isEditing ? handleEditReply(review.id) : handleReply(review.id)); }}>
+                  <div className="border-b border-ink-200 bg-ink-50/60 px-3 py-3"><label htmlFor={`reply-${review.id}`} className="text-xs font-semibold text-ink-900">{isEditing ? 'Επεξεργασία απάντησης' : 'Η απάντησή σας'}</label><p className="mt-1 text-xs text-ink-500">Προς {review.pet_owner?.name || 'τον κηδεμόνα'} · Δημόσια απάντηση</p></div>
+                  <div className="p-3"><ClinicTextarea id={`reply-${review.id}`} autoFocus disabled={submitting} className="w-full" rows={4} placeholder={isEditing ? 'Επεξεργασία απάντησης...' : 'Γράψτε την απάντησή σας...'} value={replyText} onChange={e => setReplyText(e.target.value)} /></div>
+                  <div className="flex justify-end gap-2 border-t border-ink-200 bg-ink-50/60 px-3 py-2">
+                    <ClinicButton type="button" variant="secondary" disabled={submitting} onClick={() => { setReplyingTo(null); setEditingReply(null); setReplyText(''); }}>Ακύρωση</ClinicButton>
+                    <ClinicButton type="submit" variant="primary" disabled={submitting || !replyText.trim()}>{submitting ? (isEditing ? 'Αποθήκευση...' : 'Αποστολή...') : (isEditing ? 'Αποθήκευση' : 'Αποστολή')}</ClinicButton>
                   </div>
-                  <span className="text-sm text-slate-400 w-8">{count}</span>
-                </div>
-              );
+                </form>}
+              </article>;
             })}
-          </div>
-        </div>
+          </div>}
+          <footer className="flex items-center justify-between gap-2 border-t border-ink-200 bg-ink-50/60 px-4 py-2">
+            <span className="text-xs text-ink-500">{reviews.length} αξιολογήσεις σε αυτή τη σελίδα</span>
+            <div className="flex gap-1"><ClinicButton aria-label="Προηγούμενη σελίδα" disabled={page <= 1 || submitting} onClick={() => { setPage(page - 1); setReplyingTo(null); setEditingReply(null); setReplyText(''); }}>‹</ClinicButton><ClinicButton aria-label="Επόμενη σελίδα" disabled={page >= totalPages || submitting} onClick={() => { setPage(page + 1); setReplyingTo(null); setEditingReply(null); setReplyText(''); }}>›</ClinicButton></div>
+          </footer>
+        </ClinicPanel>
       </div>
-
-      {/* Reviews List */}
-      {reviews.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
-          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Δεν υπάρχουν αξιολογήσεις</h3>
-          <p className="text-slate-500">Οι αξιολογήσεις θα εμφανιστούν εδώ μόλις οι ιδιοκτήτες αφήσουν κριτικές.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {reviews.map(review => (
-            <div key={review.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                  {review.pet_owner?.image_url ? (
-                    <img src={getImageUrl(review.pet_owner.image_url)} alt="" className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    <span className="text-indigo-600 font-bold text-lg">{review.pet_owner?.name?.charAt(0) || '?'}</span>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-slate-800">{review.pet_owner?.name || 'Ιδιοκτήτης'}</h4>
-                      <div className="flex items-center gap-2">
-                        <div className="flex">
-                          {[1, 2, 3, 4, 5].map(star => (
-                            <svg
-                              key={star}
-                              className={`w-4 h-4 ${star <= review.rating ? 'text-amber-400' : 'text-slate-200'}`}
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                            </svg>
-                          ))}
-                        </div>
-                        <span className="text-xs text-slate-400">{formatDate(review.created_at)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-slate-600">{review.comment}</p>
-
-                  {review.reply && editingReply !== review.id && (
-                    <div className="mt-4 bg-indigo-50 rounded-xl p-4 border-l-4 border-indigo-500">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <p className="text-sm text-slate-500 font-bold mb-1">Η απάντησή σας:</p>
-                          <p className="text-slate-700">{review.reply}</p>
-                        </div>
-                        <div className="flex items-center gap-1 ml-3 shrink-0">
-                          <button
-                            onClick={() => {
-                              setEditingReply(review.id);
-                              setReplyText(review.reply || '');
-                              setReplyingTo(null);
-                            }}
-                            className="p-1.5 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
-                            title="Επεξεργασία"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteReply(review.id)}
-                            disabled={submitting}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="Διαγραφή"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {!review.reply && replyingTo !== review.id && (
-                    <button
-                      onClick={() => { setReplyingTo(review.id); setEditingReply(null); setReplyText(''); }}
-                      className="mt-3 text-sm text-indigo-600 font-bold hover:text-indigo-700"
-                    >
-                      Απάντηση
-                    </button>
-                  )}
-
-                  {replyingTo === review.id && !editingReply && (
-                    <div className="mt-4 space-y-3">
-                      <textarea
-                        className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        rows={3}
-                        placeholder="Γράψτε την απάντησή σας..."
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setReplyingTo(null);
-                            setReplyText('');
-                          }}
-                          disabled={submitting}
-                          className="px-4 py-2 text-slate-600 border border-slate-200 rounded-lg font-medium hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          Ακύρωση
-                        </button>
-                        <button
-                          onClick={() => handleReply(review.id)}
-                          disabled={submitting || !replyText.trim()}
-                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50"
-                        >
-                          {submitting ? 'Αποστολή...' : 'Αποστολή'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {editingReply === review.id && (
-                    <div className="mt-4 space-y-3">
-                      <textarea
-                        className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        rows={3}
-                        placeholder="Επεξεργασία απάντησης..."
-                        value={replyText}
-                        onChange={e => setReplyText(e.target.value)}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => {
-                            setEditingReply(null);
-                            setReplyText('');
-                          }}
-                          disabled={submitting}
-                          className="px-4 py-2 text-slate-600 border border-slate-200 rounded-lg font-medium hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          Ακύρωση
-                        </button>
-                        <button
-                          onClick={() => handleEditReply(review.id)}
-                          disabled={submitting || !replyText.trim()}
-                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50"
-                        >
-                          {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
     </div>
   );
 }

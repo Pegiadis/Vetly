@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
+
+import { ClinicInput, ClinicButton, ClinicPanel, ClinicPageHeader, ClinicFilterTabs, ClinicListRow, ClinicStatusBadge, ClinicEmptyState, ClinicLoading } from '@/components/vet/ClinicUI';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   useAllAppointments,
@@ -17,14 +18,18 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import DatePicker from '@/components/DatePicker';
 import CalendarPicker from '@/components/CalendarPicker';
-import Pagination from '@/components/Pagination';
+import { ClinicPagination as Pagination } from '@/components/vet/ClinicUI';
 import { useToast } from '@/components/Toast';
+import CreateAppointmentDialog from '@/components/vet/CreateAppointmentDialog';
 import ExaminationDialog from '@/components/vet/ExaminationDialog';
-import { getImageUrl } from '@/lib/api';
+import { api, getImageUrl } from '@/lib/api';
+import ClinicAvatar from '@/components/vet/ClinicAvatar';
+
+function todayLocal() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 
 function formatTime(dateString: string): string {
   const date = new Date(dateString);
-  return date.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 }
 
 function formatDate(dateString: string): string {
@@ -38,7 +43,7 @@ function formatDate(dateString: string): string {
 
 const statusConfig: Record<string, { label: string; bg: string; text: string; dot: string }> = {
   pending: { label: 'Αναμονή', bg: 'bg-amber-50 border-amber-200', text: 'text-amber-800', dot: 'bg-amber-500 animate-pulse' },
-  confirmed: { label: 'Επιβεβαιωμένο', bg: 'bg-indigo-50 border-indigo-100', text: 'text-indigo-800', dot: 'bg-indigo-500' },
+  confirmed: { label: 'Επιβεβαιωμένο', bg: 'bg-clinic-50 border-clinic-100', text: 'text-clinic-800', dot: 'bg-clinic-500' },
   completed: { label: 'Ολοκληρώθηκε', bg: 'bg-green-50 border-green-100', text: 'text-green-800', dot: 'bg-green-500' },
   cancelled: { label: 'Ακυρώθηκε', bg: 'bg-red-50 border-red-100', text: 'text-red-800', dot: 'bg-red-500' },
 };
@@ -59,10 +64,10 @@ function RescheduleDialog({
   const [error, setError] = useState<string | null>(null);
 
   const vetId = user?.id || appointment.vet_id;
-  const { slots, loading: slotsLoading } = useVetAvailableSlots(vetId, selectedDate);
+  const { slots, loading: slotsLoading } = useVetAvailableSlots(vetId, selectedDate, appointment.duration_minutes, appointment.id);
 
   const handleSubmit = async () => {
-    if (!selectedDate || !selectedSlot) return;
+    if (!selectedDate || !selectedSlot || slotsLoading || !slots.includes(selectedSlot)) return;
     try {
       setSubmitting(true);
       setError(null);
@@ -78,19 +83,20 @@ function RescheduleDialog({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-t-2xl p-6 text-white relative">
+
+      <div className="w-full">
+        <div className="bg-white rounded-xl border border-ink-200 w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="border-b border-ink-200 p-5 relative [&_p]:text-ink-500">
             <button
               onClick={onClose}
+              aria-label="Κλείσιμο αναπρογραμματισμού"
               className="absolute top-4 right-4 bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <h2 className="text-xl font-bold">Αναπρογραμματισμός Ραντεβού</h2>
+            <h2 className="text-xl font-semibold">Αναπρογραμματισμός Ραντεβού</h2>
             <div className="flex items-center gap-2 mt-2">
               <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
                 {appointment.pet?.image_url ? (
@@ -99,7 +105,7 @@ function RescheduleDialog({
                   <span className="text-lg">{appointment.pet?.type === 'Dog' ? '🐕' : appointment.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
                 )}
               </div>
-              <span className="font-bold">{appointment.pet?.name || 'Ασθενής'}</span>
+              <span className="font-semibold">{appointment.pet?.name || 'Ασθενής'}</span>
             </div>
             {appointment.pet_owner && (
               <p className="text-white/70 text-sm mt-1">Ιδιοκτήτης: {appointment.pet_owner.name}</p>
@@ -111,7 +117,7 @@ function RescheduleDialog({
 
           <div className="p-6 space-y-5">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-3">Νέα Ημερομηνία</label>
+              <label className="block text-sm font-semibold text-ink-700 mb-3">Νέα Ημερομηνία</label>
               <CalendarPicker
                 value={selectedDate}
                 onChange={(d) => { setSelectedDate(d); setSelectedSlot(null); }}
@@ -122,26 +128,26 @@ function RescheduleDialog({
 
             {selectedDate && (
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Διαθέσιμες Ώρες</label>
+                <label className="block text-sm font-semibold text-ink-700 mb-2">Διαθέσιμες Ώρες</label>
                 {slotsLoading ? (
                   <div className="flex items-center justify-center py-4">
-                    <svg className="animate-spin h-5 w-5 text-indigo-600" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-5 w-5 text-clinic-600" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
                   </div>
                 ) : slots.length === 0 ? (
-                  <p className="text-sm text-slate-400 text-center py-3">Δεν υπάρχουν διαθέσιμες ώρες</p>
+                  <p className="text-sm text-ink-400 text-center py-3">Δεν υπάρχουν διαθέσιμες ώρες</p>
                 ) : (
                   <div className="grid grid-cols-4 gap-2">
                     {slots.map((slot) => (
                       <button
                         key={slot}
                         onClick={() => setSelectedSlot(slot)}
-                        className={`py-2 rounded-lg text-sm font-bold transition-colors ${
+                        className={`py-2 rounded-lg text-sm font-semibold transition-colors ${
                           selectedSlot === slot
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+                            ? 'bg-clinic-600 text-white'
+                            : 'bg-clinic-50 text-clinic-700 hover:bg-clinic-100'
                         }`}
                       >
                         {slot}
@@ -159,14 +165,14 @@ function RescheduleDialog({
             )}
 
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors">
+              <ClinicButton variant="secondary" type="button" onClick={onClose} className="flex-1">
                 Ακύρωση
-              </button>
-              <button
+              </ClinicButton>
+              <ClinicButton variant="primary"
                 type="button"
                 onClick={handleSubmit}
-                disabled={submitting || !selectedDate || !selectedSlot}
-                className="flex-1 px-4 py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={submitting || slotsLoading || !selectedDate || !selectedSlot || !slots.includes(selectedSlot)}
+                className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2">
@@ -179,7 +185,7 @@ function RescheduleDialog({
                 ) : (
                   'Αναπρογραμματισμός'
                 )}
-              </button>
+              </ClinicButton>
             </div>
           </div>
         </div>
@@ -218,24 +224,24 @@ function VetCancelDialog({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+
+      <div className="w-full">
+        <div className="bg-white rounded-xl border border-ink-200 w-full" onClick={(e) => e.stopPropagation()}>
           <div className="p-6">
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h3 className="text-lg font-bold text-slate-900 text-center mb-2">Ακύρωση Ραντεβού</h3>
-            <p className="text-sm text-slate-500 text-center mb-4">
+            <h3 className="text-lg font-semibold text-ink-900 text-center mb-2">Ακύρωση Ραντεβού</h3>
+            <p className="text-sm text-ink-500 text-center mb-4">
               Είστε σίγουροι ότι θέλετε να ακυρώσετε αυτό το ραντεβού;
             </p>
 
-            <div className="bg-slate-50 rounded-xl p-4 mb-4 space-y-1 text-sm">
-              <p className="text-slate-700"><span className="font-bold">Ασθενής:</span> {petName}</p>
-              {ownerName && <p className="text-slate-700"><span className="font-bold">Ιδιοκτήτης:</span> {ownerName}</p>}
-              <p className="text-slate-700"><span className="font-bold">Ημερομηνία:</span> {formatDate(appointment.scheduled_at)}, {formatTime(appointment.scheduled_at)}</p>
+            <div className="bg-ink-50 rounded-xl p-4 mb-4 space-y-1 text-sm">
+              <p className="text-ink-700"><span className="font-semibold">Ασθενής:</span> {petName}</p>
+              {ownerName && <p className="text-ink-700"><span className="font-semibold">Ιδιοκτήτης:</span> {ownerName}</p>}
+              <p className="text-ink-700"><span className="font-semibold">Ημερομηνία:</span> {formatDate(appointment.scheduled_at)}, {formatTime(appointment.scheduled_at)}</p>
             </div>
 
             {error && (
@@ -245,17 +251,17 @@ function VetCancelDialog({
             )}
 
             <div className="flex gap-3">
-              <button
+              <ClinicButton variant="secondary"
                 onClick={onClose}
                 disabled={submitting}
-                className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+                className="flex-1"
               >
                 Πίσω
-              </button>
-              <button
+              </ClinicButton>
+              <ClinicButton variant="danger"
                 onClick={handleCancel}
                 disabled={submitting}
-                className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2">
@@ -268,7 +274,7 @@ function VetCancelDialog({
                 ) : (
                   'Ακύρωση Ραντεβού'
                 )}
-              </button>
+              </ClinicButton>
             </div>
           </div>
         </div>
@@ -279,9 +285,12 @@ function VetCancelDialog({
 
 export default function VetAppointmentsPage() {
   const searchParams = useSearchParams();
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
-  const [page, setPage] = useState(1);
+  const [page, setCurrentPage] = useState(1);
+  const setPage = (value: number) => { setCurrentPage(value); setPanel(null); };
   const [dateFrom, setDateFrom] = useState(searchParams.get('dateFrom') || '');
   const [dateTo, setDateTo] = useState(searchParams.get('dateTo') || '');
 
@@ -304,39 +313,68 @@ export default function VetAppointmentsPage() {
     }
     setPage(1);
   };
-  const [cancelDialog, setCancelDialog] = useState<VetAppointment | null>(null);
-  const [examAppointment, setExamAppointment] = useState<VetAppointment | null>(null);
-  const [rescheduleDialog, setRescheduleDialog] = useState<VetAppointment | null>(null);
+  const [panel, setPanel] = useState<{ mode: 'details' | 'cancel' | 'exam' | 'reschedule' | 'create'; appointment?: VetAppointment } | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const linkedId = searchParams.get('appointmentId');
+  const [linkError, setLinkError] = useState('');
+  useEffect(() => {
+    if (!linkedId) return;
+    let active = true;
+    api.get<VetAppointment>(`/vet/appointments/${encodeURIComponent(linkedId)}`).then(appointment => { if(active) { setPanel({mode:'details',appointment}); setLinkError(''); } }).catch(() => { if(active)setLinkError('Το ραντεβού δεν είναι διαθέσιμο ή δεν έχετε πρόσβαση.'); });
+    return () => {active=false};
+  }, [linkedId]);
+
+  const cancelDialog = panel?.mode === 'cancel' ? panel.appointment : null;
+  const examAppointment = panel?.mode === 'exam' ? panel.appointment : null;
+  const rescheduleDialog = panel?.mode === 'reschedule' ? panel.appointment : null;
+  const setCancelDialog = (appointment: VetAppointment | null) => setPanel(appointment ? { mode: 'cancel', appointment } : null);
+  const setExamAppointment = (appointment: VetAppointment | null) => setPanel(appointment ? { mode: 'exam', appointment } : null);
+  const setRescheduleDialog = (appointment: VetAppointment | null) => setPanel(appointment ? { mode: 'reschedule', appointment } : null);
+  useEffect(() => {
+    if (panel) {
+      panelRef.current?.focus({ preventScroll: true });
+      if (window.innerWidth < 1280) panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [panel]);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (searchInput.trim() === search) return;
+    const timer = setTimeout(() => { setSearch(searchInput.trim()); setCurrentPage(1); setPanel(null); }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput, search]);
+
   const filters = useMemo<VetAppointmentFilters>(() => ({
+    search: search || undefined,
     status: statusFilter || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     sort: sortOrder,
-  }), [statusFilter, dateFrom, dateTo, sortOrder]);
+  }), [search, statusFilter, dateFrom, dateTo, sortOrder]);
 
   const toast = useToast();
   const { appointments, total, totalPages, loading, error, refetch } = useAllAppointments(page, 10, filters);
 
-  // Group appointments by group_id
-  const grouped = useMemo(() => {
-    const groups: VetAppointment[][] = [];
-    const groupMap = new Map<string, VetAppointment[]>();
-    for (const apt of appointments) {
-      if (apt.group_id) {
-        if (!groupMap.has(apt.group_id)) {
-          const arr: VetAppointment[] = [];
-          groupMap.set(apt.group_id, arr);
-          groups.push(arr);
-        }
-        groupMap.get(apt.group_id)!.push(apt);
-      } else {
-        groups.push([apt]);
-      }
+  const days = useMemo(() => {
+    const result = new Map<string, VetAppointment[]>();
+    for (const appointment of appointments) {
+      const date = new Date(appointment.scheduled_at).toLocaleDateString('en-CA');
+      const items = result.get(date) || [];
+      items.push(appointment);
+      result.set(date, items);
     }
-    return groups;
+    return Array.from(result.entries());
   }, [appointments]);
+  const weekStart = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
+  const weekEnd = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + (7 - (d.getDay() || 7)));
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  };
 
   const hasDateFilters = dateFrom || dateTo;
 
@@ -346,24 +384,31 @@ export default function VetAppointmentsPage() {
     setPage(1);
   };
 
+  const [pendingAction, setPendingAction] = useState(false);
   const handleApprove = async (id: string) => {
+    if (pendingAction) return;
+    setPendingAction(true);
     try {
       await approveAppointment(id);
       refetch();
+      setPanel(null);
       toast.success('Το ραντεβού εγκρίθηκε.');
     } catch {
       toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
-    }
+    } finally { setPendingAction(false); }
   };
 
   const handleReject = async (id: string) => {
+    if (pendingAction) return;
+    setPendingAction(true);
     try {
       await rejectAppointment(id);
       refetch();
+      setPanel(null);
       toast.success('Το ραντεβού απορρίφθηκε.');
     } catch {
       toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
-    }
+    } finally { setPendingAction(false); }
   };
 
   const handleCancelSuccess = () => {
@@ -403,374 +448,90 @@ export default function VetAppointmentsPage() {
   ];
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <Link href="/vet/dashboard" className="text-slate-500 text-sm font-bold mb-2 hover:text-indigo-600 block">
-            &larr; Dashboard
-          </Link>
-          <h1 className="text-3xl font-bold text-slate-900">Ραντεβού</h1>
-          <p className="text-slate-500 mt-1">Διαχείριση ραντεβού</p>
+    <div className="mx-auto">{linkError && <p role="alert" className="mb-4 text-sm text-red-700">{linkError}</p>}
+      <ClinicPageHeader title="Ραντεβού" description="Το πρόγραμμα, τα αιτήματα και το ιστορικό επισκέψεων του κτηνιατρείου." actions={<ClinicButton className="bg-clinic-600! border-clinic-700! text-white!" onClick={() => setPanel({ mode: 'create' })}>+ Νέο Ραντεβού</ClinicButton>} />
+      <div className={`grid items-start gap-4 ${panel ? 'xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}><div className="min-w-0">
+      <ClinicPanel className="overflow-hidden">
+      <ClinicFilterTabs label="Κατάσταση ραντεβού" options={statusFilters} value={statusFilter} onChange={value => { setStatusFilter(value); setPage(1); }} />
+
+      <div className="border-b border-ink-200 px-4 py-3 space-y-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <ClinicInput type="search" aria-label="Αναζήτηση ραντεβού" placeholder="Αναζήτηση ασθενή ή κηδεμόνα…" maxLength={100} value={searchInput} onChange={e => setSearchInput(e.target.value)} className="w-full sm:w-80 sm:max-w-full" />
+          <span role="status" className="text-xs text-ink-500 sm:ml-auto">{loading ? 'Αναζήτηση…' : `${total} ραντεβού`}</span>
         </div>
-      </div>
-
-      {/* Status Filter Tabs */}
-      <div className="flex gap-2 mb-4 flex-wrap">
-        {statusFilters.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => { setStatusFilter(f.value); setPage(1); }}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-              statusFilter === f.value
-                ? 'bg-indigo-600 text-white'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Date Filters */}
-      <div className="flex flex-wrap items-center gap-3 mb-6">
-        <button
-          onClick={() => {
-            const today = new Date().toISOString().split('T')[0];
-            setDateFrom(today);
-            setDateTo(today);
-            setPage(1);
-          }}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${
-            dateFrom && dateTo && dateFrom === dateTo && dateFrom === new Date().toISOString().split('T')[0]
-              ? 'bg-indigo-600 text-white'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-          }`}
-        >
-          Σήμερα
-        </button>
-        <DatePicker
-          value={dateFrom}
-          onChange={handleDateFrom}
-          placeholder="Από"
-        />
-        <DatePicker
-          value={dateTo}
-          onChange={handleDateTo}
-          placeholder="Έως"
-        />
-        {hasDateFilters && (
-          <button
-            onClick={clearDateFilters}
-            className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-bold text-red-500 bg-red-50 border border-red-200 hover:bg-red-100 transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-            Καθαρισμός
-          </button>
-        )}
-        <button
-          onClick={() => { setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc'); setPage(1); }}
-          className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
-          title={sortOrder === 'desc' ? 'Νεότερα πρώτα' : 'Παλαιότερα πρώτα'}
-        >
-          <svg className={`w-4 h-4 transition-transform ${sortOrder === 'asc' ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
-          </svg>
-          {sortOrder === 'desc' ? 'Νεότερα' : 'Παλαιότερα'}
-        </button>
-        <span className="text-xs text-slate-400 font-medium">{total} αποτελέσματα</span>
+        <div className="flex flex-wrap items-center gap-2">
+          <div role="group" aria-label="Περίοδος" className="inline-flex rounded-lg border border-ink-200 p-1">
+            {[{label:'Όλες οι ημέρες', from:'', to:''}, {label:'Σήμερα', from:todayLocal(), to:todayLocal()}, {label:'Αυτή την εβδομάδα', from:weekStart(), to:weekEnd()}].map(period => <button key={period.label} type="button" aria-pressed={dateFrom === period.from && dateTo === period.to} onClick={() => { setDateFrom(period.from); setDateTo(period.to); setPage(1); }} className={`rounded-md px-2.5 py-2 text-xs font-medium ${dateFrom === period.from && dateTo === period.to ? 'bg-clinic-50 text-clinic-800' : 'text-ink-500 hover:bg-ink-50'}`}>{period.label}</button>)}
+          </div>
+          <details className="relative">
+            <summary className="cursor-pointer rounded-lg border border-ink-200 px-3 py-2 text-xs text-ink-600">Ημερομηνίες</summary>
+            <div className="mt-2 flex flex-wrap gap-2 rounded-lg border border-ink-200 bg-white p-3">
+              <DatePicker value={dateFrom} onChange={handleDateFrom} placeholder="Από" />
+              <DatePicker value={dateTo} onChange={handleDateTo} placeholder="Έως" />
+              {hasDateFilters && <ClinicButton onClick={clearDateFilters}>Καθαρισμός</ClinicButton>}
+            </div>
+          </details>
+          <ClinicButton variant="ghost" className="sm:ml-auto" onClick={() => { setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc'); setPage(1); }}>{sortOrder === 'desc' ? '↓ Νεότερα πρώτα' : '↑ Παλαιότερα πρώτα'}</ClinicButton>
+        </div>
+        {hasDateFilters && <p className="text-xs text-ink-500">{dateFrom ? formatDate(`${dateFrom}T12:00:00`) : 'Αρχή ιστορικού'} — {dateTo ? formatDate(`${dateTo}T12:00:00`) : 'Χωρίς λήξη'}</p>}
       </div>
 
       {/* Content */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+      <div>
         {loading ? (
-          <div className="text-center py-12 text-slate-500">
-            <svg className="animate-spin h-8 w-8 mx-auto mb-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-            </svg>
-            Φόρτωση ραντεβού...
-          </div>
+          <ClinicLoading label="Φόρτωση ραντεβού…" />
         ) : error ? (
-          <div className="text-center py-12 text-red-500">{error}</div>
+          <div role="alert" className="p-8 text-center text-sm text-red-700">{error}</div>
         ) : appointments.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            <svg className="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <p className="text-lg font-medium">Δεν υπάρχουν ραντεβού</p>
-            <p className="text-sm mt-1">Τα ραντεβού θα εμφανιστούν εδώ</p>
-          </div>
+          <ClinicEmptyState title="Δεν υπάρχουν ραντεβού" description={hasDateFilters || statusFilter || search ? 'Δεν βρέθηκαν επισκέψεις με αυτά τα φίλτρα. Δοκίμασε άλλη ημερομηνία ή κατάσταση.' : 'Τα ραντεβού του κτηνιατρείου θα εμφανιστούν εδώ.'} />
         ) : (
-          <div className="space-y-3">
-            {grouped.map((group) => {
-              const isGroup = group.length > 1;
-              const first = group[0];
-              const cfg = statusConfig[first.status] || statusConfig.confirmed;
-
-              if (!isGroup) {
-                // Single appointment — render as before
-                const apt = first;
-                return (
-                  <div
-                    key={apt.id}
-                    className={`p-4 rounded-xl border transition-all ${cfg.bg}`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden mt-0.5">
-                          {apt.pet?.image_url ? (
-                            <img src={getImageUrl(apt.pet.image_url)} alt={apt.pet?.name || ''} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-2xl">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
-                          )}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h4 className="font-bold text-slate-800">{apt.pet?.name || 'Ασθενής'}</h4>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${cfg.text} ${apt.status === 'pending' ? 'bg-amber-200' : apt.status === 'completed' ? 'bg-green-200' : apt.status === 'cancelled' ? 'bg-red-200' : 'bg-indigo-200'}`}>
-                              {cfg.label}
-                            </span>
-                          </div>
-                          <p className="text-sm text-slate-600">{apt.type}</p>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                            <span>{formatDate(apt.scheduled_at)}</span>
-                            <span>{formatTime(apt.scheduled_at)}</span>
-                            <span>{apt.duration_minutes} λεπτά</span>
-                          </div>
-                          {apt.pet_owner && (
-                            <p className="text-xs text-slate-500 mt-1">
-                              Ιδιοκτήτης: {apt.pet_owner.name}
-                              {apt.pet_owner.phone && ` · ${apt.pet_owner.phone}`}
-                            </p>
-                          )}
-                          {apt.notes && (
-                            <p className="text-xs text-slate-500 mt-2 italic bg-white/50 rounded-lg px-2 py-1">
-                              {apt.notes}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {apt.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleReject(apt.id)}
-                              className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
-                            >
-                              Απόρριψη
-                            </button>
-                            <button
-                              onClick={() => handleApprove(apt.id)}
-                              className="px-3 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-                            >
-                              Έγκριση
-                            </button>
-                          </>
-                        )}
-                        {apt.status === 'confirmed' && (
-                          <>
-                            <button
-                              onClick={() => setExamAppointment(apt)}
-                              className="px-3 py-2 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
-                            >
-                              Εξέταση
-                            </button>
-                            <button
-                              onClick={() => setRescheduleDialog(apt)}
-                              className="px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
-                            >
-                              Αναπρογρ.
-                            </button>
-                            <button
-                              onClick={() => setCancelDialog(apt)}
-                              className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
-                            >
-                              Ακύρωση
-                            </button>
-                          </>
-                        )}
-                        {apt.status === 'completed' && (
-                          <button
-                            onClick={() => handleDownloadPrescription(apt.id)}
-                            disabled={downloadingId === apt.id}
-                            className="px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                          >
-                            {downloadingId === apt.id ? (
-                              <>
-                                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                </svg>
-                                Λήψη...
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                Λήψη Συνταγής
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-
-              // Grouped appointment — multiple pets in one card
-              const groupKey = first.group_id || first.id;
-              const ownerName = first.pet_owner?.name || '';
-              const ownerPhone = first.pet_owner?.phone || '';
-              const allPending = group.every(a => a.status === 'pending');
-              const allConfirmed = group.every(a => a.status === 'confirmed');
-
-              return (
-                <div
-                  key={groupKey}
-                  className={`p-4 rounded-xl border transition-all ${cfg.bg}`}
-                >
-                  {/* Group header */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
-                          {group.length} κατοικίδια
-                        </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${cfg.text} ${first.status === 'pending' ? 'bg-amber-200' : first.status === 'completed' ? 'bg-green-200' : first.status === 'cancelled' ? 'bg-red-200' : 'bg-indigo-200'}`}>
-                          {cfg.label}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-500">
-                        <span>{formatDate(first.scheduled_at)}</span>
-                        <span>{formatTime(first.scheduled_at)}</span>
-                        <span>{first.duration_minutes} λεπτά</span>
-                      </div>
-                      {ownerName && (
-                        <p className="text-xs text-slate-500 mt-1">
-                          Ιδιοκτήτης: {ownerName}
-                          {ownerPhone && ` · ${ownerPhone}`}
-                        </p>
-                      )}
-                      {first.notes && (
-                        <p className="text-xs text-slate-500 mt-2 italic bg-white/50 rounded-lg px-2 py-1">
-                          {first.notes}
-                        </p>
-                      )}
-                    </div>
-                    {/* Group-level actions */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {allPending && (
-                        <>
-                          <button
-                            onClick={() => handleReject(first.id)}
-                            className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
-                          >
-                            Απόρριψη Όλων
-                          </button>
-                          <button
-                            onClick={() => handleApprove(first.id)}
-                            className="px-3 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
-                          >
-                            Έγκριση Όλων
-                          </button>
-                        </>
-                      )}
-                      {allConfirmed && (
-                        <>
-                          <button
-                            onClick={() => setRescheduleDialog(first)}
-                            className="px-3 py-2 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
-                          >
-                            Αναπρογρ.
-                          </button>
-                          <button
-                            onClick={() => setCancelDialog(first)}
-                            className="px-3 py-2 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors"
-                          >
-                            Ακύρωση Όλων
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Individual pets in the group */}
-                  <div className="space-y-2 border-t border-slate-200/50 pt-3">
-                    {group.map((apt) => {
-                      const petCfg = statusConfig[apt.status] || statusConfig.confirmed;
-                      return (
-                        <div key={apt.id} className="flex items-center justify-between bg-white/60 rounded-lg px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden flex-shrink-0">
-                              {apt.pet?.image_url ? (
-                                <img src={getImageUrl(apt.pet.image_url)} alt={apt.pet?.name || ''} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-lg">{apt.pet?.type === 'Dog' ? '🐕' : apt.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
-                              )}
-                            </div>
-                            <div>
-                              <span className="font-bold text-sm text-slate-800">{apt.pet?.name || 'Ασθενής'}</span>
-                              <span className="text-xs text-slate-500 ml-2">{apt.type}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {apt.status === 'confirmed' && (
-                              <button
-                                onClick={() => setExamAppointment(apt)}
-                                className="px-2 py-1 text-xs font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
-                              >
-                                Εξέταση
-                              </button>
-                            )}
-                            {apt.status === 'completed' && (
-                              <button
-                                onClick={() => handleDownloadPrescription(apt.id)}
-                                disabled={downloadingId === apt.id}
-                                className="px-2 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50 flex items-center gap-1"
-                              >
-                                {downloadingId === apt.id ? (
-                                  <>
-                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
-                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                    </svg>
-                                    Λήψη...
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                    </svg>
-                                    Συνταγή
-                                  </>
-                                )}
-                              </button>
-                            )}
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${petCfg.text} ${apt.status === 'pending' ? 'bg-amber-200' : apt.status === 'completed' ? 'bg-green-200' : apt.status === 'cancelled' ? 'bg-red-200' : 'bg-indigo-200'}`}>
-                              {petCfg.label}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
+          <div>
+            {days.map(([day, items]) => <section key={day} aria-label={formatDate(items[0].scheduled_at)}>
+              <div className="flex items-center justify-between border-y border-ink-200 bg-ink-50 px-4 py-2.5 sm:px-5">
+                <h2 className="text-xs font-semibold text-ink-700">{new Date(items[0].scheduled_at).toLocaleDateString('el-GR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</h2>
+                <span className="ml-3 shrink-0 text-xs text-ink-500">{items.length} στη σελίδα</span>
+              </div>
+              {items.map(apt => <ClinicListRow key={apt.id} className={panel?.appointment?.id === apt.id ? 'bg-clinic-50/60! shadow-[inset_3px_0_0_var(--color-clinic-600)]' : ''}>
+                <div className={`grid grid-cols-[52px_minmax(0,1fr)] gap-x-3 gap-y-3 sm:grid-cols-[52px_minmax(0,1fr)_auto]`}>
+                  <div className="pt-0.5"><p className="text-base font-semibold tabular-nums text-ink-900">{formatTime(apt.scheduled_at)}</p><p className="mt-1 text-xs text-ink-500">{apt.duration_minutes}′</p></div>
+                  <div className="flex min-w-0 items-start gap-2"><ClinicAvatar name={apt.pet?.name || 'Ασθενής'} imageUrl={apt.pet?.image_url} /><div className="min-w-0">
+                    <button aria-label={`Λεπτομέρειες: ${apt.pet?.name || 'Ασθενής'}`} aria-pressed={panel?.appointment?.id === apt.id} onClick={() => setPanel({mode:'details', appointment:apt})} className="max-w-full break-words text-left text-sm font-semibold text-ink-900 underline-offset-4 hover:text-clinic-700 hover:underline">{apt.pet?.name || 'Ασθενής'} <span aria-hidden="true" className="ml-1 text-ink-400">↗</span></button>
+                    <p className="mt-1 break-words text-xs text-ink-500">{apt.pet_owner?.name || 'Χωρίς στοιχεία κηδεμόνα'}</p>
+                    <p className="mt-1 break-words text-sm text-ink-600">{apt.type}</p>
+                    {apt.group_id && <span className="mt-1 inline-block text-xs text-clinic-700">Ομαδική επίσκεψη</span>}
+                    <div className="mt-2"><ClinicStatusBadge status={apt.status}>{statusConfig[apt.status]?.label || apt.status}</ClinicStatusBadge></div>
+                  </div></div>
+                  <div className="col-start-2 flex items-center sm:col-start-3 sm:items-start sm:justify-end">
+                    {apt.status === 'pending' ? <ClinicButton disabled={pendingAction} variant="primary" onClick={() => handleApprove(apt.id)}>{apt.group_id ? 'Έγκριση ομάδας' : 'Έγκριση'}</ClinicButton> : apt.status === 'confirmed' ? <ClinicButton onClick={() => setExamAppointment(apt)}>Εξέταση</ClinicButton> : <ClinicButton variant="ghost" onClick={() => setPanel({mode:'details', appointment:apt})}>Προβολή</ClinicButton>}
                   </div>
                 </div>
-              );
-            })}
+              </ClinicListRow>)}
+            </section>)}
           </div>
         )}
       </div>
+      </ClinicPanel>
 
       <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
+      </div>
+      {panel && <div ref={panelRef} tabIndex={-1} aria-label="Πάνελ ραντεβού" className="min-w-0 scroll-mt-20 outline-none xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
+      {panel.mode === 'create' && <CreateAppointmentDialog embedded open onClose={() => setPanel(null)} onSuccess={() => { setPanel(null); void refetch(); toast.success('Το ραντεβού δημιουργήθηκε.'); }} />}
+      {panel.mode === 'details' && panel.appointment && <ClinicPanel className="overflow-hidden">
+        <div className="flex items-center justify-between border-b border-ink-200 px-5 py-3"><h2 className="text-sm font-semibold">Λεπτομέρειες ραντεβού</h2><ClinicButton aria-label="Κλείσιμο λεπτομερειών" variant="ghost" onClick={() => setPanel(null)}>×</ClinicButton></div>
+        <div className="space-y-5 p-5">
+          <div><div className="mb-3"><ClinicAvatar large name={panel.appointment.pet?.name || 'Ασθενής'} imageUrl={panel.appointment.pet?.image_url} /></div><ClinicStatusBadge status={panel.appointment.status}>{statusConfig[panel.appointment.status]?.label || panel.appointment.status}</ClinicStatusBadge><h3 className="mt-3 break-words text-2xl font-semibold tracking-tight">{panel.appointment.pet?.name || 'Ασθενής'}</h3><p className="mt-1 text-sm text-ink-500">{panel.appointment.type}</p></div>
+          <div className="rounded-lg border border-clinic-100 bg-clinic-50/50 p-4"><p className="text-xs font-medium text-clinic-800">Προγραμματισμένη επίσκεψη</p><p className="mt-2 text-sm font-semibold">{formatDate(panel.appointment.scheduled_at)}</p><p className="mt-1 text-xl font-semibold tabular-nums">{formatTime(panel.appointment.scheduled_at)} <span className="text-xs font-normal text-ink-500">· {panel.appointment.duration_minutes} λεπτά</span></p></div>
+          <section className="border-b border-ink-200 pb-4"><h4 className="text-xs font-semibold text-ink-500">Κηδεμόνας</h4><p className="mt-2 break-words text-sm font-medium">{panel.appointment.pet_owner?.name || 'Δεν έχουν καταχωρηθεί στοιχεία.'}</p>{panel.appointment.pet_owner?.phone && <a className="mt-2 inline-block text-sm text-clinic-700 underline underline-offset-4" href={`tel:${panel.appointment.pet_owner.phone}`}>{panel.appointment.pet_owner.phone}</a>}</section>
+          <section><h4 className="text-xs font-semibold text-ink-500">Σημειώσεις επίσκεψης</h4><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-600">{panel.appointment.notes || 'Δεν υπάρχουν σημειώσεις.'}</p></section>
+          {panel.appointment.group_id && <p className="rounded-lg bg-ink-50 p-3 text-xs leading-5 text-ink-500">Ομαδική επίσκεψη. Η έγκριση, η απόρριψη, η αλλαγή ώρας και η ακύρωση ακολουθούν τους κανόνες της ομάδας. Η εξέταση αφορά τον επιλεγμένο ασθενή.</p>}
+        </div>
+        <div className="border-t border-ink-200 bg-ink-50/50 p-4">
+<div className="flex flex-wrap gap-2">{panel.appointment.status === 'confirmed' && <><ClinicButton variant="primary" onClick={() => setExamAppointment(panel.appointment!)}>Εξέταση</ClinicButton><ClinicButton onClick={() => setRescheduleDialog(panel.appointment!)}>Αναπρογρ.</ClinicButton><ClinicButton variant="danger" onClick={() => setCancelDialog(panel.appointment!)}>Ακύρωση</ClinicButton></>}{panel.appointment.status === 'pending' && <><ClinicButton variant="primary" disabled={pendingAction} onClick={() => handleApprove(panel.appointment!.id)}>Έγκριση</ClinicButton><ClinicButton variant="danger" disabled={pendingAction} onClick={() => handleReject(panel.appointment!.id)}>Απόρριψη</ClinicButton></>}{panel.appointment.status === 'completed' && <ClinicButton disabled={!!downloadingId} onClick={() => handleDownloadPrescription(panel.appointment!.id)}>Λήψη Συνταγής</ClinicButton>}</div></div></ClinicPanel>}
       {/* Cancel Dialog */}
       {cancelDialog && (
         <VetCancelDialog
+          key={cancelDialog.id}
           appointment={cancelDialog}
           onClose={() => setCancelDialog(null)}
           onSuccess={handleCancelSuccess}
@@ -780,6 +541,8 @@ export default function VetAppointmentsPage() {
       {/* Examination Dialog */}
       {examAppointment && (
         <ExaminationDialog
+          embedded
+          key={examAppointment.id}
           appointment={examAppointment}
           onClose={() => setExamAppointment(null)}
           onSuccess={handleExamSuccess}
@@ -789,11 +552,14 @@ export default function VetAppointmentsPage() {
       {/* Reschedule Dialog */}
       {rescheduleDialog && (
         <RescheduleDialog
+          key={rescheduleDialog.id}
           appointment={rescheduleDialog}
           onClose={() => setRescheduleDialog(null)}
           onSuccess={handleRescheduleSuccess}
         />
       )}
+      </div>}
+      </div>
     </div>
   );
 }

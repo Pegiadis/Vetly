@@ -48,12 +48,20 @@ class AppointmentService:
         data: VetCreateAppointmentRequest,
     ) -> AppointmentDetailResponse:
         """Create an appointment for a patient (vet-initiated, auto-confirmed)"""
-        pet = self.repository.get_pet_by_id(data.pet_id)
+        from app.repositories.pet import PetRepository
+        pet = PetRepository(self.db).get_patient_by_id(data.pet_id, vet_id)
         if not pet:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Pet not found",
             )
+
+        from app.db.base import Vet
+        from app.services.scheduling import check_working_hours
+        check_working_hours(self.db.get(Vet, vet_id), data.scheduled_at, data.duration_minutes)
+
+        from app.services.scheduling import check_service
+        check_service(self.db, vet_id, data.service_type_id, data.duration_minutes)
 
         # B2: Check for scheduling conflicts
         if self.repository.has_conflicting_appointment(
@@ -104,10 +112,12 @@ class AppointmentService:
         page: int = 1,
         page_size: int = 10,
         sort_asc: bool = False,
+        search: str | None = None,
     ) -> AppointmentListResponse:
         """Get paginated list of vet's appointments"""
         skip = (page - 1) * page_size
         appointments, total = self.repository.get_vet_appointments(
+            search=search,
             vet_id=vet_id,
             status=status,
             date_from=date_from,
@@ -405,9 +415,14 @@ class AppointmentService:
                 detail="Μόνο ενεργά ραντεβού μπορούν να αναπρογραμματιστούν.",
             )
 
+        from app.db.base import Vet
+        from app.services.scheduling import check_working_hours
+        check_working_hours(self.db.get(Vet, vet_id), data.scheduled_at, appointment.duration_minutes or 30)
+
         # Check for conflicts at the new time
         if self.repository.has_conflicting_appointment(
-            vet_id, data.scheduled_at, appointment.duration_minutes or 30
+            vet_id, data.scheduled_at, appointment.duration_minutes or 30,
+            exclude_id=appointment.id,
         ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

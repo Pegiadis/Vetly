@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
 
 export interface AppointmentPet {
@@ -157,6 +157,7 @@ export async function rescheduleAppointment(
 }
 
 export interface VetAppointmentFilters {
+  search?: string;
   status?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -169,29 +170,34 @@ export function useAllAppointments(page = 1, pageSize = 10, filters: VetAppointm
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const requestVersion = useRef(0);
   const fetchAppointments = useCallback(async () => {
+    const version = ++requestVersion.current;
     try {
       setLoading(true);
       const params = new URLSearchParams();
       params.set('page', String(page));
       params.set('page_size', String(pageSize));
       if (filters.status) params.set('status', filters.status);
+      if (filters.search) params.set('search', filters.search);
       if (filters.dateFrom) params.set('date_from', filters.dateFrom);
       if (filters.dateTo) params.set('date_to', filters.dateTo);
       if (filters.sort) params.set('sort', filters.sort);
       const data = await api.get<AppointmentListResponse>(`/vet/appointments?${params.toString()}`);
+      if (version !== requestVersion.current) return;
       setAppointments(data.items);
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
+      if (version === requestVersion.current) setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
-  }, [page, pageSize, filters.status, filters.dateFrom, filters.dateTo, filters.sort]);
+  }, [page, pageSize, filters.status, filters.dateFrom, filters.dateTo, filters.sort, filters.search]);
 
   useEffect(() => {
-    fetchAppointments();
+    void fetchAppointments();
+    return () => { requestVersion.current++; };
   }, [fetchAppointments]);
 
   const totalPages = Math.ceil(total / pageSize);
@@ -703,7 +709,7 @@ export async function createVetAppointment(data: VetCreateAppointmentData): Prom
   return api.post<VetAppointment>('/vet/appointments', data);
 }
 
-export function useVetAvailableSlots(vetId: string | null, date: string | null) {
+export function useVetAvailableSlots(vetId: string | null, date: string | null, durationMinutes = 30, excludeId?: string) {
   const [slots, setSlots] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -719,7 +725,7 @@ export function useVetAvailableSlots(vetId: string | null, date: string | null) 
         setLoading(true);
         setError(null);
         const data = await api.get<{ date: string; vet_id: string; slots: string[] }>(
-          `/vets/${vetId}/available-slots?date=${date}`
+          `/vets/${vetId}/available-slots?date=${date}&duration_minutes=${durationMinutes}${excludeId ? `&exclude_appointment_id=${excludeId}` : ''}`
         );
         setSlots(data.slots);
       } catch (err) {
@@ -731,7 +737,7 @@ export function useVetAvailableSlots(vetId: string | null, date: string | null) 
     };
 
     fetchSlots();
-  }, [vetId, date]);
+  }, [vetId, date, durationMinutes, excludeId]);
 
   return { slots, loading, error };
 }
@@ -743,7 +749,9 @@ export function useWeekAppointments(weekStart: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const requestId = useRef(0);
   const fetchAppointments = useCallback(async () => {
+    const request = ++requestId.current;
     try {
       setLoading(true);
       const start = new Date(weekStart + 'T00:00:00');
@@ -752,15 +760,25 @@ export function useWeekAppointments(weekStart: string) {
       const dateFrom = weekStart;
       const pad = (n: number) => String(n).padStart(2, '0');
       const dateTo = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
-      const data = await api.get<AppointmentListResponse>(
-        `/vet/appointments?date_from=${dateFrom}&date_to=${dateTo}&page_size=100`
-      );
-      setAppointments(data.items);
+      const items: VetAppointment[] = [];
+      let page = 1;
+      let total = 0;
+      do {
+        const data = await api.get<AppointmentListResponse>(
+          `/vet/appointments?date_from=${dateFrom}&date_to=${dateTo}&page_size=100&page=${page}`
+        );
+        if (request !== requestId.current) return;
+        items.push(...data.items);
+        total = data.total;
+        if (!data.items.length) break;
+        page += 1;
+      } while (items.length < total);
+      setAppointments(items);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch schedule');
+      if (request === requestId.current) setError(err instanceof Error ? err.message : 'Failed to fetch schedule');
     } finally {
-      setLoading(false);
+      if (request === requestId.current) setLoading(false);
     }
   }, [weekStart]);
 
@@ -774,6 +792,7 @@ export function useWeekAppointments(weekStart: string) {
 // --- Vet Notifications ---
 
 export interface VetNotification {
+  appointment_id?: string | null;
   id: string;
   type: string;
   title: string;
@@ -789,31 +808,36 @@ interface VetNotificationListResponse {
   page_size: number;
 }
 
-export function useVetNotifications(page = 1, pageSize = 10) {
+export function useVetNotifications(page = 1, pageSize = 10, readFilter: '' | 'unread' | 'read' = '') {
   const [notifications, setNotifications] = useState<VetNotification[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const requestId = useRef(0);
   const fetchNotifications = useCallback(async () => {
+    const id = ++requestId.current;
     try {
       setLoading(true);
       const params = new URLSearchParams();
+      if (readFilter) params.set('is_read', String(readFilter === 'read'));
       params.set('page', String(page));
       params.set('page_size', String(pageSize));
       const data = await api.get<VetNotificationListResponse>(`/vet/notifications?${params.toString()}`);
+      if (id !== requestId.current) return;
       setNotifications(data.items);
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
+      if (id === requestId.current) setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page, pageSize, readFilter]);
 
   useEffect(() => {
-    fetchNotifications();
+    void fetchNotifications();
+    return () => { requestId.current++; };
   }, [fetchNotifications]);
 
   const totalPages = Math.ceil(total / pageSize);
@@ -936,7 +960,9 @@ export function useVetClient(clientId: string | null) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const requestId = useRef(0);
   const fetchClient = useCallback(async () => {
+    const request = ++requestId.current;
     if (!clientId) {
       setClient(null);
       return;
@@ -944,17 +970,19 @@ export function useVetClient(clientId: string | null) {
     try {
       setLoading(true);
       const data = await api.get<VetClient>(`/vet/clients/${clientId}`);
+      if (request !== requestId.current) return;
       setClient(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch client');
+      if (request === requestId.current) { setClient(null); setError(err instanceof Error ? err.message : 'Failed to fetch client'); }
     } finally {
-      setLoading(false);
+      if (request === requestId.current) setLoading(false);
     }
   }, [clientId]);
 
   useEffect(() => {
     fetchClient();
+    return () => { requestId.current += 1; };
   }, [fetchClient]);
 
   return { client, loading, error, refetch: fetchClient };

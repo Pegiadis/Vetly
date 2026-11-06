@@ -92,7 +92,7 @@ def process_due_reminders(
     In production this would be triggered by a cron job.
     """
     service = ReminderService(db)
-    processed = service.process_due_reminders()
+    processed = service.process_due_reminders(vet_id=current_vet.id)
     return ProcessRemindersResponse(
         processed=processed,
         message=f"Processed {processed} due reminder(s) and sent notifications to owners.",
@@ -108,3 +108,13 @@ def delete_reminder(
     """Delete a reminder (vet must be the creator)"""
     service = ReminderService(db)
     service.delete_reminder(reminder_id, current_vet.id)
+
+
+@router.put("/{reminder_id}", response_model=ReminderResponse)
+def update_reminder(
+    reminder_id: UUID,
+    data: ReminderCreateRequest,
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> ReminderResponse:
+    return ReminderService(db).update_reminder(reminder_id, current_vet.id, data)

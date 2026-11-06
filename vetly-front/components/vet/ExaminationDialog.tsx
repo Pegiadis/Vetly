@@ -1,5 +1,8 @@
 'use client';
 
+
+import ClinicDrawer from './ClinicDrawer';
+import { ClinicButton, ClinicInput, ClinicPanel, ClinicTextarea } from '@/components/vet/ClinicUI';
 import { useState, useEffect, useRef } from 'react';
 import {
   completeExamination,
@@ -42,10 +45,12 @@ export default function ExaminationDialog({
   appointment,
   onClose,
   onSuccess,
+  embedded = false,
 }: {
   appointment: VetAppointment;
   onClose: () => void;
   onSuccess: () => void;
+  embedded?: boolean;
 }) {
   const [diagnosis, setDiagnosis] = useState('');
   const [examinationNotes, setExaminationNotes] = useState('');
@@ -137,6 +142,7 @@ export default function ExaminationDialog({
   };
 
   const handleSubmit = async () => {
+    if (submitting) return;
     if (!diagnosis.trim()) {
       setError('Η διάγνωση είναι υποχρεωτική');
       return;
@@ -183,21 +189,19 @@ export default function ExaminationDialog({
   const dateStr = formatDate(appointment.scheduled_at);
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-t-2xl p-6 text-white relative">
+    <ClinicDrawer label="Καταχώριση εξέτασης" embedded={embedded} busy={submitting} onClose={onClose}>
+        <div className={embedded ? 'bg-white rounded-xl border border-ink-200 w-full' : 'bg-white w-full'} onClick={(e) => e.stopPropagation()}>
+          <div className="border-b border-ink-200 p-5 relative [&_span]:text-ink-600 [&_p]:text-ink-500 [&_button]:text-ink-700">
             <button
-              onClick={onClose}
+              onClick={onClose} disabled={submitting} aria-label="Κλείσιμο φόρμας"
               className="absolute top-4 right-4 bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-            <h2 className="text-xl font-bold">Ολοκλήρωση Εξέτασης</h2>
-            <div className="flex items-center gap-4 mt-3">
+            <h2 className="text-xl font-semibold">Ολοκλήρωση Εξέτασης</h2>
+            <div className="flex flex-wrap items-center gap-4 mt-3">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center overflow-hidden">
                   {appointment.pet?.image_url ? (
@@ -206,7 +210,7 @@ export default function ExaminationDialog({
                     <span className="text-lg">{appointment.pet?.type === 'Dog' ? '🐕' : appointment.pet?.type === 'Cat' ? '🐈' : '🐾'}</span>
                   )}
                 </div>
-                <span className="font-bold">{appointment.pet?.name || 'Ασθενής'}</span>
+                <span className="font-semibold">{appointment.pet?.name || 'Ασθενής'}</span>
                 {appointment.pet?.breed && <span className="text-white/70 text-sm">{appointment.pet.breed}</span>}
               </div>
               <span className="text-white/60">|</span>
@@ -219,25 +223,25 @@ export default function ExaminationDialog({
 
           <div className="p-6 space-y-6">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">
+              <label className="block text-sm font-semibold text-ink-700 mb-2">
                 Διάγνωση <span className="text-red-500">*</span>
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1" ref={diagnosisDropdownRef}>
-                  <button
+                  <ClinicButton variant="secondary"
                     type="button"
                     onClick={() => { setDiagnosisDropdownOpen(!diagnosisDropdownOpen); setEditingDiagnosisIndex(null); }}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm hover:border-slate-300 transition-colors"
+                    className="w-full justify-between"
                   >
-                    <span className={diagnosis ? 'text-slate-800' : 'text-slate-400'}>{diagnosis || 'Επιλέξτε διάγνωση...'}</span>
-                    <svg className={`w-4 h-4 text-slate-400 transition-transform ${diagnosisDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span className={diagnosis ? 'text-ink-800' : 'text-ink-400'}>{diagnosis || 'Επιλέξτε διάγνωση...'}</span>
+                    <svg className={`w-4 h-4 text-ink-400 transition-transform ${diagnosisDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
-                  </button>
+                  </ClinicButton>
                   {diagnosisDropdownOpen && (
-                    <div className="absolute z-20 w-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden max-h-60 overflow-y-auto">
+                    <ClinicPanel className="absolute z-20 w-full mt-1 overflow-hidden max-h-60 overflow-y-auto">
                       {customDiagnosisTypes.length === 0 && !showAddDiagnosis && (
-                        <div className="px-4 py-3 text-sm text-slate-400 text-center">
+                        <div className="px-4 py-3 text-sm text-ink-400 text-center">
                           Δεν υπάρχουν διαγνώσεις — πατήστε + για προσθήκη
                         </div>
                       )}
@@ -245,7 +249,7 @@ export default function ExaminationDialog({
                         <div key={idx} className="group relative">
                           {editingDiagnosisIndex === idx ? (
                             <div className="flex items-center gap-1.5 px-3 py-2">
-                              <input
+                              <ClinicInput
                                 type="text"
                                 value={editingDiagnosisName}
                                 onChange={(e) => setEditingDiagnosisName(e.target.value)}
@@ -262,11 +266,11 @@ export default function ExaminationDialog({
                                   }
                                   if (e.key === 'Escape') setEditingDiagnosisIndex(null);
                                 }}
-                                className="flex-1 border border-indigo-300 rounded-lg px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                className="flex-1 px-2 py-1"
                                 autoFocus
                                 onClick={(e) => e.stopPropagation()}
                               />
-                              <button
+                              <ClinicButton variant="ghost"
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -278,25 +282,25 @@ export default function ExaminationDialog({
                                   if (diagnosis === dt) setDiagnosis(trimmed);
                                   setEditingDiagnosisIndex(null);
                                 }}
-                                className="text-indigo-600 hover:text-indigo-700 p-1"
+                                className=""
                               >
                                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                 </svg>
-                              </button>
+                              </ClinicButton>
                             </div>
                           ) : (
                             <button
                               type="button"
                               onClick={() => { setDiagnosis(dt); setDiagnosisDropdownOpen(false); }}
-                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-indigo-50 transition-colors flex items-center ${diagnosis === dt ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-clinic-50 transition-colors flex items-center ${diagnosis === dt ? 'bg-clinic-50 text-clinic-700 font-semibold' : 'text-ink-700'}`}
                             >
                               <span className="flex-1">{dt}</span>
                               <span className="hidden group-hover:flex items-center gap-1">
                                 <span
                                   role="button"
                                   onClick={(e) => { e.stopPropagation(); setEditingDiagnosisIndex(idx); setEditingDiagnosisName(dt); }}
-                                  className="text-slate-400 hover:text-indigo-600 p-0.5 transition-colors"
+                                  className="text-ink-400 hover:text-clinic-600 p-0.5 transition-colors"
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -311,7 +315,7 @@ export default function ExaminationDialog({
                                     updateCustomDiagnosisTypes(updated).catch(() => {});
                                     if (diagnosis === dt) setDiagnosis('');
                                   }}
-                                  className="text-slate-400 hover:text-red-500 p-0.5 transition-colors"
+                                  className="text-ink-400 hover:text-red-500 p-0.5 transition-colors"
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -323,9 +327,9 @@ export default function ExaminationDialog({
                         </div>
                       ))}
                       {showAddDiagnosis && (
-                        <div className="border-t border-slate-100 p-2">
+                        <div className="border-t border-ink-200 p-2">
                           <div className="flex gap-1.5">
-                            <input
+                            <ClinicInput
                               type="text"
                               value={newDiagnosisName}
                               onChange={(e) => setNewDiagnosisName(e.target.value)}
@@ -345,10 +349,10 @@ export default function ExaminationDialog({
                                 if (e.key === 'Escape') setShowAddDiagnosis(false);
                               }}
                               placeholder="Νέα διάγνωση..."
-                              className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                              className="flex-1 px-2.5 py-1.5"
                               autoFocus
                             />
-                            <button
+                            <ClinicButton variant="primary"
                               type="button"
                               onClick={() => {
                                 const trimmed = newDiagnosisName.trim();
@@ -361,20 +365,20 @@ export default function ExaminationDialog({
                                 setShowAddDiagnosis(false);
                                 setDiagnosisDropdownOpen(false);
                               }}
-                              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors shrink-0"
+                              className="shrink-0"
                             >
                               Προσθήκη
-                            </button>
+                            </ClinicButton>
                           </div>
                         </div>
                       )}
-                    </div>
+                    </ClinicPanel>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => { setShowAddDiagnosis(true); setDiagnosisDropdownOpen(true); }}
-                  className="w-11 h-11 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0"
+                  className="w-11 h-11 flex items-center justify-center rounded-xl border border-ink-200 text-ink-500 hover:bg-clinic-50 hover:text-clinic-600 hover:border-clinic-300 transition-all shrink-0"
                   title="Προσθήκη νέας διάγνωσης"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -385,80 +389,80 @@ export default function ExaminationDialog({
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">
+              <label className="block text-sm font-semibold text-ink-700 mb-2">
                 Σημειώσεις Εξέτασης
               </label>
-              <textarea
+              <ClinicTextarea
                 value={examinationNotes}
                 onChange={(e) => setExaminationNotes(e.target.value)}
                 placeholder="Παρατηρήσεις, ευρήματα, οδηγίες..."
                 rows={3}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800 resize-none"
+                className="w-full px-4 py-3 resize-none"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className="text-sm font-bold text-slate-700">
+                <label className="text-sm font-semibold text-ink-700">
                   Φαρμακευτική Αγωγή
                 </label>
-                <button
+                <ClinicButton variant="ghost"
                   type="button"
                   onClick={addMedication}
-                  className="flex items-center gap-1 text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors"
+                  className=""
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Προσθήκη Φαρμάκου
-                </button>
+                </ClinicButton>
               </div>
 
               {medications.length === 0 && (
-                <div className="text-center py-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                  <p className="text-slate-400 text-sm">Δεν έχουν προστεθεί φάρμακα</p>
-                  <button
+                <div className="text-center py-6 bg-ink-50 rounded-xl border border-dashed border-ink-200">
+                  <p className="text-ink-400 text-sm">Δεν έχουν προστεθεί φάρμακα</p>
+                  <ClinicButton variant="ghost"
                     type="button"
                     onClick={addMedication}
-                    className="text-indigo-600 text-sm font-bold mt-1 hover:text-indigo-700"
+                    className="mt-1"
                   >
                     + Προσθήκη πρώτου φαρμάκου
-                  </button>
+                  </ClinicButton>
                 </div>
               )}
 
               <div className="space-y-4">
                 {medications.map((med, index) => (
-                  <div key={index} className="bg-slate-50 rounded-xl p-4 border border-slate-100 relative">
+                  <div key={index} className="bg-ink-50 rounded-xl p-4 border border-ink-200 relative">
                     <button
                       type="button"
                       onClick={() => removeMedication(index)}
-                      className="absolute top-3 right-3 text-slate-400 hover:text-red-500 transition-colors"
+                      className="absolute top-3 right-3 text-ink-400 hover:text-red-500 transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
-                    <p className="text-xs font-bold text-slate-400 mb-3">Φάρμακο #{index + 1}</p>
-                    <div className="grid grid-cols-2 gap-3">
+                    <p className="text-xs font-semibold text-ink-400 mb-3">Φάρμακο #{index + 1}</p>
+                    <div className={embedded ? 'grid grid-cols-1 gap-3' : 'grid grid-cols-2 gap-3'}>
                       <div>
-                        <label className="text-xs text-slate-500 mb-1 block">Όνομα *</label>
+                        <label className="text-xs text-ink-500 mb-1 block">Όνομα *</label>
                         <div className="flex gap-1.5">
                           <div className="relative flex-1" ref={medNameDropdownOpen === index ? medNameDropdownRef : undefined}>
-                            <button
+                            <ClinicButton variant="secondary"
                               type="button"
                               onClick={() => { setMedNameDropdownOpen(medNameDropdownOpen === index ? null : index); setEditingMedNameIndex(null); setShowAddMedName(false); }}
-                              className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm hover:border-slate-300 transition-colors"
+                              className="w-full justify-between"
                             >
-                              <span className={med.name ? 'text-slate-800' : 'text-slate-400'}>{med.name || 'Επιλέξτε...'}</span>
-                              <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${medNameDropdownOpen === index ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <span className={med.name ? 'text-ink-800' : 'text-ink-400'}>{med.name || 'Επιλέξτε...'}</span>
+                              <svg className={`w-3.5 h-3.5 text-ink-400 transition-transform ${medNameDropdownOpen === index ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                               </svg>
-                            </button>
+                            </ClinicButton>
                             {medNameDropdownOpen === index && (
-                              <div className="absolute z-20 min-w-[260px] w-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden max-h-48 overflow-y-auto">
+                              <ClinicPanel className="absolute z-20 min-w-[260px] w-full mt-1 overflow-hidden max-h-48 overflow-y-auto">
                                 {customMedNames.length === 0 && !showAddMedName && (
-                                  <div className="px-3 py-2.5 text-sm text-slate-400 text-center">
+                                  <div className="px-3 py-2.5 text-sm text-ink-400 text-center">
                                     Πατήστε + για προσθήκη
                                   </div>
                                 )}
@@ -466,7 +470,7 @@ export default function ExaminationDialog({
                                   <div key={idx} className="group relative">
                                     {editingMedNameIndex === idx ? (
                                       <div className="flex items-center gap-1.5 px-2.5 py-1.5">
-                                        <input
+                                        <ClinicInput
                                           type="text"
                                           value={editingMedNameValue}
                                           onChange={(e) => setEditingMedNameValue(e.target.value)}
@@ -483,11 +487,11 @@ export default function ExaminationDialog({
                                             }
                                             if (e.key === 'Escape') setEditingMedNameIndex(null);
                                           }}
-                                          className="flex-1 border border-indigo-300 rounded-lg px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                          className="flex-1 px-2 py-1"
                                           autoFocus
                                           onClick={(e) => e.stopPropagation()}
                                         />
-                                        <button
+                                        <ClinicButton variant="ghost"
                                           type="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -499,25 +503,25 @@ export default function ExaminationDialog({
                                             if (med.name === mn) updateMedication(index, 'name', trimmed);
                                             setEditingMedNameIndex(null);
                                           }}
-                                          className="text-indigo-600 hover:text-indigo-700 p-1"
+                                          className=""
                                         >
                                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                                           </svg>
-                                        </button>
+                                        </ClinicButton>
                                       </div>
                                     ) : (
                                       <button
                                         type="button"
                                         onClick={() => { updateMedication(index, 'name', mn); setMedNameDropdownOpen(null); }}
-                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors flex items-center ${med.name === mn ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                                        className={`w-full text-left px-3 py-2 text-sm hover:bg-clinic-50 transition-colors flex items-center ${med.name === mn ? 'bg-clinic-50 text-clinic-700 font-semibold' : 'text-ink-700'}`}
                                       >
                                         <span className="flex-1">{mn}</span>
                                         <span className="hidden group-hover:flex items-center gap-1">
                                           <span
                                             role="button"
                                             onClick={(e) => { e.stopPropagation(); setEditingMedNameIndex(idx); setEditingMedNameValue(mn); }}
-                                            className="text-slate-400 hover:text-indigo-600 p-0.5 transition-colors"
+                                            className="text-ink-400 hover:text-clinic-600 p-0.5 transition-colors"
                                           >
                                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -532,7 +536,7 @@ export default function ExaminationDialog({
                                               updateCustomMedicationNames(updated).catch(() => {});
                                               if (med.name === mn) updateMedication(index, 'name', '');
                                             }}
-                                            className="text-slate-400 hover:text-red-500 p-0.5 transition-colors"
+                                            className="text-ink-400 hover:text-red-500 p-0.5 transition-colors"
                                           >
                                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -544,9 +548,9 @@ export default function ExaminationDialog({
                                   </div>
                                 ))}
                                 {showAddMedName && (
-                                  <div className="border-t border-slate-100 p-2">
+                                  <div className="border-t border-ink-200 p-2">
                                     <div className="flex gap-1.5">
-                                      <input
+                                      <ClinicInput
                                         type="text"
                                         value={newMedName}
                                         onChange={(e) => setNewMedName(e.target.value)}
@@ -566,10 +570,10 @@ export default function ExaminationDialog({
                                           if (e.key === 'Escape') setShowAddMedName(false);
                                         }}
                                         placeholder="Νέο φάρμακο..."
-                                        className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                        className="flex-1 px-2.5 py-1.5"
                                         autoFocus
                                       />
-                                      <button
+                                      <ClinicButton variant="primary"
                                         type="button"
                                         onClick={() => {
                                           const trimmed = newMedName.trim();
@@ -582,22 +586,22 @@ export default function ExaminationDialog({
                                           setShowAddMedName(false);
                                           setMedNameDropdownOpen(null);
                                         }}
-                                        className="px-2 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shrink-0"
+                                        className="shrink-0"
                                       >
                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                                         </svg>
-                                      </button>
+                                      </ClinicButton>
                                     </div>
                                   </div>
                                 )}
-                              </div>
+                              </ClinicPanel>
                             )}
                           </div>
                           <button
                             type="button"
                             onClick={() => { setShowAddMedName(true); setMedNameDropdownOpen(index); }}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border border-ink-200 text-ink-500 hover:bg-clinic-50 hover:text-clinic-600 hover:border-clinic-300 transition-all shrink-0"
                             title="Προσθήκη νέου φαρμάκου"
                           >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -607,17 +611,17 @@ export default function ExaminationDialog({
                         </div>
                       </div>
                       <div>
-                        <label className="text-xs text-slate-500 mb-1 block">Δοσολογία *</label>
-                        <input type="text" value={med.dosage} onChange={(e) => updateMedication(index, 'dosage', e.target.value)} placeholder="π.χ. 250mg" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800" />
+                        <label className="text-xs text-ink-500 mb-1 block">Δοσολογία *</label>
+                        <ClinicInput type="text" value={med.dosage} onChange={(e) => updateMedication(index, 'dosage', e.target.value)} placeholder="π.χ. 250mg" className="w-full px-3 py-2" />
                       </div>
                       <div>
-                        <label className="text-xs text-slate-500 mb-1 block">Διάρκεια (ημέρες)</label>
-                        <input type="number" value={med.duration_days ?? ''} onChange={(e) => updateMedication(index, 'duration_days', e.target.value ? parseInt(e.target.value) : undefined)} placeholder="π.χ. 7" min={1} max={365} className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800" />
+                        <label className="text-xs text-ink-500 mb-1 block">Διάρκεια (ημέρες)</label>
+                        <ClinicInput type="number" value={med.duration_days ?? ''} onChange={(e) => updateMedication(index, 'duration_days', e.target.value ? parseInt(e.target.value) : undefined)} placeholder="π.χ. 7" min={1} max={365} className="w-full px-3 py-2" />
                       </div>
                     </div>
                     <div className="mt-3">
-                      <label className="text-xs text-slate-500 mb-1 block">Σημειώσεις</label>
-                      <input type="text" value={med.notes ?? ''} onChange={(e) => updateMedication(index, 'notes', e.target.value)} placeholder="π.χ. Μετά το φαγητό" className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none text-slate-800" />
+                      <label className="text-xs text-ink-500 mb-1 block">Σημειώσεις</label>
+                      <ClinicInput type="text" value={med.notes ?? ''} onChange={(e) => updateMedication(index, 'notes', e.target.value)} placeholder="π.χ. Μετά το φαγητό" className="w-full px-3 py-2" />
                     </div>
                   </div>
                 ))}
@@ -625,28 +629,28 @@ export default function ExaminationDialog({
             </div>
 
             {/* Optional Reminder */}
-            <div className="border border-slate-200 rounded-xl">
-              <button
+            <div className="border border-ink-200 rounded-xl">
+              <ClinicButton variant="secondary"
                 type="button"
                 onClick={() => setAddReminder(!addReminder)}
-                className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 transition-colors"
+                className="w-full justify-between"
               >
                 <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5 text-clinic-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="text-sm font-bold text-slate-700">Προσθήκη Υπενθύμισης</span>
-                  <span className="text-xs text-slate-400 font-normal">(προαιρετικό)</span>
+                  <span className="text-sm font-semibold text-ink-700">Προσθήκη Υπενθύμισης</span>
+                  <span className="text-xs text-ink-400 font-normal">(προαιρετικό)</span>
                 </div>
-                <svg className={`w-4 h-4 text-slate-400 transition-transform ${addReminder ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className={`w-4 h-4 text-ink-400 transition-transform ${addReminder ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-              </button>
+              </ClinicButton>
               {addReminder && (
-                <div className="p-4 space-y-4 border-t border-slate-200">
+                <div className="p-4 space-y-4 border-t border-ink-200">
                   {/* Reminder Due Date — first so calendar drops down with room */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">
+                    <label className="block text-xs font-semibold text-ink-600 mb-1">
                       Ημερομηνία <span className="text-red-500">*</span>
                     </label>
                     <DatePicker
@@ -658,21 +662,21 @@ export default function ExaminationDialog({
 
                   {/* Reminder Type */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">Τύπος</label>
+                    <label className="block text-xs font-semibold text-ink-600 mb-1">Τύπος</label>
                     <div className="flex gap-2">
                       <div className="relative flex-1" ref={reminderTypeDropdownRef}>
-                        <button
+                        <ClinicButton variant="secondary"
                           type="button"
                           onClick={() => setReminderTypeDropdownOpen(!reminderTypeDropdownOpen)}
-                          className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white hover:border-slate-300 transition-colors"
+                          className="w-full justify-between"
                         >
                           <span>{{ vaccination: 'Εμβολιασμός', checkup: 'Έλεγχος', medication: 'Φαρμακευτική Αγωγή', custom: 'Γενικό' }[reminderType] || reminderType}</span>
-                          <svg className={`w-4 h-4 text-slate-400 transition-transform ${reminderTypeDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className={`w-4 h-4 text-ink-400 transition-transform ${reminderTypeDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                           </svg>
-                        </button>
+                        </ClinicButton>
                         {reminderTypeDropdownOpen && (
-                          <div className="absolute z-20 w-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                          <ClinicPanel className="absolute z-20 w-full mt-1 overflow-hidden">
                             {[
                               { value: 'vaccination', label: 'Εμβολιασμός' },
                               { value: 'checkup', label: 'Έλεγχος' },
@@ -683,19 +687,19 @@ export default function ExaminationDialog({
                                 key={opt.value}
                                 type="button"
                                 onClick={() => { setReminderType(opt.value); setReminderTypeDropdownOpen(false); }}
-                                className={`w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors ${reminderType === opt.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                                className={`w-full text-left px-3 py-2 text-sm hover:bg-clinic-50 transition-colors ${reminderType === opt.value ? 'bg-clinic-50 text-clinic-700 font-semibold' : 'text-ink-700'}`}
                               >
                                 {opt.label}
                               </button>
                             ))}
                             {customReminderTypes.length > 0 && (
-                              <div className="border-t border-slate-100">
+                              <div className="border-t border-ink-200">
                                 {customReminderTypes.map((ct) => (
                                   <button
                                     key={ct}
                                     type="button"
                                     onClick={() => { setReminderType(ct); setReminderTypeDropdownOpen(false); }}
-                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-indigo-50 transition-colors ${reminderType === ct ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                                    className={`w-full text-left px-3 py-2 text-sm hover:bg-clinic-50 transition-colors ${reminderType === ct ? 'bg-clinic-50 text-clinic-700 font-semibold' : 'text-ink-700'}`}
                                   >
                                     {ct}
                                   </button>
@@ -703,9 +707,9 @@ export default function ExaminationDialog({
                               </div>
                             )}
                             {showAddReminderType && (
-                              <div className="border-t border-slate-100 p-2">
+                              <div className="border-t border-ink-200 p-2">
                                 <div className="flex gap-1.5">
-                                  <input
+                                  <ClinicInput
                                     type="text"
                                     value={newReminderTypeName}
                                     onChange={(e) => setNewReminderTypeName(e.target.value)}
@@ -725,10 +729,10 @@ export default function ExaminationDialog({
                                       if (e.key === 'Escape') setShowAddReminderType(false);
                                     }}
                                     placeholder="Νέος τύπος..."
-                                    className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                                    className="flex-1 px-2.5 py-1.5"
                                     autoFocus
                                   />
-                                  <button
+                                  <ClinicButton variant="primary"
                                     type="button"
                                     onClick={() => {
                                       const trimmed = newReminderTypeName.trim();
@@ -741,20 +745,20 @@ export default function ExaminationDialog({
                                       setShowAddReminderType(false);
                                       setReminderTypeDropdownOpen(false);
                                     }}
-                                    className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors shrink-0"
+                                    className="shrink-0"
                                   >
                                     Προσθήκη
-                                  </button>
+                                  </ClinicButton>
                                 </div>
                               </div>
                             )}
-                          </div>
+                          </ClinicPanel>
                         )}
                       </div>
                       <button
                         type="button"
                         onClick={() => { setShowAddReminderType(true); setReminderTypeDropdownOpen(true); }}
-                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0"
+                        className="w-9 h-9 flex items-center justify-center rounded-lg border border-ink-200 text-ink-500 hover:bg-clinic-50 hover:text-clinic-600 hover:border-clinic-300 transition-all shrink-0"
                         title="Προσθήκη νέου τύπου"
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -766,26 +770,26 @@ export default function ExaminationDialog({
 
                   {/* Days before */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">Υπενθύμιση πριν (ημέρες)</label>
-                    <input
+                    <label className="block text-xs font-semibold text-ink-600 mb-1">Υπενθύμιση πριν (ημέρες)</label>
+                    <ClinicInput
                       type="number"
                       value={reminderDaysBefore}
                       onChange={(e) => setReminderDaysBefore(Number(e.target.value))}
                       min={1}
                       max={365}
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                      className="w-full px-3 py-2"
                     />
                   </div>
 
                   {/* Reminder Message */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-600 mb-1">Μήνυμα <span className="text-slate-400 font-normal">(προαιρετικό)</span></label>
-                    <textarea
+                    <label className="block text-xs font-semibold text-ink-600 mb-1">Μήνυμα <span className="text-ink-400 font-normal">(προαιρετικό)</span></label>
+                    <ClinicTextarea
                       value={reminderMessage}
                       onChange={(e) => setReminderMessage(e.target.value)}
                       rows={2}
                       placeholder="Σημειώσεις για τον ιδιοκτήτη..."
-                      className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-100 resize-none"
+                      className="w-full px-3 py-2 resize-none"
                     />
                   </div>
                 </div>
@@ -799,14 +803,14 @@ export default function ExaminationDialog({
             )}
 
             <div className="flex gap-3 pt-2">
-              <button type="button" onClick={onClose} className="flex-1 px-4 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors">
+              <ClinicButton variant="secondary" type="button" onClick={onClose} disabled={submitting} className="flex-1">
                 Ακύρωση
-              </button>
-              <button
+              </ClinicButton>
+              <ClinicButton variant="primary"
                 type="button"
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex-1 px-4 py-3 rounded-xl bg-green-600 text-white font-bold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <span className="flex items-center justify-center gap-2">
@@ -819,11 +823,10 @@ export default function ExaminationDialog({
                 ) : (
                   'Ολοκλήρωση Εξέτασης'
                 )}
-              </button>
+              </ClinicButton>
             </div>
           </div>
         </div>
-      </div>
-    </>
+    </ClinicDrawer>
   );
 }

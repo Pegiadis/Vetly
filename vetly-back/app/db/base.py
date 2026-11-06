@@ -20,3 +20,4 @@ from app.models.vet_client import VetClient, VetClientPet  # noqa
 from app.models.chat import ChatConversation, ChatMessage  # noqa
 from app.models.service_type import ServiceType  # noqa
 from app.models.reminder import Reminder  # noqa
+from app.models.push import PushDevice, PushDelivery  # noqa

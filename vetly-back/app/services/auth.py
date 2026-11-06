@@ -26,6 +26,7 @@ from app.schemas.auth import (
 from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
 from app.utils.slug import generate_unique_slug
+from app.core.pilot import require_pilot_access
 
 
 class AuthService:
@@ -65,10 +66,14 @@ class AuthService:
                 detail="Email not verified",
             )
 
+        require_pilot_access(vet.email)
+        if not vet.is_verified:
+            raise HTTPException(403, "Εκκρεμεί η επαγγελματική επαλήθευση του λογαριασμού σας.")
         access_token = create_access_token(subject=str(vet.id), token_type="vet")
         return TokenResponse(access_token=access_token)
 
     def register_vet(self, data: VetRegisterRequest) -> RegisterResponse:
+        require_pilot_access(data.email)
         existing_email = self.db.scalar(select(Vet).where(Vet.email == data.email))
         if existing_email:
             raise HTTPException(
@@ -99,7 +104,7 @@ class AuthService:
             city=data.city,
             description=data.description,
             image_url=data.image_url,
-            is_verified=True,
+            is_verified=False,
             is_on_call=False,
             email_verified=False,
         )
@@ -151,10 +156,12 @@ class AuthService:
                 detail="Email not verified",
             )
 
-        access_token = create_access_token(subject=str(pet_owner.id), token_type="pet_owner")
+        require_pilot_access(pet_owner.email)
+        access_token = create_access_token(subject=str(pet_owner.id), token_type="pet_owner", version=pet_owner.auth_version)
         return TokenResponse(access_token=access_token)
 
     def register_pet_owner(self, data: PetOwnerRegisterRequest) -> RegisterResponse:
+        require_pilot_access(data.email)
         existing_email = self.db.scalar(select(PetOwner).where(PetOwner.email == data.email))
         if existing_email:
             raise HTTPException(
@@ -176,7 +183,7 @@ class AuthService:
         self.db.refresh(pet_owner)
 
         token = create_email_verification_token(str(pet_owner.id), "pet_owner")
-        send_verification_email(data.email, token, "pet_owner")
+        send_verification_email(data.email, token, "pet_owner", data.client)
 
         return RegisterResponse(
             message="Ελέγξτε το email σας για επιβεβαίωση.",
@@ -194,10 +201,13 @@ class AuthService:
         user_id = token_data.sub
         user_type = token_data.type
 
+        if data.user_type is not None and data.user_type != user_type:
+            raise HTTPException(400, 'Ο σύνδεσμος δεν αφορά λογαριασμό κηδεμόνα.')
+
         if user_type == "vet":
             user = self.db.scalar(select(Vet).where(Vet.id == user_id))
         else:
-            user = self.db.scalar(select(PetOwner).where(PetOwner.id == user_id))
+            user = self.db.scalar(select(PetOwner).where(PetOwner.id == user_id).with_for_update())
 
         if not user:
             raise HTTPException(
@@ -205,16 +215,19 @@ class AuthService:
                 detail="User not found",
             )
 
+        if user_type == 'pet_owner' and user.email_verified:
+            raise HTTPException(400, 'Το email έχει ήδη επιβεβαιωθεί. Συνδεθείτε με τον κωδικό σας.')
         user.email_verified = True
         self.db.commit()
 
-        access_token = create_access_token(subject=str(user.id), token_type=user_type)
+        access_token = create_access_token(subject=str(user.id), token_type=user_type, version=user.auth_version if user_type == "pet_owner" else 0)
         return VerifyEmailResponse(
             access_token=access_token,
             message="Email verified successfully",
+            pending_professional_verification=user_type == "vet" and not user.is_verified,
         )
 
-    def resend_verification(self, email: str, user_type: str) -> dict:
+    def resend_verification(self, email: str, user_type: str, client: str = 'web') -> dict:
         if user_type == "vet":
             user = self.db.scalar(select(Vet).where(Vet.email == email))
         else:
@@ -223,7 +236,7 @@ class AuthService:
         # Generic response to avoid revealing whether the email exists
         if user and not user.email_verified:
             token = create_email_verification_token(str(user.id), user_type)
-            send_verification_email(email, token, user_type)
+            send_verification_email(email, token, user_type, client)
 
         return {"message": "Αν το email υπάρχει στο σύστημα, θα λάβετε ένα νέο email επιβεβαίωσης."}
 
@@ -234,8 +247,8 @@ class AuthService:
             user = self.db.scalar(select(PetOwner).where(PetOwner.email == data.email))
 
         if user and user.email_verified:
-            token = create_password_reset_token(str(user.id), data.user_type)
-            send_password_reset_email(data.email, token, data.user_type)
+            token = create_password_reset_token(str(user.id), data.user_type, version=user.auth_version if data.user_type == 'pet_owner' else 0)
+            send_password_reset_email(data.email, token, data.user_type, data.client)
 
         return {"message": "Αν το email υπάρχει στο σύστημα, θα λάβετε email για επαναφορά κωδικού."}
 
@@ -250,10 +263,13 @@ class AuthService:
         user_id = token_data.sub
         user_type = token_data.type
 
+        if data.user_type is not None and data.user_type != user_type:
+            raise HTTPException(400, 'Ο σύνδεσμος δεν αφορά λογαριασμό κηδεμόνα.')
+
         if user_type == "vet":
             user = self.db.scalar(select(Vet).where(Vet.id == user_id))
         else:
-            user = self.db.scalar(select(PetOwner).where(PetOwner.id == user_id))
+            user = self.db.scalar(select(PetOwner).where(PetOwner.id == user_id).with_for_update())
 
         if not user:
             raise HTTPException(
@@ -261,10 +277,14 @@ class AuthService:
                 detail="Ο χρήστης δεν βρέθηκε.",
             )
 
+        if user_type == "pet_owner":
+            if token_data.version != user.auth_version:
+                raise HTTPException(400, 'Ο σύνδεσμος έχει ήδη χρησιμοποιηθεί ή ακυρωθεί. Ζητήστε νέο email.')
+            user.auth_version += 1
         user.password_hash = get_password_hash(data.new_password)
         self.db.commit()
 
-        access_token = create_access_token(subject=str(user.id), token_type=user_type)
+        access_token = create_access_token(subject=str(user.id), token_type=user_type, version=user.auth_version if user_type == "pet_owner" else 0)
         return VerifyEmailResponse(
             access_token=access_token,
             message="Ο κωδικός ενημερώθηκε επιτυχώς.",

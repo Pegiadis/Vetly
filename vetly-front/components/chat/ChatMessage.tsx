@@ -12,10 +12,10 @@ const colorMap: Record<string, { bubble: string; avatarBg: string; avatarIcon: s
     link: 'text-teal-600 hover:text-teal-700',
   },
   indigo: {
-    bubble: 'bg-indigo-600 text-white',
-    avatarBg: 'bg-indigo-100',
-    avatarIcon: 'text-indigo-600',
-    link: 'text-indigo-600 hover:text-indigo-700',
+    bubble: 'bg-clinic-600 text-white',
+    avatarBg: 'bg-clinic-100',
+    avatarIcon: 'text-clinic-600',
+    link: 'text-clinic-600 hover:text-clinic-700',
   },
 };
 
@@ -138,7 +138,7 @@ export default function ChatMessage({
         </div>
       )}
       <div
-        className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+        className={`min-w-0 max-w-[90%] break-words [overflow-wrap:anywhere] rounded-xl px-4 py-3 ${
           isUser
             ? colors.bubble
             : 'bg-white border border-slate-200 text-slate-800'

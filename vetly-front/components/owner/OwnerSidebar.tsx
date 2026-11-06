@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMyMedications, useMyNotifications } from '@/hooks/useOwnerData';
+import { useMyMedications } from '@/hooks/useOwnerData';
 
 const navItems = [
   {
@@ -125,37 +125,36 @@ const bottomNavItems = [
 
 interface OwnerSidebarProps {
   isOpen: boolean;
+  unreadCount: number;
   onClose: () => void;
 }
 
-export default function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
+export default function OwnerSidebar({ isOpen, onClose, unreadCount }: OwnerSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
   const { total: activeMedsCount, refetch: refetchMeds } = useMyMedications(true);
-  const { notifications, refetch: refetchNotifs } = useMyNotifications();
-
-  const unreadNotifCount = notifications.filter(n => !n.is_read).length;
-
   useEffect(() => {
-    const handler = () => refetchNotifs();
-    window.addEventListener('vetly:notifications-updated', handler);
-    return () => window.removeEventListener('vetly:notifications-updated', handler);
-  }, [refetchNotifs]);
-
-  useEffect(() => {
-    const handler = () => refetchMeds();
+    const handler = () => { void refetchMeds(); };
     window.addEventListener('vetly:medications-updated', handler);
-    return () => window.removeEventListener('vetly:medications-updated', handler);
+    const interval = setInterval(handler, 30000);
+    return () => { window.removeEventListener('vetly:medications-updated', handler); clearInterval(interval); };
   }, [refetchMeds]);
-
+  const unreadNotifCount = unreadCount;
+  const menuRef = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
   useEffect(() => {
-    const interval = setInterval(() => {
-      refetchNotifs();
-      refetchMeds();
-    }, 30000);
-    return () => clearInterval(interval);
-  }, [refetchNotifs, refetchMeds]);
+    if (!isOpen) return;
+    const dialog = menuRef.current;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overflow = document.body.style.overflow;
+    dialog?.showModal(); document.body.style.overflow = 'hidden';
+    const media = window.matchMedia('(min-width: 768px)');
+    const resize = () => { if (media.matches) closeRef.current(); };
+    media.addEventListener('change', resize);
+    return () => { media.removeEventListener('change', resize); dialog?.close(); document.body.style.overflow = overflow; if (previous?.isConnected) previous.focus(); };
+  }, [isOpen]);
 
   const handleLogout = () => {
     logout();
@@ -167,11 +166,11 @@ export default function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
   };
 
   const sidebarContent = (
-    <aside className="h-full w-64 bg-white border-r border-slate-100 flex flex-col">
+    <aside className="h-full w-64 bg-white border-r border-ink-100 flex flex-col">
       {/* Logo */}
-      <div className="py-3 px-4 border-b border-slate-100">
+      <div className="py-3 px-4 border-b border-ink-100">
         <Link href="/owner/dashboard" className="flex items-center justify-center" onClick={handleNavClick}>
-          <img src="/images/1-tight.jpg" alt="Vetly" className="h-14 w-auto object-contain" />
+          <img src="/branding/vetly-logo-transparent.png" alt="Vetly" className="h-auto w-28 object-contain" />
         </Link>
       </div>
 
@@ -183,19 +182,20 @@ export default function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               onClick={handleNavClick}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 isActive
-                  ? 'bg-teal-50 text-teal-700'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-clinic-50 text-clinic-700'
+                  : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
               }`}
             >
-              <span className={isActive ? 'text-teal-600' : 'text-slate-400'}>
+              <span className={isActive ? 'text-clinic-600' : 'text-ink-400'}>
                 {item.icon}
               </span>
               {item.name}
               {item.badgeKey === 'medications' && activeMedsCount > 0 && (
-                <span className="ml-auto bg-teal-100 text-teal-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                <span className="ml-auto bg-clinic-100 text-clinic-700 text-xs font-bold px-2 py-0.5 rounded-full">
                   {activeMedsCount}
                 </span>
               )}
@@ -210,21 +210,22 @@ export default function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
       </nav>
 
       {/* Bottom Navigation */}
-      <div className="px-3 py-2 border-t border-slate-100">
+      <div className="px-3 py-2 border-t border-ink-100">
         {bottomNavItems.map((item) => {
           const isActive = pathname === item.href;
           return (
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? 'page' : undefined}
               onClick={handleNavClick}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                 isActive
-                  ? 'bg-teal-50 text-teal-700'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                  ? 'bg-clinic-50 text-clinic-700'
+                  : 'text-ink-600 hover:bg-ink-50 hover:text-ink-900'
               }`}
             >
-              <span className={isActive ? 'text-teal-600' : 'text-slate-400'}>
+              <span className={isActive ? 'text-clinic-600' : 'text-ink-400'}>
                 {item.icon}
               </span>
               {item.name}
@@ -253,21 +254,9 @@ export default function OwnerSidebar({ isOpen, onClose }: OwnerSidebarProps) {
         {sidebarContent}
       </div>
 
-      {/* Mobile overlay */}
-      {isOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-black/40"
-            onClick={onClose}
-            aria-hidden="true"
-          />
-          {/* Sidebar panel */}
-          <div className="relative w-64 h-full flex-shrink-0 z-10">
-            {sidebarContent}
-          </div>
-        </div>
-      )}
+      {isOpen && <dialog ref={menuRef} aria-label="Μενού κηδεμόνα" onCancel={e => {e.preventDefault();onClose();}} onClick={e=>{if(e.target===e.currentTarget){const rect=e.currentTarget.getBoundingClientRect();if(e.clientX>rect.right||e.clientX<rect.left)onClose();}}} className="fixed inset-y-0 left-0 right-auto m-0 h-dvh max-h-none w-72 max-w-[90vw] border-0 bg-white p-0 text-ink-900 shadow-xl backdrop:bg-black/40">
+        <div className="flex h-full flex-col"><div className="flex justify-end border-b border-ink-100 p-2"><button onClick={onClose} className="rounded-lg px-3 py-2 text-sm text-ink-600">Κλείσιμο μενού ×</button></div><div className="min-h-0 flex-1">{sidebarContent}</div></div>
+      </dialog>}
     </>
   );
 }

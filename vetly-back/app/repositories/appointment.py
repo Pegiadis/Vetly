@@ -4,10 +4,10 @@ Appointment repository - data access layer
 
 from uuid import UUID
 from datetime import date, datetime, timedelta
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.base import Appointment, MedicalEvent, Medication, Pet
+from app.db.base import Appointment, MedicalEvent, Medication, Pet, PetOwner
 from app.models.appointment import AppointmentStatus
 from app.models.medication import MedicationFrequency
 
@@ -31,32 +31,11 @@ class AppointmentRepository:
         return self.db.scalar(query)
 
     def has_conflicting_appointment(
-        self, vet_id: UUID, scheduled_at: datetime, duration_minutes: int
+        self, vet_id: UUID, scheduled_at: datetime, duration_minutes: int,
+        exclude_id: UUID | None = None,
     ) -> bool:
-        """Check if a vet already has an active appointment overlapping the given slot"""
-        slot_start = scheduled_at
-        slot_end = scheduled_at + timedelta(minutes=duration_minutes)
-        day_start = scheduled_at.replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day_start + timedelta(days=1)
-
-        query = (
-            select(Appointment)
-            .where(
-                and_(
-                    Appointment.vet_id == vet_id,
-                    Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED]),
-                    Appointment.scheduled_at >= day_start,
-                    Appointment.scheduled_at < day_end,
-                )
-            )
-        )
-        existing = self.db.scalars(query).all()
-        for apt in existing:
-            apt_start = apt.scheduled_at
-            apt_end = apt_start + timedelta(minutes=apt.duration_minutes or 30)
-            if slot_start < apt_end and slot_end > apt_start:
-                return True
-        return False
+        from app.services.scheduling import has_conflict
+        return has_conflict(self.db, vet_id, scheduled_at, duration_minutes, exclude_id)
 
     def get_vet_appointments(
         self,
@@ -67,6 +46,7 @@ class AppointmentRepository:
         skip: int = 0,
         limit: int = 10,
         sort_asc: bool = False,
+        search: str | None = None,
     ) -> tuple[list[Appointment], int]:
         """
         Get appointments for a vet with optional filters
@@ -83,6 +63,13 @@ class AppointmentRepository:
             Tuple of (list of appointments, total count)
         """
         filters = [Appointment.vet_id == vet_id]
+
+        if search and search.strip():
+            term = search.strip()
+            filters.append(or_(
+                Appointment.pet.has(Pet.name.icontains(term, autoescape=True)),
+                Appointment.pet_owner.has(PetOwner.name.icontains(term, autoescape=True)),
+            ))
 
         if status:
             filters.append(Appointment.status == AppointmentStatus(status))

@@ -4,7 +4,9 @@ Security utilities for JWT tokens and password hashing
 
 from datetime import datetime, timedelta
 
-from jose import jwt, JWTError
+import jwt
+from jwt import InvalidTokenError as JWTError
+from pydantic import ValidationError
 from passlib.context import CryptContext
 from pydantic import BaseModel
 
@@ -20,12 +22,13 @@ ALGORITHM = "HS256"
 class TokenData(BaseModel):
     """Decoded token data"""
     sub: str
+    version: int = 0
     type: str = "vet"
     purpose: str | None = None
     exp: datetime | None = None
 
 
-def create_access_token(subject: str, token_type: str = "vet", expires_delta: timedelta | None = None) -> str:
+def create_access_token(subject: str, token_type: str = "vet", expires_delta: timedelta | None = None, version: int = 0) -> str:
     """
     Create a JWT access token
 
@@ -44,6 +47,7 @@ def create_access_token(subject: str, token_type: str = "vet", expires_delta: ti
 
     to_encode = {
         "sub": str(subject),
+        "version": version,
         "type": token_type,
         "exp": expire,
         "iat": datetime.utcnow(),
@@ -63,13 +67,18 @@ def decode_token(token: str) -> TokenData | None:
         TokenData if valid, None otherwise
     """
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM], options={"require": ["sub", "type", "exp"]})
+        if payload.get("purpose") is not None:
+            return None
+        if payload.get("type") not in ("vet", "pet_owner"):
+            return None
         return TokenData(
             sub=payload.get("sub"),
+            version=payload.get("version", 0),
             type=payload.get("type", "vet"),
             exp=payload.get("exp"),
         )
-    except JWTError:
+    except (JWTError, ValidationError):
         return None
 
 
@@ -114,8 +123,10 @@ def create_email_verification_token(user_id: str, user_type: str) -> str:
 
 def decode_email_verification_token(token: str) -> TokenData | None:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM], options={"require": ["sub", "type", "exp"]})
         if payload.get("purpose") != "email_verify":
+            return None
+        if payload.get("type") not in ("vet", "pet_owner"):
             return None
         return TokenData(
             sub=payload.get("sub"),
@@ -123,16 +134,17 @@ def decode_email_verification_token(token: str) -> TokenData | None:
             purpose=payload.get("purpose"),
             exp=payload.get("exp"),
         )
-    except JWTError:
+    except (JWTError, ValidationError):
         return None
 
 
-def create_password_reset_token(user_id: str, user_type: str) -> str:
+def create_password_reset_token(user_id: str, user_type: str, version: int = 0) -> str:
     expire = datetime.utcnow() + timedelta(hours=settings.PASSWORD_RESET_EXPIRE_HOURS)
     to_encode = {
         "sub": str(user_id),
         "type": user_type,
         "purpose": "password_reset",
+        "version": version,
         "exp": expire,
         "iat": datetime.utcnow(),
     }
@@ -141,14 +153,17 @@ def create_password_reset_token(user_id: str, user_type: str) -> str:
 
 def decode_password_reset_token(token: str) -> TokenData | None:
     try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM], options={"require": ["sub", "type", "exp"]})
         if payload.get("purpose") != "password_reset":
+            return None
+        if payload.get("type") not in ("vet", "pet_owner"):
             return None
         return TokenData(
             sub=payload.get("sub"),
+            version=payload.get("version", 0),
             type=payload.get("type", "vet"),
             purpose=payload.get("purpose"),
             exp=payload.get("exp"),
         )
-    except JWTError:
+    except (JWTError, ValidationError):
         return None

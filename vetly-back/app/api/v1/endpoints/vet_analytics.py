@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_db, get_current_vet
 from app.db.base import Vet
 from app.services.analytics import AnalyticsService
+from app.services.clinic_home import ClinicHomeResponse, get_clinic_home
 from app.schemas.analytics import (
     DashboardStatsResponse,
     FullAnalyticsResponse,
@@ -18,6 +19,10 @@ from app.schemas.analytics import (
 )
 
 router = APIRouter()
+
+@router.get("/dashboard/home", response_model=ClinicHomeResponse)
+def get_home(current_vet: Vet = Depends(get_current_vet), db: Session = Depends(get_db)):
+    return get_clinic_home(db, current_vet.id)
 
 
 @router.get("/dashboard/stats", response_model=DashboardStatsResponse)

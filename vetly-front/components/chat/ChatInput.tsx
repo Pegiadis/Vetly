@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 
 const btnColorMap: Record<string, string> = {
   teal: 'bg-teal-600 hover:bg-teal-700',
-  indigo: 'bg-indigo-600 hover:bg-indigo-700',
+  indigo: 'bg-clinic-600 hover:bg-clinic-700',
 };
 
 interface ChatInputProps {

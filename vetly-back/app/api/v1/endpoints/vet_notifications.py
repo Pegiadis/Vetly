@@ -16,6 +16,7 @@ router = APIRouter()
 
 @router.get("", response_model=NotificationPaginatedResponse)
 def get_vet_notifications(
+    is_read: bool | None = Query(None),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=50, description="Items per page"),
     current_vet: Vet = Depends(get_current_vet),
@@ -24,7 +25,7 @@ def get_vet_notifications(
     """Get notifications for the logged-in vet with pagination"""
     repo = NotificationRepository(db)
     skip = (page - 1) * page_size
-    notifications, total = repo.get_by_vet(current_vet.id, skip=skip, limit=page_size)
+    notifications, total = repo.get_by_vet(current_vet.id, skip=skip, limit=page_size, is_read=is_read)
     return NotificationPaginatedResponse(
         items=[NotificationResponse.model_validate(n) for n in notifications],
         total=total, page=page, page_size=page_size,

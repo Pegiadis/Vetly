@@ -1,476 +1,154 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import {
-  usePendingAppointments,
-  approveAppointment,
-  rejectAppointment,
-  usePatient,
-  usePatientHistory,
-  VetAppointment,
-} from '@/hooks/useVetData';
-import { getImageUrl } from '@/lib/api';
+import { api } from '@/lib/api';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ClinicButton, ClinicEmptyState, ClinicInput, ClinicListRow, ClinicLoading, ClinicPageHeader, ClinicPagination, ClinicPanel, ClinicStatusBadge, ClinicTextarea } from '@/components/vet/ClinicUI';
+import { approveAppointment, rejectAppointment, useAllAppointments, usePatient, usePatientHistory, VetAppointment } from '@/hooks/useVetData';
 import { useToast } from '@/components/Toast';
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('el-GR', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+const formatDate = (value: string) => new Date(value).toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const formatTime = (value: string) => new Date(value).toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
+function PatientContext({ petId }: { petId: string }) {
+  const { patient, loading, error } = usePatient(petId);
+  const { events, loading: historyLoading, error: historyError } = usePatientHistory(petId);
+  return <details className="border-t border-ink-200 pt-4">
+    <summary className="cursor-pointer text-sm font-semibold text-ink-800">Στοιχεία ασθενούς & ιστορικό</summary>
+    <div className="mt-4 space-y-4">
+      {loading ? <p className="text-sm text-ink-500">Φόρτωση στοιχείων…</p> : error ? <p role="alert" className="text-sm text-red-700">Δεν ήταν δυνατή η φόρτωση των στοιχείων ασθενούς.</p> : patient && <>
+        <p className="text-sm text-ink-600">{patient.breed}</p>
+        <dl className="grid grid-cols-3 gap-2 text-sm">
+          <div><dt className="text-xs text-ink-500">Ηλικία</dt><dd className="mt-1">{patient.age ?? '—'}</dd></div>
+          <div><dt className="text-xs text-ink-500">Βάρος</dt><dd className="mt-1">{patient.weight != null ? `${patient.weight} kg` : '—'}</dd></div>
+          <div><dt className="text-xs text-ink-500">Φύλο</dt><dd className="mt-1">{patient.gender === 'Male' ? 'Αρσενικό' : patient.gender === 'Female' ? 'Θηλυκό' : '—'}</dd></div>
+        </dl>
+        {patient.chip_number && <p className="break-all text-xs text-ink-500">Microchip: {patient.chip_number}</p>}
+      </>}
+      <h4 className="text-xs font-semibold text-ink-500">Ιστορικό επισκέψεων</h4>
+      {historyLoading ? <p className="text-sm text-ink-500">Φόρτωση ιστορικού…</p> : historyError ? <p role="alert" className="text-sm text-red-700">Δεν ήταν δυνατή η φόρτωση του ιστορικού.</p> : events.length ? <ul className="divide-y divide-ink-200">{events.map(event => <li key={event.id} className="py-3 first:pt-0"><p className="break-words text-sm font-medium">{event.title}</p><p className="mt-1 text-xs text-ink-500">{formatDate(event.date)} · {event.event_type}</p>{event.notes && <p className="mt-2 whitespace-pre-wrap break-words text-sm text-ink-600">{event.notes}</p>}</li>)}</ul> : <p className="text-sm text-ink-500">Δεν υπάρχει καταχωρημένο ιστορικό.</p>}
+    </div>
+  </details>;
 }
 
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('el-GR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatHistoryDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('el-GR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-function GenderLabel({ gender }: { gender: string }) {
-  const labels: Record<string, string> = { Male: '♂', Female: '♀' };
-  return <>{labels[gender] || gender}</>;
+function RequestPanel({ appointment, busy, onClose, onDecide }: {
+  appointment: VetAppointment;
+  busy: boolean;
+  onClose: () => void;
+  onDecide: (action: 'approve' | 'reject', reason?: string) => Promise<void>;
+}) {
+  const [rejecting, setRejecting] = useState(false);
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+  const reasonRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => { ref.current?.focus({ preventScroll: true }); if (window.innerWidth < 1280) ref.current?.scrollIntoView({ block: 'start' }); }, []);
+  useEffect(() => { if (rejecting) reasonRef.current?.focus(); }, [rejecting]);
+  const submit = async (action: 'approve' | 'reject') => {
+    setError('');
+    try { await onDecide(action, reason.trim() || undefined); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Η ενέργεια δεν ολοκληρώθηκε. Δοκιμάστε ξανά.'); }
+  };
+  const group = !!appointment.group_id;
+  return <div ref={ref} tabIndex={-1} role="region" aria-label="Έλεγχος αιτήματος" aria-busy={busy} className="min-w-0 scroll-mt-20 outline-none xl:sticky xl:top-20 xl:max-h-[calc(100dvh-6rem)] xl:overflow-y-auto">
+    <ClinicPanel className="overflow-hidden">
+      <div className="flex items-center justify-between border-b border-ink-200 px-5 py-3"><h2 className="text-sm font-semibold">Έλεγχος αιτήματος</h2><ClinicButton variant="ghost" aria-label="Κλείσιμο αιτήματος" disabled={busy} onClick={onClose}>×</ClinicButton></div>
+      <div className="space-y-5 p-5">
+        <div><ClinicStatusBadge status="pending">Αναμονή έγκρισης</ClinicStatusBadge><h3 className="mt-3 break-words text-2xl font-semibold tracking-tight">{appointment.pet?.name || 'Ασθενής'}</h3><p className="mt-1 break-words text-sm text-ink-500">{appointment.type}</p></div>
+        <div className="rounded-lg border border-clinic-100 bg-clinic-50/50 p-4"><p className="text-xs font-medium text-clinic-800">Ζητούμενη επίσκεψη</p><p className="mt-2 text-sm font-semibold">{formatDate(appointment.scheduled_at)}</p><p className="mt-1 text-xl font-semibold tabular-nums">{formatTime(appointment.scheduled_at)} <span className="text-xs font-normal text-ink-500">· {appointment.duration_minutes} λεπτά</span></p></div>
+        <section className="border-b border-ink-200 pb-4"><h4 className="text-xs font-semibold text-ink-500">Κηδεμόνας</h4><p className="mt-2 break-words text-sm font-medium">{appointment.pet_owner?.name || 'Δεν έχουν καταχωρηθεί στοιχεία.'}</p>{appointment.pet_owner?.phone && <a className="mt-2 inline-block text-sm text-clinic-700 underline underline-offset-4" href={`tel:${appointment.pet_owner.phone}`}>{appointment.pet_owner.phone}</a>}</section>
+        <section><h4 className="text-xs font-semibold text-ink-500">Σημειώσεις αιτήματος</h4><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-600">{appointment.notes || 'Δεν υπάρχουν σημειώσεις.'}</p></section>
+        {group && <p className="rounded-lg bg-clinic-50 p-3 text-xs leading-5 text-clinic-800">Ομαδική επίσκεψη: η έγκριση ή η απόρριψη αφορά όλα τα εκκρεμή αιτήματα της ίδιας ομάδας, ακόμη κι αν δεν εμφανίζονται σε αυτή τη σελίδα.</p>}
+        <PatientContext key={appointment.pet_id} petId={appointment.pet_id} />
+      </div>
+      <div className="sticky bottom-0 border-t border-ink-200 bg-ink-50 p-4">
+        {error && <p role="alert" className="mb-3 break-words text-sm text-red-700">{error}</p>}
+        {rejecting ? <form onSubmit={e => { e.preventDefault(); void submit('reject'); }} className="space-y-3">
+          <label htmlFor="request-rejection-reason" className="block text-sm font-semibold">Αιτία απόρριψης <span className="font-normal text-ink-500">(προαιρετική)</span></label>
+          <ClinicTextarea ref={reasonRef} id="request-rejection-reason" rows={3} maxLength={1000} value={reason} disabled={busy} onChange={e => setReason(e.target.value)} placeholder="Σημειώστε τον λόγο απόρριψης…" className="w-full" />
+          <p className="text-xs leading-5 text-ink-500">{group ? 'Τα εκκρεμή αιτήματα της ομάδας θα απορριφθούν.' : 'Το αίτημα θα απορριφθεί.'} Ο κηδεμόνας θα ειδοποιηθεί.</p>
+          <div className="flex flex-wrap gap-2"><ClinicButton type="submit" variant="danger" disabled={busy}>{busy ? 'Αποθήκευση…' : 'Επιβεβαίωση απόρριψης'}</ClinicButton><ClinicButton type="button" disabled={busy} onClick={() => { setRejecting(false); setError(''); }}>Πίσω</ClinicButton></div>
+        </form> : <><p className="mb-3 text-xs text-ink-500">Με την απόφασή σας θα ειδοποιηθεί ο κηδεμόνας.</p><div className="flex flex-wrap gap-2"><ClinicButton variant="primary" disabled={busy} onClick={() => void submit('approve')}>{busy ? 'Αποθήκευση…' : group ? 'Έγκριση ομάδας' : 'Έγκριση αιτήματος'}</ClinicButton><ClinicButton variant="danger" disabled={busy} onClick={() => { setRejecting(true); setError(''); }}>{group ? 'Απόρριψη ομάδας' : 'Απόρριψη'}</ClinicButton></div></>}
+      </div>
+    </ClinicPanel>
+  </div>;
 }
 
 export default function VetPendingPage() {
-  const { appointments, loading, error, refetch } = usePendingAppointments();
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [selectedPetId, setSelectedPetId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<'asc' | 'desc'>('asc');
+  const [selected, setSelected] = useState<VetAppointment | null>(null);
+  const [busy, setBusy] = useState(false);
+  const actionLock = useRef(false);
+  const [linkError,setLinkError] = useState('');
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get('appointmentId');
+    if(!id)return;
+    let active=true;
+    api.get<VetAppointment>(`/vet/appointments/${encodeURIComponent(id)}`).then(appointment=>{
+      if(!active)return;
+      if(appointment.status==='pending')setSelected(appointment);
+      else window.location.replace(`/vet/appointments?appointmentId=${encodeURIComponent(appointment.id)}`);
+    }).catch(()=>{if(active)setLinkError('Το αίτημα δεν είναι διαθέσιμο ή δεν έχετε πρόσβαση.');});
+    return()=>{active=false};
+  }, []);
+
+  const trigger = useRef<HTMLButtonElement | null>(null);
   const toast = useToast();
-
-  // Group appointments by group_id
-  const grouped = useMemo(() => {
-    const groups: VetAppointment[][] = [];
-    const groupMap = new Map<string, VetAppointment[]>();
-    for (const apt of appointments) {
-      if (apt.group_id) {
-        if (!groupMap.has(apt.group_id)) {
-          const arr: VetAppointment[] = [];
-          groupMap.set(apt.group_id, arr);
-          groups.push(arr);
-        }
-        groupMap.get(apt.group_id)!.push(apt);
-      } else {
-        groups.push([apt]);
-      }
+  const { appointments, total, totalPages, loading, error, refetch } = useAllAppointments(page, 10, { status: 'pending', search, sort });
+  useEffect(() => {
+    if (query.trim() === search) return;
+    const timer = setTimeout(() => { setSearch(query.trim()); setPage(1); }, 300);
+    return () => clearTimeout(timer);
+  }, [query, search]);
+  const days = useMemo(() => {
+    const result = new Map<string, VetAppointment[]>();
+    for (const appointment of appointments) {
+      const day = new Date(appointment.scheduled_at).toLocaleDateString('en-CA');
+      result.set(day, [...(result.get(day) || []), appointment]);
     }
-    return groups;
+    return Array.from(result.entries());
   }, [appointments]);
-
-  const { patient: selectedPatient, loading: patientLoading } = usePatient(selectedPetId);
-  const { events: history, loading: historyLoading } = usePatientHistory(selectedPetId);
-
-  const handleApprove = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setProcessingId(id);
+  const close = () => { setSelected(null); requestAnimationFrame(() => trigger.current?.focus()); };
+  const decide = async (action: 'approve' | 'reject', reason?: string) => {
+    if (!selected || actionLock.current) return;
+    actionLock.current = true;
+    setBusy(true);
     try {
-      await approveAppointment(id);
-      await refetch();
+      // Both endpoints already cascade to pending group members: submit once.
+      if (action === 'approve') await approveAppointment(selected.id);
+      else await rejectAppointment(selected.id, reason);
+      const removedOnPage = appointments.filter(a => a.id === selected.id || (selected.group_id && a.group_id === selected.group_id)).length;
+      close();
       window.dispatchEvent(new Event('vetly:pending-updated'));
-      toast.success('Το ραντεβού εγκρίθηκε.');
-    } catch {
-      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
-    } finally {
-      setProcessingId(null);
-    }
+      toast.success(action === 'approve' ? 'Το αίτημα εγκρίθηκε.' : 'Το αίτημα απορρίφθηκε.');
+      if (page > 1 && removedOnPage === appointments.length) setPage(page - 1);
+      else await refetch();
+    } finally { actionLock.current = false; setBusy(false); }
   };
-
-  const handleReject = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setProcessingId(id);
-    try {
-      await rejectAppointment(id);
-      await refetch();
-      window.dispatchEvent(new Event('vetly:pending-updated'));
-      toast.success('Το ραντεβού απορρίφθηκε.');
-    } catch {
-      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-          <p className="text-red-700 font-medium">{error}</p>
-          <p className="text-red-500 text-sm mt-1">Παρακαλώ δοκιμάστε ξανά αργότερα.</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-4xl mx-auto relative">
-      {/* Header */}
-      <div className="mb-6">
-        <Link href="/vet/dashboard" className="text-slate-500 text-sm font-bold mb-2 hover:text-indigo-600 block">
-          &larr; Dashboard
-        </Link>
-        <h1 className="text-3xl font-bold text-slate-900">Αιτήματα Ραντεβού</h1>
-        <p className="text-slate-500 mt-1">{appointments.length} εκκρεμή αιτήματα</p>
-      </div>
-
-      {appointments.length === 0 ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-12 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-bold text-slate-800 mb-2">Όλα ενημερωμένα!</h3>
-          <p className="text-slate-500">Δεν υπάρχουν εκκρεμή αιτήματα ραντεβού.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {grouped.map(group => {
-            const isGroup = group.length > 1;
-            const first = group[0];
-            const ownerName = first.pet_owner?.name || 'Ιδιοκτήτης';
-            const isProcessing = group.some(a => processingId === a.id);
-
-            if (!isGroup) {
-              // Single appointment — render as before
-              const apt = first;
-              const petName = apt.pet?.name || 'Κατοικίδιο';
-              const isSelected = selectedPetId === apt.pet_id;
-
-              return (
-                <div
-                  key={apt.id}
-                  onClick={() => setSelectedPetId(apt.pet_id)}
-                  className={`bg-white rounded-2xl shadow-sm border p-5 relative overflow-hidden cursor-pointer transition-all ${
-                    isProcessing ? 'opacity-50 pointer-events-none' : ''
-                  } ${
-                    isSelected
-                      ? 'border-indigo-300 bg-indigo-50/30'
-                      : 'border-amber-100 hover:border-amber-200'
-                  }`}
-                >
-                  <div className={`absolute top-0 left-0 w-1 h-full ${isSelected ? 'bg-indigo-500' : 'bg-amber-400'}`} />
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-lg flex-shrink-0">
-                        {petName.charAt(0)}
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-lg">
-                          {petName}{' '}
-                          <span className="text-slate-400 font-normal text-sm">({ownerName})</span>
-                        </h4>
-                        <p className="text-slate-600">{apt.type}</p>
-                        <div className="flex items-center gap-4 mt-2">
-                          <span className="flex items-center gap-1 text-sm text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            {formatDate(apt.scheduled_at)}
-                          </span>
-                          <span className="flex items-center gap-1 text-sm text-slate-500">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {formatTime(apt.scheduled_at)}
-                          </span>
-                        </div>
-                        {apt.notes && <p className="text-sm text-slate-500 mt-2 italic">&ldquo;{apt.notes}&rdquo;</p>}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={(e) => handleReject(apt.id, e)}
-                        disabled={isProcessing}
-                        className="px-4 py-2 text-red-600 border border-red-200 rounded-xl font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
-                      >
-                        Απόρριψη
-                      </button>
-                      <button
-                        onClick={(e) => handleApprove(apt.id, e)}
-                        disabled={isProcessing}
-                        className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        Έγκριση
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            // Grouped appointment — multiple pets in one card
-            const groupKey = first.group_id || first.id;
-
-            return (
-              <div
-                key={groupKey}
-                className={`bg-white rounded-2xl shadow-sm border border-amber-100 p-5 relative overflow-hidden transition-all ${
-                  isProcessing ? 'opacity-50 pointer-events-none' : ''
-                }`}
-              >
-                <div className="absolute top-0 left-0 w-1 h-full bg-amber-400" />
-                {/* Group header */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-indigo-600 bg-indigo-100 px-2 py-0.5 rounded-full">
-                        {group.length} κατοικίδια
-                      </span>
-                      <span className="text-slate-400 text-sm">({ownerName})</span>
-                    </div>
-                    <div className="flex items-center gap-4 mt-2">
-                      <span className="flex items-center gap-1 text-sm text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {formatDate(first.scheduled_at)}
-                      </span>
-                      <span className="flex items-center gap-1 text-sm text-slate-500">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        {formatTime(first.scheduled_at)}
-                      </span>
-                    </div>
-                    {first.notes && <p className="text-sm text-slate-500 mt-2 italic">&ldquo;{first.notes}&rdquo;</p>}
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        setProcessingId(first.id);
-                        try {
-                          await Promise.all(group.map(apt => rejectAppointment(apt.id)));
-                          await refetch();
-                          window.dispatchEvent(new Event('vetly:pending-updated'));
-                          toast.success('Όλα τα ραντεβού απορρίφθηκαν.');
-                        } catch {
-                          toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
-                        } finally {
-                          setProcessingId(null);
-                        }
-                      }}
-                      disabled={isProcessing}
-                      className="px-4 py-2 text-red-600 border border-red-200 rounded-xl font-bold hover:bg-red-50 transition-colors disabled:opacity-50"
-                    >
-                      Απόρριψη Όλων
-                    </button>
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        setProcessingId(first.id);
-                        try {
-                          await Promise.all(group.map(apt => approveAppointment(apt.id)));
-                          await refetch();
-                          window.dispatchEvent(new Event('vetly:pending-updated'));
-                          toast.success('Όλα τα ραντεβού εγκρίθηκαν.');
-                        } catch {
-                          toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
-                        } finally {
-                          setProcessingId(null);
-                        }
-                      }}
-                      disabled={isProcessing}
-                      className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Έγκριση Όλων
-                    </button>
-                  </div>
-                </div>
-
-                {/* Individual pets */}
-                <div className="space-y-2 border-t border-slate-100 pt-3">
-                  {group.map(apt => (
-                    <div
-                      key={apt.id}
-                      onClick={() => setSelectedPetId(apt.pet_id)}
-                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${
-                        selectedPetId === apt.pet_id
-                          ? 'bg-indigo-50 border border-indigo-200'
-                          : 'bg-slate-50 border border-slate-100 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold flex-shrink-0">
-                        {(apt.pet?.name || '?').charAt(0)}
-                      </div>
-                      <div>
-                        <span className="font-bold text-slate-800">{apt.pet?.name || 'Κατοικίδιο'}</span>
-                        <span className="text-sm text-slate-500 ml-2">{apt.type}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+  return <div>
+    {linkError && <p role="alert" className="mb-4 text-sm text-red-700">{linkError}</p>}
+    <ClinicPageHeader title="Αιτήματα Ραντεβού" description="Ελέγξτε την επίσκεψη και το ιστορικό του ασθενούς πριν απαντήσετε." />
+    <div className={`grid items-start gap-4 ${selected ? 'xl:grid-cols-[minmax(0,1fr)_380px]' : ''}`}>
+      <div className="order-2 min-w-0 xl:order-1">
+        <ClinicPanel className="overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 px-4 py-3"><h2 className="text-sm font-semibold">Προς έγκριση</h2><span role="status" className="text-xs text-ink-500">{loading ? 'Φόρτωση…' : `${total} εκκρεμή ραντεβού${search ? ' στα αποτελέσματα' : ''}`}</span></div>
+          <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 p-3"><ClinicInput type="search" aria-label="Αναζήτηση αιτημάτων" maxLength={100} placeholder="Αναζήτηση ασθενή ή κηδεμόνα…" value={query} disabled={busy} onChange={e => { setQuery(e.target.value); setSelected(null); }} className="w-full sm:w-80 sm:max-w-full" /><ClinicButton variant="ghost" disabled={busy} className="sm:ml-auto" onClick={() => { setSort(sort === 'asc' ? 'desc' : 'asc'); setPage(1); setSelected(null); }}>{sort === 'asc' ? '↑ Νωρίτερες επισκέψεις' : '↓ Αργότερες επισκέψεις'}</ClinicButton></div>
+          {loading || query.trim() !== search ? <ClinicLoading label="Φόρτωση αιτημάτων…" /> : error ? <div role="alert" className="p-6 text-center"><p className="mb-3 text-sm text-red-700">{error}</p><ClinicButton onClick={() => void refetch()}>Δοκιμή ξανά</ClinicButton></div> : !appointments.length ? <ClinicEmptyState title={search ? 'Δεν βρέθηκαν αιτήματα' : 'Δεν υπάρχουν εκκρεμή αιτήματα'} description={search ? 'Δοκιμάστε άλλο όνομα ασθενή ή κηδεμόνα.' : 'Τα νέα αιτήματα ραντεβού θα εμφανιστούν εδώ.'}>{search && <ClinicButton onClick={() => setQuery('')}>Καθαρισμός αναζήτησης</ClinicButton>}</ClinicEmptyState> : days.map(([day, items]) => <section key={day} aria-label={formatDate(items[0].scheduled_at)}>
+            <div className="flex items-center justify-between gap-2 border-y border-ink-200 bg-ink-50 px-4 py-2.5"><h3 className="text-xs font-semibold text-ink-700">{formatDate(items[0].scheduled_at)}</h3><span className="shrink-0 text-xs text-ink-500">{items.length} στη σελίδα</span></div>
+            {items.map(appointment => <ClinicListRow key={appointment.id} className={selected?.id === appointment.id ? 'bg-clinic-50/60! shadow-[inset_3px_0_0_var(--color-clinic-600)]' : ''}>
+              <div className="grid grid-cols-[52px_minmax(0,1fr)] gap-x-3 gap-y-3 sm:grid-cols-[52px_minmax(0,1fr)_auto]">
+                <div><p className="text-base font-semibold tabular-nums">{formatTime(appointment.scheduled_at)}</p><p className="mt-1 text-xs text-ink-500">{appointment.duration_minutes}′</p></div>
+                <div className="min-w-0"><p className="break-words text-sm font-semibold">{appointment.pet?.name || 'Ασθενής'}</p><p className="mt-1 break-words text-xs text-ink-500">{appointment.pet_owner?.name || 'Χωρίς στοιχεία κηδεμόνα'}</p><p className="mt-1 break-words text-sm text-ink-600">{appointment.type}</p><div className="mt-2 flex flex-wrap items-center gap-2"><ClinicStatusBadge status="pending">Αναμονή</ClinicStatusBadge>{appointment.group_id && <span className="text-xs text-clinic-700">Ομαδική επίσκεψη</span>}</div></div>
+                <div className="col-start-2 sm:col-start-3"><ClinicButton disabled={busy} aria-label={`Έλεγχος αιτήματος: ${appointment.pet?.name || 'Ασθενής'}, ${formatTime(appointment.scheduled_at)}`} aria-pressed={selected?.id === appointment.id} onClick={e => { trigger.current = e.currentTarget; setSelected(appointment); }}>Έλεγχος αιτήματος</ClinicButton></div>
               </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Pet Detail Side Panel */}
-      <div
-        className={`fixed top-0 right-0 h-full w-full sm:w-[400px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto ${
-          selectedPetId ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
-        {selectedPetId && (
-          <div className="min-h-screen flex flex-col">
-            {/* Header */}
-            <div
-              className="h-40 relative bg-slate-100"
-              style={selectedPatient?.cover_image_url ? {
-                backgroundImage: `url(${getImageUrl(selectedPatient.cover_image_url)})`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              } : undefined}
-            >
-              {selectedPatient?.cover_image_url && (
-                <div className="absolute inset-0 bg-black/20" />
-              )}
-              <button
-                onClick={() => setSelectedPetId(null)}
-                className={`absolute top-4 left-4 z-10 backdrop-blur-md p-2 rounded-full transition-colors ${
-                  selectedPatient?.cover_image_url
-                    ? 'bg-white/20 text-white hover:bg-white/40'
-                    : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
-                }`}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-              <div className={`absolute bottom-4 left-4 z-10 ${selectedPatient?.cover_image_url ? 'text-white' : 'text-slate-800'}`}>
-                {patientLoading ? (
-                  <div className="animate-pulse h-8 w-32 bg-slate-200 rounded" />
-                ) : (
-                  <>
-                    <h2 className="text-2xl font-bold">{selectedPatient?.name || ''}</h2>
-                    <p className={`text-sm ${selectedPatient?.cover_image_url ? 'text-white/90' : 'text-slate-500'}`}>
-                      {selectedPatient?.breed || ''}
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="p-5 space-y-5 flex-1">
-              {patientLoading ? (
-                <div className="flex items-center justify-center py-10">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
-                </div>
-              ) : selectedPatient ? (
-                <>
-                  {/* Quick Stats */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-slate-50 p-3 rounded-xl text-center border border-slate-100">
-                      <span className="block text-slate-400 text-xs font-bold uppercase">Ηλικία</span>
-                      <span className="text-slate-800 font-bold text-lg">{selectedPatient.age}</span>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-xl text-center border border-slate-100">
-                      <span className="block text-slate-400 text-xs font-bold uppercase">Βάρος</span>
-                      <span className="text-slate-800 font-bold text-lg">{selectedPatient.weight}kg</span>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-xl text-center border border-slate-100">
-                      <span className="block text-slate-400 text-xs font-bold uppercase">Φύλο</span>
-                      <span className="text-slate-800 font-bold text-lg">
-                        <GenderLabel gender={selectedPatient.gender} />
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Chip */}
-                  {selectedPatient.chip_number && (
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-400 uppercase">Microchip</span>
-                      <span className="font-mono text-slate-700 font-medium text-sm">{selectedPatient.chip_number}</span>
-                    </div>
-                  )}
-
-                  {/* Owner */}
-                  {selectedPatient.owner && (
-                    <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-                      <h3 className="text-xs font-bold text-indigo-400 uppercase mb-2">Ιδιοκτήτης</h3>
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-white rounded-full flex items-center justify-center text-indigo-600 shadow-sm">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                        </div>
-                        <div>
-                          <div className="font-bold text-indigo-900 text-sm">{selectedPatient.owner.name}</div>
-                          <div className="text-indigo-700/70 text-xs">
-                            {selectedPatient.owner.phone || selectedPatient.owner.email}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* History */}
-                  <div>
-                    <h3 className="font-bold text-slate-800 text-sm mb-3">Ιστορικό</h3>
-                    {historyLoading ? (
-                      <div className="flex items-center justify-center py-6">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
-                      </div>
-                    ) : (
-                      <div className="relative border-l-2 border-slate-100 ml-2 space-y-4">
-                        {history.map((record) => (
-                          <div key={record.id} className="relative pl-5">
-                            <div className="absolute -left-[7px] top-0 w-3 h-3 rounded-full bg-indigo-100 border-2 border-indigo-500" />
-                            <div className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
-                              <div className="flex justify-between items-start mb-1">
-                                <span className="font-bold text-slate-800 text-sm">{record.title}</span>
-                                <span className="text-xs text-slate-400">{formatHistoryDate(record.date)}</span>
-                              </div>
-                              <p className="text-xs text-indigo-600 font-medium mb-1">{record.event_type}</p>
-                              {record.notes && <p className="text-xs text-slate-600">{record.notes}</p>}
-                            </div>
-                          </div>
-                        ))}
-                        {history.length === 0 && (
-                          <div className="pl-5 text-slate-400 italic text-sm">Δεν βρέθηκε ιστορικό.</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </div>
-        )}
+            </ClinicListRow>)}
+          </section>)}
+        </ClinicPanel>
+        {!loading && <div inert={busy}><ClinicPagination page={page} totalPages={totalPages} onPageChange={value => { setPage(value); setSelected(null); }} /></div>}
       </div>
-
-      {/* Overlay */}
-      {selectedPetId && (
-        <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity"
-          onClick={() => setSelectedPetId(null)}
-        />
-      )}
+      {selected && <div className="order-1 min-w-0 xl:order-2 xl:sticky xl:top-20"><RequestPanel key={selected.id} appointment={selected} busy={busy} onClose={close} onDecide={decide} /></div>}
     </div>
-  );
+  </div>;
 }

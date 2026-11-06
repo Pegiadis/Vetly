@@ -4,6 +4,7 @@ Service for pet owner related business logic
 
 from uuid import UUID, uuid4
 from datetime import date
+from app.services.scheduling import ATHENS
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -48,49 +49,9 @@ class OwnerService:
         self.repository = OwnerRepository(db)
         self.notifications = NotificationService(db)
 
-    @staticmethod
-    def _time_in_shift(appt_time: str, shift: dict) -> bool:
-        """Check if appointment time falls within a shift (open <= time < close)"""
-        return shift.get('open') is not None and shift.get('close') is not None and appt_time >= shift['open'] and appt_time < shift['close']
-
-    def _check_working_hours(self, vet, scheduled_at) -> None:
-        """Validate that the appointment time falls within vet's working hours"""
-        if not vet.hours:
-            return  # No hours configured, allow any time
-        day_names = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
-        day_name = day_names[scheduled_at.weekday()]
-        day_hours = vet.hours.get(day_name)
-        if not day_hours or day_hours.get('closed', False):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
-            )
-
-        appt_time = scheduled_at.strftime('%H:%M')
-
-        # New format: morning/afternoon shifts
-        morning = day_hours.get('morning')
-        afternoon = day_hours.get('afternoon')
-
-        if morning or afternoon:
-            # New two-shift format
-            in_morning = morning and self._time_in_shift(appt_time, morning)
-            in_afternoon = afternoon and self._time_in_shift(appt_time, afternoon)
-            if not in_morning and not in_afternoon:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
-                )
-        else:
-            # Backward compatibility: old format with open/close
-            open_time = day_hours.get('open')
-            close_time = day_hours.get('close')
-            if open_time and close_time:
-                if appt_time < open_time or appt_time >= close_time:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Ο κτηνίατρος δεν δέχεται ραντεβού αυτή την ώρα.",
-                    )
+    def _check_working_hours(self, vet, scheduled_at, duration_minutes=30) -> None:
+        from app.services.scheduling import check_working_hours
+        check_working_hours(vet, scheduled_at, duration_minutes)
 
     def get_my_pets(self, owner_id: UUID, page: int = 1, page_size: int = 6) -> PetPaginatedResponse:
         """Get pets for the logged-in owner with pagination"""
@@ -156,7 +117,7 @@ class OwnerService:
         """Create a new appointment"""
         # Verify the vet exists
         vet = self.repository.get_vet_by_id(data.vet_id)
-        if not vet:
+        if not vet or not vet.is_verified:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Vet not found",
@@ -170,8 +131,11 @@ class OwnerService:
                 detail="Pet not found or does not belong to you",
             )
 
+        from app.services.scheduling import check_service
+        check_service(self.db, data.vet_id, data.service_type_id, data.duration_minutes)
+
         # B6: Check working hours
-        self._check_working_hours(vet, data.scheduled_at)
+        self._check_working_hours(vet, data.scheduled_at, data.duration_minutes)
 
         # Check for conflicting appointments
         if self.repository.has_conflicting_appointment(
@@ -209,6 +173,7 @@ class OwnerService:
         date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_vet(
             data.vet_id,
+            appointment_id=appointment.id,
             type="appointment_new",
             title="Νέο αίτημα ραντεβού",
             message=f"{owner_name} ζήτησε ραντεβού για {pet.name} στις {date_str}",
@@ -225,7 +190,7 @@ class OwnerService:
         """Create grouped appointments for multiple pets in one booking"""
         # Verify vet exists
         vet = self.repository.get_vet_by_id(data.vet_id)
-        if not vet:
+        if not vet or not vet.is_verified:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Vet not found",
@@ -242,8 +207,11 @@ class OwnerService:
                 )
             pets.append(pet)
 
+        from app.services.scheduling import check_service
+        check_service(self.db, data.vet_id, data.service_type_id, data.duration_minutes)
+
         # B6: Check working hours
-        self._check_working_hours(vet, data.scheduled_at)
+        self._check_working_hours(vet, data.scheduled_at, data.duration_minutes)
 
         # Check for conflicting vet appointments at that timeslot (once)
         if self.repository.has_conflicting_appointment(
@@ -297,6 +265,7 @@ class OwnerService:
         date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_vet(
             data.vet_id,
+            appointment_id=appointments[0].id,
             type="appointment_new",
             title="Νέο αίτημα ραντεβού",
             message=f"{owner_name} ζήτησε ραντεβού για {pet_names} στις {date_str}",
@@ -323,7 +292,7 @@ class OwnerService:
 
         # D3: Cancellation time limit - 2 hours before appointment
         from datetime import datetime, timedelta
-        time_until = appointment.scheduled_at.replace(tzinfo=None) - datetime.utcnow()
+        time_until = appointment.scheduled_at.replace(tzinfo=None) - datetime.now(ATHENS).replace(tzinfo=None)
         if time_until < timedelta(hours=2):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -338,6 +307,7 @@ class OwnerService:
         date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_vet(
             appointment.vet_id,
+            appointment_id=appointment.id,
             type="appointment_cancel",
             title="Ακύρωση ραντεβού",
             message=f"Ο ιδιοκτήτης {owner_name} ακύρωσε το ραντεβού για {pet_name} στις {date_str}",
@@ -366,12 +336,14 @@ class OwnerService:
 
         # Check working hours at new time
         vet = self.repository.get_vet_by_id(appointment.vet_id)
-        if vet:
-            self._check_working_hours(vet, data.scheduled_at)
+        if not vet or not vet.is_verified:
+            raise HTTPException(404, "Vet not found")
+        self._check_working_hours(vet, data.scheduled_at, appointment.duration_minutes or 30)
 
         # A12: Check for conflicts at the new time
         if self.repository.has_conflicting_appointment(
-            appointment.vet_id, data.scheduled_at, appointment.duration_minutes or 30
+            appointment.vet_id, data.scheduled_at, appointment.duration_minutes or 30,
+            exclude_id=appointment.id,
         ):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -386,6 +358,7 @@ class OwnerService:
         new_date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
         self.notifications.notify_vet(
             appointment.vet_id,
+            appointment_id=appointment.id,
             type="appointment_reschedule",
             title="Αναπρογραμματισμός ραντεβού",
             message=f"Ο ιδιοκτήτης {owner_name} αναπρογραμμάτισε το ραντεβού για {pet_name} στις {new_date_str}",
@@ -467,7 +440,7 @@ class OwnerService:
     ) -> OwnerReviewResponse:
         """Create a new review"""
         vet = self.repository.get_vet_by_id(data.vet_id)
-        if not vet:
+        if not vet or not vet.is_verified:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Vet not found",

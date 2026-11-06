@@ -58,14 +58,14 @@ def _vet_to_public_detail(vet: Vet) -> dict:
 def _resolve_vet(slug_or_id: str, db: Session) -> Vet:
     """Resolve a vet by slug first, then by UUID."""
     # Try slug first
-    vet = db.scalar(select(Vet).where(Vet.slug == slug_or_id))
+    vet = db.scalar(select(Vet).where(Vet.slug == slug_or_id, Vet.is_verified.is_(True)))
     if vet:
         return vet
 
     # Try UUID
     try:
         vet_uuid = uuid.UUID(slug_or_id)
-        vet = db.scalar(select(Vet).where(Vet.id == vet_uuid))
+        vet = db.scalar(select(Vet).where(Vet.id == vet_uuid, Vet.is_verified.is_(True)))
     except ValueError:
         vet = None
 
@@ -90,7 +90,7 @@ def list_public_vets(
     query = select(Vet)
     count_query = select(func.count(Vet.id))
 
-    filters = []
+    filters = [Vet.is_verified.is_(True)]
     if city:
         filters.append(Vet.city.ilike(f"%{city}%"))
     if specialty:

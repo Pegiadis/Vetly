@@ -79,7 +79,9 @@ def send_notification_email(to_email: str, subject: str, html_body: str) -> None
     When disabled, logs to console instead (same pattern as send_email fallback).
     """
     if not settings.EMAIL_NOTIFICATIONS_ENABLED:
-        print(f"[NOTIFICATION EMAIL SKIPPED] To: {to_email} | Subject: {subject}")
+        # Redirected Windows stdout can use cp1252. A Greek subject must not
+        # turn a successfully saved appointment into an HTTP 500 response.
+        print("[NOTIFICATION EMAIL SKIPPED] Email notifications are disabled.")
         return
 
     send_email(to_email, subject, html_body)

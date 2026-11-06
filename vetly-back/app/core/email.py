@@ -3,6 +3,7 @@ Email sending utilities using Resend
 """
 
 import requests
+from urllib.parse import urlencode
 
 from app.core.config import settings
 
@@ -33,8 +34,15 @@ def send_email(to_email: str, subject: str, html_body: str) -> None:
         print(f"[EMAIL ERROR] Failed to send email to {to_email}: {e}")
 
 
-def send_verification_email(to_email: str, token: str, user_type: str) -> None:
-    verify_url = f"{settings.FRONTEND_URL}/verify-email?token={token}"
+def auth_email_url(action: str, token: str, user_type: str, client: str) -> str:
+    base = settings.FRONTEND_URL.rstrip('/')
+    if client == 'mobile' and user_type == 'pet_owner':
+        return f"{base}/mobile-auth?{urlencode({'action': action, 'token': token})}"
+    return f"{base}/{action}?{urlencode({'token': token})}"
+
+
+def send_verification_email(to_email: str, token: str, user_type: str, client: str = 'web') -> None:
+    verify_url = auth_email_url('verify-email', token, user_type, client)
     color = "#0d9488" if user_type == "pet_owner" else "#4f46e5"
     color_light = "#f0fdfa" if user_type == "pet_owner" else "#eef2ff"
     app_name = "Vetly" if user_type == "pet_owner" else "Vetly Pro"
@@ -75,8 +83,8 @@ def send_verification_email(to_email: str, token: str, user_type: str) -> None:
     send_email(to_email, f"Επιβεβαίωση Email - {app_name}", html)
 
 
-def send_password_reset_email(to_email: str, token: str, user_type: str) -> None:
-    reset_url = f"{settings.FRONTEND_URL}/reset-password?token={token}"
+def send_password_reset_email(to_email: str, token: str, user_type: str, client: str = 'web') -> None:
+    reset_url = auth_email_url('reset-password', token, user_type, client)
     color = "#0d9488" if user_type == "pet_owner" else "#4f46e5"
     color_light = "#f0fdfa" if user_type == "pet_owner" else "#eef2ff"
     app_name = "Vetly" if user_type == "pet_owner" else "Vetly Pro"

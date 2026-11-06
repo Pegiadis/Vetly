@@ -106,10 +106,12 @@ class NotificationService:
         service: str = "",
         rating: int = 0,
         comment: str = "",
+        appointment_id: UUID | None = None,
     ) -> None:
         """Create a notification for a vet and send an email."""
         self.repository.create(
             vet_id=vet_id,
+            appointment_id=appointment_id,
             type=type,
             title=title,
             message=message,
@@ -142,6 +144,13 @@ class NotificationService:
         message: str = "",
     ) -> None:
         """Pick the right template and send an email to the owner."""
+        owner = self.db.get(PetOwner, owner_id)
+        if not owner:
+            return
+        if notification_type.startswith("appointment_") and not owner.email_appointments:
+            return
+        if notification_type == "reminder" and not owner.email_reminders:
+            return
         email = self._get_owner_email(owner_id)
         if not email:
             return

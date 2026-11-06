@@ -105,7 +105,7 @@ export default function NotificationPopup({ notification, onDismiss }: Notificat
 
   return (
     <div
-      className={`fixed bottom-4 right-4 z-50 w-80 bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden transition-all duration-300 ${
+      className={`fixed bottom-4 right-4 z-50 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-lg shadow-lg border border-slate-200 overflow-hidden transition-all duration-300 ${
         visible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
       }`}
     >
@@ -155,3 +155,4 @@ export default function NotificationPopup({ notification, onDismiss }: Notificat
     </div>
   );
 }
+

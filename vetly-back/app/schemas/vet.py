@@ -5,13 +5,19 @@ Vet schemas for request/response validation
 from uuid import UUID
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel, EmailStr, ConfigDict, Field
+from pydantic import BaseModel, EmailStr, ConfigDict, Field, model_validator
 
 
 class Shift(BaseModel):
     """A single work shift (morning or afternoon)"""
-    open: str = Field(..., pattern=r'^\d{2}:\d{2}$')
-    close: str = Field(..., pattern=r'^\d{2}:\d{2}$')
+    open: str = Field(..., pattern=r'^(?:[01]\d|2[0-3]):[0-5]\d$')
+    close: str = Field(..., pattern=r'^(?:[01]\d|2[0-3]):[0-5]\d$')
+
+    @model_validator(mode="after")
+    def ordered_shift(self):
+        if self.close <= self.open:
+            raise ValueError("Το κλείσιμο πρέπει να είναι μετά το άνοιγμα την ίδια ημέρα.")
+        return self
 
 
 class DayHours(BaseModel):

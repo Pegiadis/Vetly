@@ -11,7 +11,6 @@ vetly-landing-page/.next/
 **/yarn-error.log*
 **/pnpm-debug.log*
 **/.pnpm-store
-**/package-lock.json
 
 # Next.js
 **/.next/
@@ -49,6 +48,16 @@ vetly-landing-page/.next/
 # Misc
 **/*.log
 **/.cache
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/*.py[cod]
+
+# Local previews, audit output, and marketing deliverables
+/tmp/
+/output/
+/expo-iphone-qr.png
+/expo-qr.html
 
 .obsidian
 *.venv*

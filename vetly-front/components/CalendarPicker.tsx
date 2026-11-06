@@ -45,9 +45,9 @@ export default function CalendarPicker({
 
   const accentMap = {
     indigo: {
-      bg: 'bg-indigo-600', bgLight: 'bg-indigo-50', text: 'text-indigo-600',
-      ring: 'ring-indigo-200', hoverBg: 'hover:bg-indigo-50',
-      selectedText: 'text-white', todayRing: 'ring-indigo-300',
+      bg: 'bg-clinic-600', bgLight: 'bg-clinic-50', text: 'text-clinic-600',
+      ring: 'ring-clinic-200', hoverBg: 'hover:bg-clinic-50',
+      selectedText: 'text-white', todayRing: 'ring-clinic-300',
     },
     red: {
       bg: 'bg-red-600', bgLight: 'bg-red-50', text: 'text-red-600',

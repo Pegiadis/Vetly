@@ -2,7 +2,8 @@
 Authentication schemas for request/response validation
 """
 
-from pydantic import BaseModel, EmailStr, Field
+from typing import Literal
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
@@ -45,6 +46,14 @@ class PetOwnerRegisterRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)
+    client: Literal['web', 'mobile'] = 'web'
+
+    @field_validator('password')
+    @classmethod
+    def password_bytes(cls, value):
+        if len(value.encode('utf-8')) > 72:
+            raise ValueError('Ο κωδικός πρέπει να είναι έως 72 bytes.')
+        return value
 
 
 class RegisterResponse(BaseModel):
@@ -56,6 +65,7 @@ class RegisterResponse(BaseModel):
 class VerifyEmailRequest(BaseModel):
     """Email verification request"""
     token: str
+    user_type: Literal['vet', 'pet_owner'] | None = None
 
 
 class VerifyEmailResponse(BaseModel):
@@ -63,21 +73,32 @@ class VerifyEmailResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     message: str
+    pending_professional_verification: bool = False
 
 
 class ResendVerificationRequest(BaseModel):
     """Resend verification email request"""
     email: EmailStr
     user_type: str = Field(..., pattern="^(vet|pet_owner)$")
+    client: Literal['web', 'mobile'] = 'web'
 
 
 class ForgotPasswordRequest(BaseModel):
     """Forgot password request"""
     email: EmailStr
     user_type: str = Field(..., pattern="^(vet|pet_owner)$")
+    client: Literal['web', 'mobile'] = 'web'
 
 
 class ResetPasswordRequest(BaseModel):
     """Reset password with token"""
     token: str
     new_password: str = Field(..., min_length=6, max_length=128)
+    user_type: Literal['vet', 'pet_owner'] | None = None
+
+    @field_validator('new_password')
+    @classmethod
+    def password_bytes(cls, value):
+        if len(value.encode('utf-8')) > 72:
+            raise ValueError('Ο κωδικός πρέπει να είναι έως 72 bytes.')
+        return value

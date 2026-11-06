@@ -33,11 +33,11 @@ const windowColorMap: Record<string, {
     emptyIcon: 'text-teal-600',
   },
   indigo: {
-    spinner: 'border-indigo-600',
-    avatarBg: 'bg-indigo-100',
-    avatarIcon: 'text-indigo-600',
-    emptyBg: 'bg-indigo-100',
-    emptyIcon: 'text-indigo-600',
+    spinner: 'border-clinic-600',
+    avatarBg: 'bg-clinic-100',
+    avatarIcon: 'text-clinic-600',
+    emptyBg: 'bg-clinic-100',
+    emptyIcon: 'text-clinic-600',
   },
 };
 
@@ -194,9 +194,9 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
   };
 
   return (
-    <div className="flex h-[calc(100vh-140px)] bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className={`flex bg-white shadow-sm overflow-hidden ${role === 'vet' ? 'h-[750px] max-h-[calc(100dvh-230px)] min-h-[400px] flex-col md:flex-row' : 'h-[calc(100dvh-240px)] min-h-[480px] flex-col md:flex-row rounded-xl border border-ink-200'}`}>
       {/* Sidebar */}
-      <div className="w-72 border-r border-slate-200 bg-slate-50 flex-shrink-0">
+      <div className={role === 'vet' ? 'max-h-48 w-full shrink-0 overflow-auto border-b border-ink-200 bg-ink-50 md:max-h-none md:w-64 md:border-b-0 md:border-r' : 'max-h-36 w-full shrink-0 overflow-auto border-b border-ink-200 bg-ink-50 md:max-h-none md:w-64 md:border-b-0 md:border-r'}>
         {convsLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className={`animate-spin rounded-full h-6 w-6 border-b-2 ${colors.spinner}`} />
@@ -214,7 +214,7 @@ export default function ChatWindow({ role, accentColor = 'teal' }: ChatWindowPro
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="min-h-0 flex-1 flex flex-col min-w-0">
         {/* Header */}
         <div className="border-b border-slate-200 px-6 py-4 flex items-center gap-3">
           <div className={`w-8 h-8 rounded-full ${colors.avatarBg} flex items-center justify-center`}>

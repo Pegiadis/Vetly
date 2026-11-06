@@ -23,13 +23,17 @@ services:
     build: ./vetly-back
     container_name: vetly-backend
     restart: unless-stopped
-    environment:
+    environment: &backend-environment
       DATABASE_URL: postgresql://vetly:${DB_PASSWORD}@postgres:5432/vetly
       SECRET_KEY: ${SECRET_KEY}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       ENVIRONMENT: production
+      PILOT_MODE: ${PILOT_MODE:-false}
+      PILOT_ALLOWED_EMAILS: ${PILOT_ALLOWED_EMAILS:-[]}
       ALLOWED_ORIGINS: '["https://vetly.gr"]'
       EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-false}
+      PUSH_NOTIFICATIONS_ENABLED: ${PUSH_NOTIFICATIONS_ENABLED:-false}
+      EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       EMAIL_FROM: ${EMAIL_FROM:-Vetly <noreply@vetly.gr>}
       FRONTEND_URL: ${FRONTEND_URL:-https://vetly.gr}
@@ -43,11 +47,25 @@ services:
     networks:
       - vetly_default
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready')"]
       interval: 30s
       timeout: 10s
       start_period: 15s
       retries: 3
+
+  reminder-worker:
+    profiles: [pilot]
+    build: ./vetly-back
+    restart: unless-stopped
+    command: ["python", "-m", "scripts.reminder_worker"]
+    environment: *backend-environment
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - vetly_default
+    healthcheck:
+      disable: true
 
   frontend:
     build:

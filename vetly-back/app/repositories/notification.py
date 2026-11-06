@@ -23,10 +23,12 @@ class NotificationRepository:
         message: str,
         pet_owner_id: UUID | None = None,
         vet_id: UUID | None = None,
+        appointment_id: UUID | None = None,
     ) -> Notification:
         """Create a notification. Does NOT commit — caller is responsible."""
         notification = Notification(
             id=uuid4(),
+            appointment_id=appointment_id,
             pet_owner_id=pet_owner_id,
             vet_id=vet_id,
             type=type,
@@ -38,9 +40,11 @@ class NotificationRepository:
 
     # --- Vet notification queries ---
 
-    def get_by_vet(self, vet_id: UUID, skip: int = 0, limit: int = 10) -> tuple[list[Notification], int]:
+    def get_by_vet(self, vet_id: UUID, skip: int = 0, limit: int = 10, is_read: bool | None = None) -> tuple[list[Notification], int]:
         """Get notifications for a vet with pagination, newest first"""
         where = Notification.vet_id == vet_id
+        if is_read is not None:
+            where = where & (Notification.is_read == is_read)
         query = (
             select(Notification)
             .where(where)

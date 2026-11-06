@@ -1,0 +1,113 @@
+VETLY — CLOSED WEB PILOT
+Prepared 18 October 2026. No visual redesign. No production deployment performed.
+
+RELEASE DECISION
+The code fixes are a candidate for staging, not permission to invite real users.
+Do not use the development database or seed accounts as the pilot database.
+No migration is needed for these fixes; existing Alembic head is a3b4c5d6e7f8.
+
+WHAT CHANGED
+- Vet-created appointments and reminders require an existing patient relationship.
+  The owner establishes this relationship by booking first. A vet cannot grant
+  themselves access merely by knowing a pet UUID. Deleted pets are excluded.
+- New vet registrations are not professionally verified. Email confirmation is
+  separate from manual professional approval. Unverified vets cannot use protected
+  vet APIs, appear in discovery, or receive new bookings.
+- Owner and vet rescheduling excludes the appointment being changed, while still
+  rejecting collisions with other appointments.
+- The entire appointment must fit one configured shift. Missing working hours
+  block bookings. Service ownership and duration are checked server-side.
+- PostgreSQL locks the vet calendar until the booking transaction commits, so
+  simultaneous requests cannot both reserve the same empty slot.
+- Existing naive appointment timestamps represent Europe/Athens wall time.
+  Explicit offsets are normalized to Athens; future/cancellation checks use Athens.
+  Review imported historical data before migrating any UTC-based appointments.
+- Access tokens require sub/type/expiry; email/reset tokens cannot authenticate APIs.
+- Invite registration requires confirmation of the matching invited email.
+- Due reminders create in-app notifications atomically and only once. The vet's
+  manual trigger only processes that vet's reminders. The optional worker processes
+  all due reminders every five minutes. Due processing does NOT promise reminder
+  email delivery; email on reminder creation is a separate existing feature.
+- Next.js and backend dependencies were updated; requirements-pilot.lock records
+  the tested Python dependency constraints. Python 3.12 is used in the Docker image.
+- /health is liveness; /ready checks database connectivity.
+
+LOCAL VALIDATION
+From vetly-back:
+  uv pip install --python .venv-local/Scripts/python.exe -r requirements.txt
+  .venv-local/Scripts/python.exe -m pytest tests -q
+  .venv-local/Scripts/python.exe -m alembic current
+  .venv-local/Scripts/python.exe -m scripts.pilot check
+The last command deliberately returns failure for local development settings.
+It prints prerequisite names, not secrets, and sends no messages.
+Most tests roll back transactions. The concurrency test creates uniquely named
+temporary rows in independent transactions and removes only those rows in finally.
+All email sending is suppressed by the test fixture.
+
+From vetly-front:
+  npm ci
+  npm run build
+  npm run lint
+  npm audit --omit=dev
+Full lint is now executable; its legacy findings are recorded in the validation
+report. Do not treat a successful build as a full browser acceptance test.
+
+PILOT CONFIGURATION (deployment environment; never commit actual secrets)
+  ENVIRONMENT=production
+  PILOT_MODE=true
+  PILOT_ALLOWED_EMAILS=["invited-owner@example.com","invited-vet@example.com"]
+  FRONTEND_URL=https://<actual-pilot-host>
+  ALLOWED_ORIGINS=["https://<actual-pilot-host>"]
+  SECRET_KEY=<new random secret of at least 32 characters>
+  DATABASE_URL=<private pilot database connection>
+  RESEND_API_KEY=<provider credential>
+  EMAIL_FROM=<verified sender>
+  EMAIL_NOTIFICATIONS_ENABLED=true
+The compose file uses the existing vetly.gr origin and build URL; change those to
+the actual host if the pilot is deployed elsewhere. Supply root-level deployment
+environment separately from vetly-back/.env. Do not print docker compose config
+with real credentials; use config --quiet for validation.
+
+VET ONBOARDING
+1. Independently check the professional identity and contact details.
+2. Add the email to PILOT_ALLOWED_EMAILS and restart API/worker with that configuration.
+3. Vet registers and confirms email. The verification screen explains approval pending.
+4. After professional review, run from the backend environment:
+     python -m scripts.pilot verify-vet <email>
+     python -m scripts.pilot verify-vet <email> --apply
+5. Vet signs in and configures actual working hours and services before owner bookings.
+6. Review every existing verified account: older code marked new registrations verified
+   automatically. Do not assume existing flags prove an identity check. Do not carry
+   unreviewed historical appointment relationships into the pilot.
+
+DEPLOYMENT AND OPERATIONS
+- Run migrations against the pilot database, then the read-only pilot check.
+- The optional compose profile starts the dedicated reminder worker:
+    docker compose --profile pilot up -d --build
+  This is an operator action, not executed during preparation.
+- Monitor /ready externally and alert on API exceptions and worker restarts.
+- Set reverse-proxy upload limits and rate limits for login/register/reset endpoints.
+- Back up PostgreSQL AND the persistent uploads volume to restricted storage.
+  Restore a backup into a NEW isolated database and storage directory, validate
+  records/files and a login/booking flow, and record the restore time. Never test a
+  restore on the live database. Validate retention and access controls separately.
+- Document who handles support, incident shutdown and pilot account removal.
+  Removing an email from the allowlist blocks existing tokens on protected routes.
+
+MANUAL GO/NO-GO GATES BEFORE REAL USERS
+1. HTTPS on the actual host; correct frontend API URL/CORS; fresh strong secrets.
+2. Only invited accounts can register/sign in/use APIs, including invite registration.
+3. Real delivery to controlled inboxes: verification, password reset, booking request,
+   confirmation and cancellation. Test resend and expired links. Local tests mock email.
+4. Browser acceptance at desktop and mobile widths: register -> verify -> pet ->
+   discover vet -> book -> vet approval -> reschedule -> cancel; separate examination
+   completion/history flow. Confirm helpful errors and no cross-account access.
+5. Worker creates a due in-app notification once; repeated runs do not duplicate it.
+6. Proven backup restore and monitoring/rollback procedure.
+7. Real vet contact details, opening hours, privacy/retention/account-deletion procedure,
+   support contact and a clear statement that this is a limited pilot.
+8. Review existing lint findings and dev-only dependency advisories before extending
+   the pilot or introducing untrusted build inputs.
+
+No real emails, advertisements, user invitations, account approvals, production
+data migration or public release were performed by this preparation task.

@@ -64,10 +64,11 @@ async def upload_pet_photo(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pet not found",
         )
-    delete_upload(pet.image_url)
+    previous_url = pet.image_url
     url = await save_upload(file, prefix="pet", max_size_bytes=5 * 1024 * 1024)
     pet.image_url = url
     db.commit()
+    delete_upload(previous_url)
     return UploadResponse(url=url)
 
 

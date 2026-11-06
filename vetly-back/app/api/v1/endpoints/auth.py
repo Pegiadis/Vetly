@@ -97,7 +97,7 @@ def resend_verification(
 ) -> dict:
     """Resend verification email"""
     service = AuthService(db)
-    return service.resend_verification(data.email, data.user_type)
+    return service.resend_verification(data.email, data.user_type, data.client)
 
 
 @router.post("/forgot-password")

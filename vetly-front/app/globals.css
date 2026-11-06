@@ -1,5 +1,52 @@
 @import "tailwindcss";
 
+/* Clinic palette. Semantic utilities keep the owner area independent. */
+@theme {
+  --color-clinic-50: #effaf7;
+  --color-clinic-100: #def5ed;
+  --color-clinic-200: #bae8da;
+  --color-clinic-300: #85dbc3;
+  --color-clinic-400: #4cc9a6;
+  --color-clinic-500: #00847e;
+  --color-clinic-600: #006064;
+  --color-clinic-700: #004e52;
+  --color-clinic-800: #003e42;
+  --color-clinic-900: #002e32;
+  --color-ink-50: #f6f8f7;
+  --color-ink-100: #edf2f0;
+  --color-ink-200: #dce5e2;
+  --color-ink-300: #b8c9c5;
+  --color-ink-400: #748780;
+  --color-ink-500: #5c6c68;
+  --color-ink-600: #495d58;
+  --color-ink-700: #374b46;
+  --color-ink-800: #293640;
+  --color-ink-900: #1f2937;
+}
+
+/* Shared controls inherit the clinic palette only within the vet shell. */
+@theme inline {
+  --color-control-50: var(--control-50, #f0fdfa);
+  --color-control-100: var(--control-100, #ccfbf1);
+  --color-control-200: var(--control-200, #99f6e4);
+  --color-control-300: var(--control-300, #5eead4);
+  --color-control-400: var(--control-400, #2dd4bf);
+  --color-control-500: var(--control-500, #14b8a6);
+  --color-control-600: var(--control-600, #0d9488);
+  --color-control-700: var(--control-700, #0f766e);
+}
+
+.clinic-shell {
+  --control-50: #effaf7;
+  --control-100: #def5ed;
+  --control-200: #bae8da;
+  --control-300: #85dbc3;
+  --control-400: #4cc9a6;
+  --control-500: #00847e;
+  --control-600: #006064;
+  --control-700: #004e52;
+}
+
 /* Fix Leaflet tiles broken by Tailwind's base img styles */
 .leaflet-container img {
   max-width: none !important;

@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useMyPets, useVets, useAvailableSlots, useVetServices, createAppointment, createBatchAppointments, Vet, PublicVetService } from '@/hooks/useOwnerData';
+import { useMyPets, useVets, useAvailableSlots, useVetServices, createAppointment, createBatchAppointments, PublicVetService } from '@/hooks/useOwnerData';
 import { ApiError } from '@/lib/api';
 import CalendarPicker from '@/components/CalendarPicker';
-import { getImageUrl } from '@/lib/api';
+import { ClinicPanel, ClinicPageHeader, ClinicButton, ClinicInput, ClinicTextarea, ClinicLoading, ClinicPagination } from '@/components/vet/ClinicUI';
+import ClinicAvatar from '@/components/vet/ClinicAvatar';
 import { VetSearchMap } from '@/components/MapView';
 
 const dayLabels: Record<string, string> = {
@@ -16,9 +17,12 @@ const dayLabels: Record<string, string> = {
 type Step = 1 | 2 | 3 | 4;
 
 export default function BookPage() {
-  const { pets, loading: petsLoading } = useMyPets();
-  const { vets, loading: vetsLoading, refetch: refetchVets } = useVets();
+  const [petPage, setPetPage] = useState(1);
+  const [petNames, setPetNames] = useState<Record<string,string>>({});
+  const { pets, totalPages: petTotalPages, loading: petsLoading, error: petsError, refetch: refetchPets } = useMyPets(petPage,6);
+  const { vets, loading: vetsLoading, error: vetsError, refetch: refetchVets } = useVets();
 
+  const [serviceRetry, setServiceRetry] = useState(0);
   const [step, setStep] = useState<Step>(1);
   const [selectedPets, setSelectedPets] = useState<Set<string>>(new Set());
   const [selectedVet, setSelectedVet] = useState<string | null>(null);
@@ -29,13 +33,13 @@ export default function BookPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const { slots: availableSlots, loading: slotsLoading, refetch: refetchSlots } = useAvailableSlots(selectedVet, selectedDate);
-  const { services: vetServices, loading: servicesLoading } = useVetServices(selectedVet);
+  const { slots: availableSlots, loading: slotsLoading, error: slotsError, refetch: refetchSlots } = useAvailableSlots(selectedVet, selectedDate, selectedService?.duration_minutes ?? 30);
+  const { services: vetServices, loading: servicesLoading, error: servicesError } = useVetServices(selectedVet, serviceRetry);
 
   // Clear selected time when vet or date changes
   useEffect(() => {
     setSelectedTime(null);
-  }, [selectedVet, selectedDate]);
+  }, [selectedVet, selectedDate, selectedService]);
 
   // Clear selected service when vet changes
   useEffect(() => {
@@ -53,14 +57,14 @@ export default function BookPage() {
     switch (step) {
       case 1: return selectedPets.size > 0;
       case 2: return selectedVet !== null && selectedService !== null;
-      case 3: return selectedDate && selectedTime;
+      case 3: return Boolean(selectedDate && selectedTime && !slotsLoading && !slotsError && availableSlots.includes(selectedTime));
       case 4: return true;
       default: return false;
     }
   };
 
   const handleConfirm = async () => {
-    if (selectedPets.size === 0 || !selectedVet || !selectedDate || !selectedTime || !selectedService) return;
+    if (submitting || slotsLoading || !selectedTime || !availableSlots.includes(selectedTime) || selectedPets.size === 0 || !selectedVet || !selectedDate || !selectedTime || !selectedService) return;
 
     setSubmitting(true);
     setSubmitError(null);
@@ -122,469 +126,24 @@ export default function BookPage() {
 
   const selectedVetData = vets.find(v => v.id === selectedVet);
 
-  return (
-    <div className={`mx-auto ${step === 2 ? 'max-w-6xl' : 'max-w-3xl'} transition-all duration-300`}>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Κλείστε Ραντεβού</h1>
-        <p className="text-slate-500 mt-1">Ακολουθήστε τα βήματα για να κλείσετε ραντεβού.</p>
-      </div>
-
-      {/* Progress Steps */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 mb-8">
-        <div className="flex items-center justify-between">
-          {[1, 2, 3, 4].map((s) => (
-            <div key={s} className="flex items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
-                step >= s ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-400'
-              }`}>
-                {s}
-              </div>
-              {s < 4 && (
-                <div className={`w-16 md:w-24 h-1 mx-2 rounded ${step > s ? 'bg-teal-600' : 'bg-slate-100'}`} />
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="flex justify-between mt-2 text-xs text-slate-500">
-          <span>Κατοικίδια</span>
-          <span>Κτηνίατρος & Υπηρεσία</span>
-          <span>Ημ/νία</span>
-          <span>Επιβεβαίωση</span>
-        </div>
-      </div>
-
-      {/* Step Content */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-        {/* Step 1: Select Pets */}
-        {step === 1 && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-bold text-slate-800 mb-1">Επιλέξτε κατοικίδια</h3>
-              <p className="text-sm text-slate-500 mb-4">Μπορείτε να επιλέξετε πολλαπλά κατοικίδια για το ίδιο ραντεβού.</p>
-              {petsLoading ? (
-                <div className="text-center py-8 text-slate-500">Φόρτωση κατοικιδίων...</div>
-              ) : pets.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-slate-500 mb-4">Δεν έχετε καταχωρημένα κατοικίδια.</p>
-                  <Link href="/owner/pets" className="text-teal-600 font-medium hover:underline">
-                    Προσθέστε κατοικίδιο
-                  </Link>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {pets.map((pet) => (
-                    <button
-                      key={pet.id}
-                      onClick={() => {
-                        setSelectedPets(prev => {
-                          const next = new Set(prev);
-                          if (next.has(pet.id)) {
-                            next.delete(pet.id);
-                          } else {
-                            next.add(pet.id);
-                          }
-                          return next;
-                        });
-                      }}
-                      className={`p-4 rounded-xl border-2 transition-all text-center relative ${
-                        selectedPets.has(pet.id)
-                          ? 'border-teal-500 bg-teal-50'
-                          : 'border-slate-100 hover:border-teal-200'
-                      }`}
-                    >
-                      {selectedPets.has(pet.id) && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-teal-600 rounded-full flex items-center justify-center">
-                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                      )}
-                      <div className="w-16 h-16 rounded-full overflow-hidden mx-auto mb-2 bg-slate-100 flex items-center justify-center">
-                        {pet.image_url ? (
-                          <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-2xl">{pet.type === 'dog' ? '🐕' : pet.type === 'cat' ? '🐈' : '🐾'}</span>
-                        )}
-                      </div>
-                      <p className="font-bold text-slate-800">{pet.name}</p>
-                      <p className="text-xs text-slate-500">{pet.breed || pet.type}</p>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Step 2: Select Vet with Map */}
-        {step === 2 && (
-          <div>
-            <h3 className="font-bold text-slate-800 mb-1">Επιλέξτε κτηνίατρο</h3>
-            <p className="text-sm text-slate-500 mb-4">Βρείτε κτηνιάτρους στον χάρτη ή επιλέξτε από τη λίστα.</p>
-            {vetsLoading ? (
-              <div className="text-center py-8 text-slate-500">Φόρτωση κτηνιάτρων...</div>
-            ) : vets.length === 0 ? (
-              <div className="text-center py-8 text-slate-500">Δεν βρέθηκαν κτηνίατροι.</div>
-            ) : (
-              <>
-              <div className="flex flex-col lg:flex-row gap-4">
-                {/* Map — takes most of the width */}
-                <div className="lg:flex-1 relative">
-                  <div className="h-[350px] lg:h-[520px] rounded-2xl overflow-hidden border border-slate-200 shadow-sm">
-                    <VetSearchMap
-                      vets={vets
-                        .filter((v: Vet) => v.coordinates_lat && v.coordinates_lng)
-                        .map((v: Vet) => ({
-                          id: v.id,
-                          name: v.name,
-                          specialty: v.specialty,
-                          rating_average: v.rating_average,
-                          reviews_count: v.reviews_count,
-                          address: v.address,
-                          lat: v.coordinates_lat!,
-                          lng: v.coordinates_lng!,
-                        }))}
-                      selectedVetId={selectedVet}
-                      onSelectVet={setSelectedVet}
-                    />
-                  </div>
-                </div>
-
-                {/* Vet list — scrollable column */}
-                <div className="lg:w-80 xl:w-96 flex flex-col">
-                  <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">{vets.length} κτηνίατροι</p>
-                  <div className="overflow-y-auto max-h-[300px] lg:max-h-[480px] space-y-2 pr-1">
-                    {vets.map((vet) => (
-                      <button
-                        key={vet.id}
-                        onClick={() => setSelectedVet(vet.id)}
-                        className={`w-full p-3 rounded-xl border-2 transition-all text-left flex items-center gap-3 ${
-                          selectedVet === vet.id
-                            ? 'border-teal-500 bg-teal-50 shadow-md'
-                            : 'border-slate-100 hover:border-teal-200'
-                        }`}
-                      >
-                        <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center">
-                          {vet.image_url ? (
-                            <img src={getImageUrl(vet.image_url)} alt={vet.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-lg">👨‍⚕️</span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-800 text-sm truncate">{vet.name}</p>
-                          <p className="text-xs text-slate-500">{vet.specialty}</p>
-                          {vet.address && (
-                            <p className="text-xs text-slate-400 truncate mt-0.5 flex items-center gap-1">
-                              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                              <span className="truncate">{vet.address}</span>
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                          <div className="flex items-center gap-1 text-amber-500">
-                            <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20">
-                              <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                            </svg>
-                            <span className="font-bold text-slate-800 text-sm">{Number(vet.rating_average).toFixed(1)}</span>
-                          </div>
-                          <p className="text-xs text-slate-400">{vet.reviews_count} αξιολ.</p>
-                          {vet.coordinates_lat && vet.coordinates_lng && (
-                            <a
-                              href={`https://www.google.com/maps/dir/?api=1&destination=${vet.coordinates_lat},${vet.coordinates_lng}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              onClick={(e) => e.stopPropagation()}
-                              title="Οδηγίες Google Maps"
-                              className="flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors text-xs font-medium"
-                            >
-                              <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                              Google Maps
-                            </a>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Vet Detail Card */}
-              {selectedVetData && (
-                <div className="mt-4 bg-teal-50/50 border border-teal-200 rounded-2xl p-5">
-                  {/* Vet Info Header */}
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-teal-100 flex items-center justify-center">
-                      {selectedVetData.image_url ? (
-                        <img src={getImageUrl(selectedVetData.image_url)} alt={selectedVetData.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-2xl">👨‍⚕️</span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-bold text-slate-800 text-lg">{selectedVetData.name}</h4>
-                      <p className="text-sm text-teal-600 font-medium">{selectedVetData.specialty}</p>
-                      {selectedVetData.address && (
-                        <p className="text-sm text-slate-500 mt-0.5 flex items-center gap-1">
-                          <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
-                          {selectedVetData.address}{selectedVetData.city ? `, ${selectedVetData.city}` : ''}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-1 mt-1">
-                        <svg className="w-3.5 h-3.5 fill-current text-amber-500" viewBox="0 0 20 20">
-                          <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
-                        </svg>
-                        <span className="font-bold text-slate-800 text-sm">{Number(selectedVetData.rating_average).toFixed(1)}</span>
-                        <span className="text-xs text-slate-400">({selectedVetData.reviews_count} αξιολ.)</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Services Section */}
-                  <div className="border-t border-teal-200/60 pt-4">
-                    <h5 className="font-bold text-slate-700 text-sm mb-3 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      Υπηρεσίες & Τιμές
-                    </h5>
-
-                    {servicesLoading ? (
-                      <div className="space-y-2">
-                        {[1, 2, 3].map((i) => (
-                          <div key={i} className="animate-pulse flex justify-between items-center p-2">
-                            <div className="flex-1">
-                              <div className="h-4 bg-teal-100 rounded w-32 mb-1" />
-                              <div className="h-3 bg-teal-100 rounded w-20" />
-                            </div>
-                            <div className="h-5 bg-teal-100 rounded w-16" />
-                          </div>
-                        ))}
-                      </div>
-                    ) : vetServices.length === 0 ? (
-                      <p className="text-sm text-slate-400 italic">Ο κτηνίατρος δεν έχει καταχωρήσει υπηρεσίες ακόμα.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {vetServices.map((service) => (
-                          <button
-                            key={service.id}
-                            onClick={() => setSelectedService(service)}
-                            className={`w-full flex items-center justify-between rounded-xl px-3 py-2.5 border-2 transition-all text-left ${
-                              selectedService?.id === service.id
-                                ? 'border-teal-500 bg-teal-50 shadow-sm'
-                                : 'border-slate-100 bg-white hover:border-teal-200'
-                            }`}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-slate-800 text-sm">{service.name}</p>
-                              {service.description && (
-                                <p className="text-xs text-slate-400 truncate">{service.description}</p>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-3 flex-shrink-0 ml-3">
-                              <span className="text-xs text-slate-400">{service.duration_minutes} λεπ.</span>
-                              <span className="font-bold text-teal-700 text-sm">{Number(service.price).toFixed(2)} €</span>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Working Hours Section */}
-                  {selectedVetData.hours && (
-                    <div className="border-t border-teal-200/60 pt-4 mt-4">
-                      <h5 className="font-bold text-slate-700 text-sm mb-3 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Ωράριο
-                      </h5>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {Object.entries(dayLabels).map(([key, label]) => {
-                          const day = selectedVetData.hours?.[key];
-                          return (
-                            <div key={key} className="flex items-center justify-between bg-white rounded-lg px-2.5 py-1.5 border border-slate-100">
-                              <span className="text-xs font-medium text-slate-600">{label}</span>
-                              <span className={`text-xs font-medium ${day?.closed ? 'text-red-400' : 'text-slate-800'}`}>
-                                {day?.closed ? 'Κλειστά' : (() => {
-                                  const parts: string[] = [];
-                                  if (day?.morning?.open && day?.morning?.close) parts.push(`${day.morning.open} - ${day.morning.close}`);
-                                  if (day?.afternoon?.open && day?.afternoon?.close) parts.push(`${day.afternoon.open} - ${day.afternoon.close}`);
-                                  return parts.length > 0 ? parts.join(', ') : '—';
-                                })()}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Step 3: Select Date & Time */}
-        {step === 3 && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-bold text-slate-800 mb-4">Επιλέξτε ημερομηνία</h3>
-              <CalendarPicker
-                value={selectedDate}
-                onChange={setSelectedDate}
-                minDate={new Date()}
-                maxDate={maxDate}
-                accentColor="teal"
-              />
-            </div>
-
-            {selectedDate && (
-              <div>
-                <h3 className="font-bold text-slate-800 mb-4">Επιλέξτε ώρα</h3>
-                {slotsLoading ? (
-                  <div className="text-center py-8 text-slate-500">
-                    <svg className="animate-spin h-6 w-6 mx-auto mb-2 text-teal-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Φόρτωση διαθέσιμων ωρών...
-                  </div>
-                ) : availableSlots.length === 0 ? (
-                  <div className="text-center py-8 text-slate-500">
-                    <p className="font-medium">Δεν υπάρχουν διαθέσιμες ώρες</p>
-                    <p className="text-sm mt-1">Δοκιμάστε διαφορετική ημερομηνία.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-4 gap-2">
-                    {availableSlots.map((time) => (
-                      <button
-                        key={time}
-                        onClick={() => setSelectedTime(time)}
-                        className={`p-3 rounded-xl border-2 font-medium text-sm transition-all ${
-                          selectedTime === time
-                            ? 'border-teal-500 bg-teal-50 text-teal-700'
-                            : 'border-slate-100 hover:border-teal-200 text-slate-600'
-                        }`}
-                      >
-                        {time}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div>
-              <h3 className="font-bold text-slate-800 mb-4">Σημειώσεις (προαιρετικό)</h3>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Περιγράψτε τα συμπτώματα ή οποιαδήποτε άλλη πληροφορία..."
-                rows={3}
-                className="w-full p-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
-              />
-            </div>
-
-            {submitError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-                {submitError}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Step 4: Confirmation */}
-        {step === 4 && (
-          <div className="text-center py-8">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <svg className="w-10 h-10 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-bold text-slate-900 mb-2">
-              {selectedPets.size > 1 ? 'Τα αιτήματα στάλθηκαν!' : 'Το αίτημα στάλθηκε!'}
-            </h2>
-            <p className="text-slate-500 mb-8">Θα ενημερωθείτε όταν επιβεβαιωθεί το ραντεβού.</p>
-
-            <div className="bg-slate-50 rounded-xl p-4 text-left mb-8 space-y-3 text-sm">
-              <div>
-                <p className="text-slate-500 mb-1">Κατοικίδια</p>
-                {Array.from(selectedPets).map((petId) => {
-                  const pet = pets.find(p => p.id === petId);
-                  return (
-                    <p key={petId} className="font-bold text-slate-800">{pet?.name}</p>
-                  );
-                })}
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-slate-500">Κτηνίατρος</p>
-                  <p className="font-bold text-slate-800">{selectedVetData?.name}</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">Υπηρεσία</p>
-                  <p className="font-bold text-slate-800">{selectedService?.name}</p>
-                  <p className="text-xs text-slate-500">{selectedService?.duration_minutes} λεπτά — {Number(selectedService?.price ?? 0).toFixed(2)} €</p>
-                </div>
-                <div>
-                  <p className="text-slate-500">Ημ/νία & Ώρα</p>
-                  <p className="font-bold text-slate-800">{selectedDate} στις {selectedTime}</p>
-                </div>
-              </div>
-            </div>
-
-            <Link
-              href="/owner/appointments"
-              className="inline-flex items-center gap-2 bg-teal-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-teal-700 transition-colors"
-            >
-              Δείτε τα ραντεβού σας
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
-        )}
-
-        {/* Navigation Buttons */}
-        {step < 4 && (
-          <div className="flex justify-between mt-8 pt-6 border-t border-slate-100">
-            <button
-              onClick={() => setStep((s) => Math.max(1, s - 1) as Step)}
-              disabled={step === 1}
-              className="px-6 py-2 text-slate-600 font-bold rounded-xl hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Πίσω
-            </button>
-            <button
-              onClick={handleNext}
-              disabled={!canProceed() || submitting}
-              className="px-6 py-2 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              {submitting ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Αποστολή...
-                </>
-              ) : (
-                step === 3 ? 'Επιβεβαίωση' : 'Συνέχεια'
-              )}
-            </button>
-          </div>
-        )}
-      </div>
+  const [search, setSearch] = useState('');
+  const visibleVets = vets.filter(v => `${v.name} ${v.city || ''} ${v.specialty}`.toLocaleLowerCase('el-GR').includes(search.toLocaleLowerCase('el-GR')));
+  const titles = ['Κατοικίδια', 'Κτηνίατρος & υπηρεσία', 'Ημερομηνία & ώρα', 'Το αίτημά σου'];
+  return <div className="mx-auto max-w-[1280px] space-y-5 text-ink-800">
+    <ClinicPageHeader title="Κράτηση ραντεβού" description="Διάλεξε ποιον θα επισκεφθείς και πότε. Ο κτηνίατρος θα επιβεβαιώσει το αίτημά σου." />
+    <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Βήματα κράτησης">{titles.map((title,i) => <li key={title} aria-current={step === i+1 ? 'step' : undefined} className={`flex min-w-0 items-center gap-2 rounded-lg border px-3 py-3 text-xs ${step === i+1 ? 'border-clinic-200 bg-clinic-50 text-clinic-800' : 'border-ink-200 bg-white text-ink-500'}`}><span className={`grid h-6 w-6 shrink-0 place-items-center rounded-md ${step >= i+1 ? 'bg-clinic-600 text-white' : 'bg-ink-100'}`}>{i+1}</span>{title}</li>)}</ol>
+    <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+      <ClinicPanel className="min-w-0 overflow-hidden"><div className="border-b border-ink-200 px-5 py-4"><h2 className="text-sm font-semibold">{titles[step-1]}</h2><p className="mt-1 text-xs leading-5 text-ink-500">{step === 1 ? 'Επίλεξε ένα ή περισσότερα κατοικίδια για κοινή επίσκεψη.' : step === 2 ? 'Βρες κτηνίατρο και επίλεξε υπηρεσία, διάρκεια και κόστος.' : step === 3 ? 'Εμφανίζονται οι διαθέσιμες ώρες για την υπηρεσία σου.' : 'Το αίτημα στάλθηκε και περιμένει την έγκριση του κτηνιάτρου.'}</p></div>
+      <fieldset disabled={submitting} className="min-w-0 p-4 sm:p-5">
+        {step === 1 && <>{petsLoading ? <ClinicLoading /> : petsError ? <div role="alert"><p>Δεν φορτώθηκαν τα κατοικίδια.</p><ClinicButton onClick={() => void refetchPets()}>Επανάληψη</ClinicButton></div> : pets.length === 0 ? <div className="py-6 text-sm"><p>Πρόσθεσε πρώτα το κατοικίδιό σου.</p><Link className="mt-3 inline-block text-clinic-700 underline" href="/owner/pets?action=new">Προσθήκη κατοικιδίου</Link></div> : <div className="space-y-2">{pets.map(pet => <button key={pet.id} aria-pressed={selectedPets.has(pet.id)} onClick={() => { setPetNames(old => ({...old,[pet.id]:pet.name})); setSelectedPets(old => { const next = new Set(old); if(next.has(pet.id))next.delete(pet.id);else next.add(pet.id);return next; }); }} className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left ${selectedPets.has(pet.id) ? 'border-clinic-200 bg-clinic-50' : 'border-ink-200 hover:bg-ink-50'}`}><ClinicAvatar name={pet.name} imageUrl={pet.image_url} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{pet.name}</p><p className="truncate text-xs text-ink-500">{pet.breed || pet.type}</p></div><span className="text-clinic-700" aria-hidden="true">{selectedPets.has(pet.id) ? '✓' : '+'}</span></button>)}</div>}<ClinicPagination page={petPage} totalPages={petTotalPages} onPageChange={setPetPage} /></>}
+        {step === 2 && <div className="space-y-4"><ClinicInput type="search" aria-label="Αναζήτηση κτηνιάτρου" placeholder="Όνομα, πόλη ή ειδικότητα" value={search} onChange={e => setSearch(e.target.value)} className="w-full" />{vetsLoading ? <ClinicLoading /> : vetsError ? <div role="alert"><p>Δεν φορτώθηκαν οι κτηνίατροι.</p><ClinicButton onClick={() => void refetchVets()}>Επανάληψη</ClinicButton></div> : <>
+          <div className="max-h-[360px] space-y-2 overflow-y-auto">{visibleVets.map(v => <button key={v.id} aria-pressed={selectedVet === v.id} onClick={() => { setSelectedVet(v.id); setSelectedService(null); setSelectedTime(null); }} className={`flex w-full items-start gap-3 rounded-lg border p-3 text-left ${selectedVet === v.id ? 'border-clinic-200 bg-clinic-50' : 'border-ink-200 hover:bg-ink-50'}`}><ClinicAvatar name={v.name} imageUrl={v.image_url} /><div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{v.name}</p><p className="mt-1 break-words text-xs text-ink-500">{v.specialty} · {v.city || 'Χωρίς πόλη'}</p><p className="mt-1 break-words text-xs text-ink-500">{v.address}</p><p className="mt-2 text-xs text-ink-600">{Number(v.rating_average).toFixed(1)} / 5 · {v.reviews_count} αξιολογήσεις</p></div>{selectedVet === v.id && <span aria-hidden="true" className="text-clinic-700">✓</span>}</button>)}{!visibleVets.length && <p className="py-5 text-sm text-ink-500">Δεν βρέθηκαν κτηνίατροι με αυτή την αναζήτηση.</p>}</div>
+          <details className="rounded-lg border border-ink-200"><summary className="cursor-pointer p-3 text-xs font-medium">Προβολή στον χάρτη</summary><div className="h-[280px] overflow-hidden"><VetSearchMap vets={visibleVets.filter(v => v.coordinates_lat != null && v.coordinates_lng != null).map(v => ({...v,lat:v.coordinates_lat!,lng:v.coordinates_lng!}))} selectedVetId={selectedVet} onSelectVet={id => { setSelectedVet(id); setSelectedService(null); setSelectedTime(null); }} /></div></details>
+        </>}{selectedVetData && <section className="border-t border-ink-200 pt-4"><h3 className="text-sm font-semibold">Υπηρεσίες · {selectedVetData.name}</h3><div className="mt-3 space-y-2">{servicesLoading ? <ClinicLoading /> : servicesError ? <p role="alert" className="text-sm text-red-700">Δεν φορτώθηκαν οι υπηρεσίες. <ClinicButton onClick={() => setServiceRetry(n => n+1)}>Επανάληψη</ClinicButton></p> : vetServices.length ? vetServices.map(service => <button key={service.id} aria-pressed={selectedService?.id === service.id} onClick={() => {setSelectedService(service);setSelectedTime(null);}} className={`flex w-full flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-left ${selectedService?.id === service.id ? 'border-clinic-200 bg-clinic-50' : 'border-ink-200 hover:bg-ink-50'}`}><div className="min-w-0"><p className="break-words text-sm font-medium">{service.name}</p>{service.description && <p className="mt-1 break-words text-xs text-ink-500">{service.description}</p>}</div><span className="text-xs font-medium text-clinic-800">{service.duration_minutes} λεπτά · {Number(service.price).toFixed(2)} €</span></button>) : <p className="text-sm text-ink-500">Δεν υπάρχουν διαθέσιμες υπηρεσίες για κράτηση.</p>}</div>{selectedVetData.hours && <details className="mt-4"><summary className="cursor-pointer text-xs text-ink-600">Ωράριο κτηνιατρείου</summary><dl className="mt-3 space-y-2">{Object.entries(dayLabels).map(([key,label]) => { const d=selectedVetData.hours?.[key];return <div key={key} className="flex flex-wrap justify-between gap-2 text-xs"><dt>{label}</dt><dd>{d?.closed ? 'Κλειστά' : [d?.morning,d?.afternoon].filter(Boolean).map(h=>`${h!.open}–${h!.close}`).join(', ') || 'Δεν έχει οριστεί'}</dd></div>;})}</dl></details>}</section>}</div>}
+        {step === 3 && <div className="space-y-5"><div className="grid gap-5 md:grid-cols-2"><div className="min-w-0"><h3 className="mb-3 text-sm font-semibold">Ημερομηνία</h3><CalendarPicker value={selectedDate || ''} onChange={date => {setSelectedDate(date);setSelectedTime(null);}} minDate={new Date()} maxDate={maxDate} accentColor="indigo" /></div><div><h3 className="mb-3 text-sm font-semibold">Διαθέσιμες ώρες</h3>{!selectedDate ? <p className="text-sm text-ink-500">Επίλεξε πρώτα ημερομηνία.</p> : slotsLoading ? <ClinicLoading /> : slotsError ? <div role="alert"><p className="text-sm text-red-700">Δεν φορτώθηκαν οι ώρες.</p><ClinicButton onClick={() => void refetchSlots()}>Επανάληψη</ClinicButton></div> : availableSlots.length ? <div className="grid grid-cols-3 gap-2">{availableSlots.map(time => <ClinicButton key={time} aria-pressed={selectedTime === time} variant={selectedTime === time ? 'primary' : 'secondary'} disabled={submitting} onClick={() => setSelectedTime(time)}>{time}</ClinicButton>)}</div> : <p className="text-sm text-ink-500">Δεν υπάρχουν διαθέσιμες ώρες. Δοκίμασε άλλη ημέρα.</p>}</div></div><label className="block text-xs text-ink-600">Σημειώσεις προς τον κτηνίατρο (προαιρετικά)<ClinicTextarea className="mt-2 w-full" value={notes} maxLength={2000} disabled={submitting} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Τι θα ήθελες να γνωρίζει πριν την επίσκεψη;" /></label>{submitError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{submitError}</p>}</div>}
+        {step === 4 && <div className="py-7"><span className="mb-4 inline-block rounded-lg bg-clinic-100 px-3 py-2 text-clinic-800">✓ Το αίτημα στάλθηκε</span><h3 className="text-xl font-semibold">Αναμένεις επιβεβαίωση από τον κτηνίατρο.</h3><p className="mt-3 text-sm leading-6 text-ink-500">Θα ενημερωθείς όταν απαντήσει. Μπορείς να παρακολουθείς την κατάσταση στα ραντεβού σου.</p><Link href="/owner/appointments" className="mt-5 inline-block rounded-lg bg-clinic-600 px-4 py-3 text-xs font-medium text-white">Τα ραντεβού μου →</Link></div>}
+      </fieldset>{step < 4 && <div className="flex flex-wrap justify-between gap-3 border-t border-ink-200 p-4"><ClinicButton disabled={step === 1 || submitting} onClick={() => setStep(s => Math.max(1,s-1) as Step)}>Πίσω</ClinicButton><ClinicButton variant="primary" disabled={!canProceed() || submitting} onClick={handleNext}>{submitting ? 'Αποστολή…' : step === 3 ? 'Αποστολή αιτήματος' : 'Συνέχεια'}</ClinicButton></div>}</ClinicPanel>
+      <ClinicPanel className="min-w-0 p-5 xl:sticky xl:top-24"><h2 className="text-sm font-semibold">Η επίσκεψή σου</h2><dl className="mt-4 space-y-4 text-sm"><div><dt className="text-xs text-ink-500">Κατοικίδια</dt><dd className="mt-1 break-words">{[...selectedPets].map(id => petNames[id]).join(', ') || 'Δεν έχουν επιλεγεί'}</dd></div><div><dt className="text-xs text-ink-500">Κτηνίατρος</dt><dd className="mt-1 break-words">{selectedVetData?.name || 'Δεν έχει επιλεγεί'}</dd></div><div><dt className="text-xs text-ink-500">Υπηρεσία</dt><dd className="mt-1 break-words">{selectedService ? `${selectedService.name} · ${selectedService.duration_minutes} λεπτά` : 'Δεν έχει επιλεγεί'}</dd></div><div><dt className="text-xs text-ink-500">Ημερομηνία και ώρα</dt><dd className="mt-1">{selectedDate ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString('el-GR') : 'Δεν έχει επιλεγεί'}{selectedTime ? ` · ${selectedTime}` : ''}</dd></div></dl>{selectedService && <div className="mt-4 border-t border-ink-200 pt-4"><p className="text-xs text-ink-500">Τιμή υπηρεσίας ανά κατοικίδιο</p><p className="mt-1 text-lg font-semibold text-clinic-800">{Number(selectedService.price).toFixed(2)} €</p>{selectedPets.size > 1 && <p className="mt-1 text-xs text-ink-500">{selectedPets.size} κατοικίδια · Σύνολο {(Number(selectedService.price)*selectedPets.size).toFixed(2)} €</p>}</div>}<p className="mt-4 text-xs leading-5 text-ink-500">Η κράτηση ολοκληρώνεται όταν ο κτηνίατρος εγκρίνει το αίτημα.</p></ClinicPanel>
     </div>
-  );
+  </div>;
 }

@@ -1,7 +1,11 @@
 'use client';
 
+
+import ClinicDrawer from '@/components/vet/ClinicDrawer';
+import { ClinicButton, ClinicInput, ClinicPanel, ClinicSelect, ClinicTextarea, ClinicTable, ClinicTableHead, ClinicTableCell } from '@/components/vet/ClinicUI';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import ClinicAvatar from '@/components/vet/ClinicAvatar';
 import {
   useVetClients,
   useVetClient,
@@ -22,12 +26,11 @@ import {
   type VetClientListItem,
   type LinkedPet,
 } from '@/hooks/useVetData';
-import Pagination from '@/components/Pagination';
 import DatePicker from '@/components/DatePicker';
 import { getImageUrl } from '@/lib/api';
 
 const statusConfig: Record<string, { label: string; bg: string }> = {
-  managed: { label: 'Χωρίς λογαριασμό', bg: 'bg-slate-100 text-slate-600' },
+  managed: { label: 'Χωρίς λογαριασμό', bg: 'bg-ink-100 text-ink-600' },
   invited: { label: 'Προσκλήθηκε', bg: 'bg-amber-100 text-amber-700' },
   linked: { label: 'Συνδεδεμένος', bg: 'bg-green-100 text-green-700' },
 };
@@ -59,7 +62,7 @@ function ClientDialog({
   const fieldErrors: Record<string, string> = {};
   if (form.name.length > 0 && form.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
 
-  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-ink-200';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,24 +86,23 @@ function ClientDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-t-2xl">
+    <div className="w-full">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs w-full">
+        <div className="border-b border-ink-200 p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">
-              Νέος Πελάτης
+            <h2 className="text-base font-semibold text-ink-900">
+              Νέος Κηδεμόνας
             </h2>
-            <button onClick={onClose} className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors">
+            <ClinicButton variant="secondary" onClick={onClose} aria-label="Κλείσιμο φόρμας" className="">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </ClinicButton>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Ονοματεπώνυμο *</label>
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Ονοματεπώνυμο *</label>
             <input
               type="text"
               required
@@ -108,67 +110,67 @@ function ClientDialog({
               value={form.name}
               onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setTouched(t => ({ ...t, name: true })); }}
               onBlur={() => handleBlur('name')}
-              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('name')}`}
+              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-clinic-500 ${inputErr('name')}`}
               placeholder="π.χ. Μαρία Παπαδοπούλου"
             />
             {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
-            <input
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Email</label>
+            <ClinicInput
               type="email"
               value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2.5"
               placeholder="maria@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Τηλέφωνο</label>
-            <input
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Τηλέφωνο</label>
+            <ClinicInput
               type="tel"
               maxLength={50}
               value={form.phone}
               onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2.5"
               placeholder="69xxxxxxxx"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Διεύθυνση</label>
-            <input
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Διεύθυνση</label>
+            <ClinicInput
               type="text"
               maxLength={500}
               value={form.address}
               onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2.5"
               placeholder="Οδός, Πόλη"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Σημειώσεις</label>
-            <textarea
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Σημειώσεις</label>
+            <ClinicTextarea
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               rows={2}
               maxLength={2000}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full px-3 py-2.5 resize-none"
               placeholder="Προσθέστε σημειώσεις..."
             />
             {form.notes.length > 1800 && (
-              <p className="text-xs text-slate-400 mt-1 text-right">{form.notes.length}/2000</p>
+              <p className="text-xs text-ink-400 mt-1 text-right">{form.notes.length}/2000</p>
             )}
           </div>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
           )}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+            <ClinicButton variant="secondary" type="button" onClick={onClose} className="flex-1">
               Ακύρωση
-            </button>
-            <button type="submit" disabled={submitting || !form.name.trim() || Object.keys(fieldErrors).length > 0} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+            </ClinicButton>
+            <ClinicButton variant="primary" type="submit" disabled={submitting || !form.name.trim() || Object.keys(fieldErrors).length > 0} className="flex-1 disabled:opacity-50">
               {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
-            </button>
+            </ClinicButton>
           </div>
         </form>
       </div>
@@ -202,7 +204,7 @@ function EditClientDialog({
   const fieldErrors: Record<string, string> = {};
   if (form.name.length > 0 && form.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
 
-  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-ink-200';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -226,24 +228,23 @@ function EditClientDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-t-2xl">
+    <div className="w-full">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs w-full">
+        <div className="border-b border-ink-200 p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">
-              Επεξεργασία Πελάτη
+            <h2 className="text-base font-semibold text-ink-900">
+              Επεξεργασία Κηδεμόνα
             </h2>
-            <button onClick={onClose} className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors">
+            <ClinicButton variant="secondary" onClick={onClose} aria-label="Κλείσιμο φόρμας" className="">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </ClinicButton>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Ονοματεπώνυμο *</label>
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Ονοματεπώνυμο *</label>
             <input
               type="text"
               required
@@ -251,66 +252,66 @@ function EditClientDialog({
               value={form.name}
               onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setTouched(t => ({ ...t, name: true })); }}
               onBlur={() => handleBlur('name')}
-              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${inputErr('name')}`}
+              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-clinic-500 ${inputErr('name')}`}
             />
             {touched.name && fieldErrors.name && <p className="text-xs text-red-600 mt-1">{fieldErrors.name}</p>}
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Email</label>
-            <input
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Email</label>
+            <ClinicInput
               type="email"
               value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2.5"
               placeholder="maria@example.com"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Τηλέφωνο</label>
-            <input
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Τηλέφωνο</label>
+            <ClinicInput
               type="tel"
               maxLength={50}
               value={form.phone}
               onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2.5"
               placeholder="69xxxxxxxx"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Διεύθυνση</label>
-            <input
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Διεύθυνση</label>
+            <ClinicInput
               type="text"
               maxLength={500}
               value={form.address}
               onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2.5"
               placeholder="Οδός, Πόλη"
             />
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Σημειώσεις</label>
-            <textarea
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Σημειώσεις</label>
+            <ClinicTextarea
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               rows={2}
               maxLength={2000}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full px-3 py-2.5 resize-none"
               placeholder="Προσθέστε σημειώσεις..."
             />
             {form.notes.length > 1800 && (
-              <p className="text-xs text-slate-400 mt-1 text-right">{form.notes.length}/2000</p>
+              <p className="text-xs text-ink-400 mt-1 text-right">{form.notes.length}/2000</p>
             )}
           </div>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
           )}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+            <ClinicButton variant="secondary" type="button" onClick={onClose} className="flex-1">
               Ακύρωση
-            </button>
-            <button type="submit" disabled={submitting || !form.name.trim() || Object.keys(fieldErrors).length > 0} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+            </ClinicButton>
+            <ClinicButton variant="primary" type="submit" disabled={submitting || !form.name.trim() || Object.keys(fieldErrors).length > 0} className="flex-1 disabled:opacity-50">
               {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
-            </button>
+            </ClinicButton>
           </div>
         </form>
       </div>
@@ -348,7 +349,7 @@ function PetDialog({
   const petFieldErrors: Record<string, string> = {};
   if (form.name.length > 0 && form.name.trim().length < 2) petFieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
 
-  const petInputErr = (field: string) => petTouched[field] && petFieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-200';
+  const petInputErr = (field: string) => petTouched[field] && petFieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-ink-200';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -379,24 +380,23 @@ function PetDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5 rounded-t-2xl">
+    <div className="w-full">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs w-full">
+        <div className="border-b border-ink-200 p-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-white">
+            <h2 className="text-base font-semibold text-ink-900">
               {pet ? 'Επεξεργασία Κατοικιδίου' : 'Νέο Κατοικίδιο'}
             </h2>
-            <button onClick={onClose} className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors">
+            <ClinicButton variant="secondary" onClick={onClose} aria-label="Κλείσιμο φόρμας" className="">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </ClinicButton>
           </div>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Όνομα *</label>
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Όνομα *</label>
             <input
               type="text"
               required
@@ -404,92 +404,92 @@ function PetDialog({
               value={form.name}
               onChange={e => { setForm(f => ({ ...f, name: e.target.value })); setPetTouched(t => ({ ...t, name: true })); }}
               onBlur={() => handlePetBlur('name')}
-              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 ${petInputErr('name')}`}
+              className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-clinic-500 ${petInputErr('name')}`}
             />
             {petTouched.name && petFieldErrors.name && <p className="text-xs text-red-600 mt-1">{petFieldErrors.name}</p>}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Είδος *</label>
-              <select
+              <label className="block text-sm font-semibold text-ink-700 mb-1">Είδος *</label>
+              <ClinicSelect
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2.5"
               >
                 <option value="Dog">Σκύλος</option>
                 <option value="Cat">Γάτα</option>
                 <option value="Other">Άλλο</option>
-              </select>
+              </ClinicSelect>
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Φύλο</label>
-              <select
+              <label className="block text-sm font-semibold text-ink-700 mb-1">Φύλο</label>
+              <ClinicSelect
                 value={form.gender}
                 onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2.5"
               >
                 <option value="">-</option>
                 <option value="Male">Αρσενικό</option>
                 <option value="Female">Θηλυκό</option>
-              </select>
+              </ClinicSelect>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Ράτσα</label>
-            <input
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Ράτσα</label>
+            <ClinicInput
               type="text"
               maxLength={100}
               value={form.breed}
               onChange={e => setForm(f => ({ ...f, breed: e.target.value }))}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2.5"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Ηλικία</label>
-              <input
+              <label className="block text-sm font-semibold text-ink-700 mb-1">Ηλικία</label>
+              <ClinicInput
                 type="number"
                 min={0}
                 value={form.age}
                 onChange={e => setForm(f => ({ ...f, age: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2.5"
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Βάρος (kg)</label>
-              <input
+              <label className="block text-sm font-semibold text-ink-700 mb-1">Βάρος (kg)</label>
+              <ClinicInput
                 type="number"
                 min={0}
                 step={0.1}
                 value={form.weight}
                 onChange={e => setForm(f => ({ ...f, weight: e.target.value }))}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2.5"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-1">Σημειώσεις</label>
-            <textarea
+            <label className="block text-sm font-semibold text-ink-700 mb-1">Σημειώσεις</label>
+            <ClinicTextarea
               value={form.notes}
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               rows={2}
               maxLength={2000}
-              className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+              className="w-full px-3 py-2.5 resize-none"
             />
             {form.notes.length > 1800 && (
-              <p className="text-xs text-slate-400 mt-1 text-right">{form.notes.length}/2000</p>
+              <p className="text-xs text-ink-400 mt-1 text-right">{form.notes.length}/2000</p>
             )}
           </div>
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
           )}
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-3 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+            <ClinicButton variant="secondary" type="button" onClick={onClose} className="flex-1">
               Ακύρωση
-            </button>
-            <button type="submit" disabled={submitting || !form.name.trim() || Object.keys(petFieldErrors).length > 0} className="flex-1 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50 transition-colors">
+            </ClinicButton>
+            <ClinicButton variant="primary" type="submit" disabled={submitting || !form.name.trim() || Object.keys(petFieldErrors).length > 0} className="flex-1 disabled:opacity-50">
               {submitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
-            </button>
+            </ClinicButton>
           </div>
         </form>
       </div>
@@ -520,36 +520,35 @@ function InviteDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div className="w-full">
+      <div className="bg-white rounded-xl border border-ink-200 shadow-xs w-full p-6">
         <div className="text-center mb-4">
-          <div className="w-14 h-14 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <svg className="w-7 h-7 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-14 h-14 bg-clinic-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg className="w-7 h-7 text-clinic-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
             </svg>
           </div>
-          <h3 className="text-lg font-bold text-slate-900">Σύνδεσμος Πρόσκλησης</h3>
-          <p className="text-sm text-slate-500 mt-1">
+          <h3 className="text-lg font-semibold text-ink-900">Σύνδεσμος Πρόσκλησης</h3>
+          <p className="text-sm text-ink-500 mt-1">
             Μοιραστείτε αυτόν τον σύνδεσμο με τον πελάτη σας
           </p>
         </div>
-        <div className="bg-slate-50 rounded-xl p-3 mb-3">
-          <p className="text-sm text-slate-700 break-all font-mono">{inviteUrl}</p>
+        <div className="bg-ink-50 rounded-xl p-3 mb-3">
+          <p className="text-sm text-ink-700 break-all font-mono">{inviteUrl}</p>
         </div>
-        <p className="text-xs text-slate-400 text-center mb-4">
+        <p className="text-xs text-ink-400 text-center mb-4">
           Λήγει: {new Date(expiresAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'long', year: 'numeric' })}
         </p>
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+          <ClinicButton variant="secondary" onClick={onClose} className="flex-1">
             Κλείσιμο
-          </button>
+          </ClinicButton>
           <button
             onClick={handleCopy}
-            className={`flex-1 py-2.5 rounded-xl font-bold transition-colors ${
+            className={`flex-1 py-2.5 rounded-xl font-semibold transition-colors ${
               copied
                 ? 'bg-green-600 text-white'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                : 'bg-clinic-600 text-white hover:bg-clinic-700'
             }`}
           >
             {copied ? 'Αντιγράφηκε!' : 'Αντιγραφή'}
@@ -581,30 +580,29 @@ function DeleteConfirmDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 text-center">
+    <ClinicDrawer label={title} narrow busy={deleting} onClose={onClose}>
+      <div className="relative min-h-full bg-white w-full p-5 text-left shadow-xl">
         <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
           <svg className="w-7 h-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
           </svg>
         </div>
-        <h3 className="text-lg font-bold text-slate-900 mb-1">{title}</h3>
-        <p className="text-sm text-slate-500 mb-5">{message}</p>
+        <h3 className="text-lg font-semibold text-ink-900 mb-1">{title}</h3>
+        <p className="text-sm text-ink-500 mb-5">{message}</p>
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors">
+          <ClinicButton variant="secondary" onClick={onClose} disabled={deleting} className="flex-1">
             Ακύρωση
-          </button>
-          <button
+          </ClinicButton>
+          <ClinicButton variant="secondary"
             onClick={handleConfirm}
             disabled={deleting}
-            className="flex-1 py-2.5 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 disabled:opacity-50 transition-colors"
+            className="flex-1 disabled:opacity-50"
           >
             {deleting ? 'Διαγραφή...' : 'Διαγραφή'}
-          </button>
+          </ClinicButton>
         </div>
       </div>
-    </div>
+    </ClinicDrawer>
   );
 }
 
@@ -613,7 +611,17 @@ export default function VetClientsPage() {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  useEffect(() => {
+    const search = new URLSearchParams(window.location.search).get('search');
+    if (search) {
+      setSearchTerm(search);
+      setDebouncedSearch(search);
+    }
+  }, []);
+  const [selectedClientId, setClientId] = useState<string | null>(null);
+  const setSelectedClientId = (id: string | null) => {
+    setClientId(id); setShowAddClient(false); setShowEditClient(false); setShowAddPet(false); setEditingPet(null); setInviteData(null); setShowReminderPetId(null); setReminderError('');
+  };
 
   // Dialogs
   const [showAddClient, setShowAddClient] = useState(false);
@@ -628,6 +636,17 @@ export default function VetClientsPage() {
   const [reminderSubmitting, setReminderSubmitting] = useState(false);
   const [reminderError, setReminderError] = useState('');
   const [reminderSuccess, setReminderSuccess] = useState(false);
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  const panelOpen = !!selectedClientId || showAddClient;
+  const formOpen = showAddClient || showEditClient || showAddPet || !!inviteData;
+  useEffect(() => {
+    if (panelOpen) {
+      panelRef.current?.focus({ preventScroll: true });
+      panelRef.current?.scrollTo({ top: 0 });
+      if (window.innerWidth < 1280) panelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [panelOpen, selectedClientId, showAddClient, showEditClient, showAddPet, inviteData]);
 
   // Custom reminder types
   const [customReminderTypes, setCustomReminderTypes] = useState<string[]>([]);
@@ -661,8 +680,9 @@ export default function VetClientsPage() {
     }, 300));
   };
 
-  const { clients, totalPages, loading, error, refetch } = useVetClients(page, 10, debouncedSearch || undefined);
-  const { client: selectedClient, loading: clientLoading, refetch: refetchClient } = useVetClient(selectedClientId);
+  const { clients, total, totalPages, loading, error, refetch } = useVetClients(page, 10, debouncedSearch || undefined);
+  const { client: loadedClient, loading: clientLoading, error: clientError, refetch: refetchClient } = useVetClient(selectedClientId);
+  const selectedClient = loadedClient?.id === selectedClientId ? loadedClient : null;
   const { events: historyEvents, loading: historyLoading } = usePatientHistory(historyPetId);
 
   // Reset history when switching clients
@@ -753,7 +773,7 @@ export default function VetClientsPage() {
   if (loading && clients.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-clinic-600" />
       </div>
     );
   }
@@ -761,7 +781,7 @@ export default function VetClientsPage() {
   if (error) {
     return (
       <div className="max-w-7xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-red-700 font-medium">{error}</p>
         </div>
       </div>
@@ -770,140 +790,85 @@ export default function VetClientsPage() {
 
   return (
     <div className="max-w-7xl mx-auto relative">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-          <Link href="/vet/dashboard" className="text-slate-500 text-sm font-bold mb-2 hover:text-indigo-600 block">
-            &larr; Dashboard
-          </Link>
-          <h1 className="text-3xl font-bold text-slate-900">Κάτοχοι Κατοικιδίων</h1>
-        </div>
-        <button
-          onClick={() => setShowAddClient(true)}
-          className="px-5 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2"
-        >
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Προσθήκη Κατόχου
-        </button>
-      </div>
+      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-ink-900">
+          <svg aria-hidden="true" className="h-5 w-5 text-ink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M9 11a4 4 0 100-8 4 4 0 000 8zm8-7.87a4 4 0 010 7.75" /></svg>
+          Κηδεμόνες
+        </h1>
+        <ClinicButton variant="primary" className="bg-ink-900! border-ink-900! hover:bg-ink-700!" onClick={() => { setSelectedClientId(null); setShowAddClient(true); }}>Προσθήκη Κηδεμόνα</ClinicButton>
+      </header>
 
-      {/* Search */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 mb-6">
-        <div className="relative">
-          <svg className="absolute left-3 top-3.5 w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Αναζήτηση με όνομα, email ή τηλέφωνο..."
-            className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-            value={searchTerm}
-            onChange={e => handleSearchChange(e.target.value)}
-          />
-        </div>
-      </div>
+      <div className={`grid items-start gap-4 ${panelOpen ? 'xl:grid-cols-[minmax(0,1fr)_400px]' : ''}`}><div className="min-w-0 space-y-4">
+        <ClinicPanel className="overflow-hidden">
+          <div className="px-5 py-4">
+            <p className="text-sm font-semibold text-ink-900" aria-live="polite">{total} {debouncedSearch ? 'αποτελέσματα αναζήτησης' : 'κηδεμόνες'}</p>
+            <p className="mt-1 text-xs text-ink-500">{debouncedSearch ? `Για «${debouncedSearch}» στο μητρώο σας` : 'Το μητρώο κηδεμόνων του ιατρείου σας'}</p>
+          </div>
+          <div className="border-t border-ink-100 bg-ink-50/50 px-5 py-3 text-xs leading-5 text-ink-500">Επιλέξτε έναν κηδεμόνα για στοιχεία επικοινωνίας, κατοικίδια και ιστορικό φροντίδας.</div>
+        </ClinicPanel>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100">
-                <th className="p-5 font-bold">Πελάτης</th>
-                <th className="p-5 font-bold">Email</th>
-                <th className="p-5 font-bold">Τηλέφωνο</th>
-                <th className="p-5 font-bold">Κατάσταση</th>
-                <th className="p-5 font-bold text-center">Κατοικίδια</th>
-                <th className="p-5 font-bold text-right">Ενέργειες</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm">
+        <ClinicPanel className="overflow-hidden" aria-busy={loading}>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 px-3 py-2.5">
+            <span className="rounded-md bg-ink-100 px-3 py-1.5 text-xs font-semibold text-ink-800">{debouncedSearch ? 'Αναζήτηση' : 'Όλοι οι κηδεμόνες'}</span>
+            {searchTerm && <button type="button" onClick={() => handleSearchChange('')} className="px-2 py-1 text-xs text-ink-600 underline underline-offset-2">Καθαρισμός</button>}
+          </div>
+          <div className="relative border-b border-ink-200 p-3">
+            <svg aria-hidden="true" className="absolute left-6 top-5.5 h-4 w-4 text-ink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <ClinicInput aria-label="Αναζήτηση κηδεμόνων" type="search" placeholder="Αναζήτηση με όνομα, email ή τηλέφωνο..." className="w-full pl-9 text-xs!" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
+          </div>
+          <ClinicTable className="table-fixed [&_th]:py-2! [&_td]:py-3! [&_th]:px-3! [&_td]:px-3!">
+            <thead><tr>
+              <ClinicTableHead className={panelOpen ? 'w-[58%] sm:w-[45%]' : 'w-[58%] sm:w-[30%]'}>Κηδεμόνας</ClinicTableHead>
+              <ClinicTableHead className={panelOpen ? 'hidden' : 'hidden lg:table-cell'}>Email</ClinicTableHead>
+              <ClinicTableHead className="hidden sm:table-cell">Τηλέφωνο</ClinicTableHead>
+              <ClinicTableHead>Λογαριασμός</ClinicTableHead>
+              <ClinicTableHead className="hidden w-20 text-right! sm:table-cell">Κατοικίδια</ClinicTableHead>
+            </tr></thead>
+            <tbody>
               {clients.map(client => {
                 const st = statusConfig[client.status] || statusConfig.managed;
-                return (
-                  <tr
-                    key={client.id}
-                    onClick={() => setSelectedClientId(client.id)}
-                    className={`border-b border-slate-50 last:border-0 hover:bg-indigo-50/30 cursor-pointer transition-colors ${
-                      selectedClientId === client.id ? 'bg-indigo-50' : ''
-                    }`}
-                  >
-                    <td className="p-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                          {client.image_url ? (
-                            <img src={getImageUrl(client.image_url)} alt={client.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-indigo-600 font-bold">{client.name.charAt(0)}</span>
-                          )}
-                        </div>
-                        <span className="font-bold text-slate-900">{client.name}</span>
-                      </div>
-                    </td>
-                    <td className="p-5 text-slate-600">{client.email || '-'}</td>
-                    <td className="p-5 text-slate-600">{client.phone || '-'}</td>
-                    <td className="p-5">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${st.bg}`}>
-                        {st.label}
-                      </span>
-                    </td>
-                    <td className="p-5 text-center">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-100 text-slate-600 text-xs font-bold">
-                        {client.pet_count}
-                      </span>
-                    </td>
-                    <td className="p-5 text-right">
-                      <button className="text-indigo-600 hover:bg-indigo-100 p-2 rounded-lg transition-colors">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </button>
-                    </td>
-                  </tr>
-                );
+                return <tr key={client.id} onClick={() => setSelectedClientId(client.id)} className={`cursor-pointer ${selectedClientId === client.id ? 'bg-ink-100! shadow-[inset_3px_0_0_#303030]' : ''}`}>
+                  <ClinicTableCell>
+                    <div className="flex items-start gap-2"><ClinicAvatar name={client.name} imageUrl={client.image_url} /><div className="min-w-0"><button type="button" aria-label={`Στοιχεία: ${client.name}`} aria-expanded={selectedClientId === client.id} onClick={e => { e.stopPropagation(); setSelectedClientId(client.id); }} className="text-left text-[13px] font-semibold text-ink-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600">{client.name}</button>
+                    <p className="mt-1 text-xs text-ink-500 sm:hidden">{client.phone || 'Χωρίς τηλέφωνο'} · {client.pet_count} κατοικίδια</p></div></div>
+                  </ClinicTableCell>
+                  <ClinicTableCell className={panelOpen ? 'hidden' : 'hidden break-all text-xs! lg:table-cell'}>{client.email || '—'}</ClinicTableCell>
+                  <ClinicTableCell className="hidden text-xs! tabular-nums sm:table-cell">{client.phone || '—'}</ClinicTableCell>
+                  <ClinicTableCell><span className={`inline-block rounded-md px-1.5 py-0.5 text-[11px] leading-4 ${st.bg}`}>{st.label}</span></ClinicTableCell>
+                  <ClinicTableCell className="hidden text-right! text-xs! tabular-nums sm:table-cell">{client.pet_count}</ClinicTableCell>
+                </tr>;
               })}
             </tbody>
-          </table>
-        </div>
-        {clients.length === 0 && (
-          <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
+          </ClinicTable>
+          {clients.length === 0 && <div className="px-5 py-14 text-center"><h2 className="text-sm font-semibold text-ink-800">{debouncedSearch ? 'Δεν βρέθηκαν κηδεμόνες' : 'Το μητρώο σας είναι έτοιμο'}</h2><p className="mt-2 text-xs text-ink-500">{debouncedSearch ? 'Δοκιμάστε άλλο όνομα, email ή τηλέφωνο.' : 'Προσθέστε τον πρώτο κηδεμόνα και τα κατοικίδιά του.'}</p></div>}
+          <footer className="flex items-center justify-between gap-2 border-t border-ink-200 bg-ink-50/50 px-3 py-2">
+            <p className="text-xs text-ink-500">{total > 0 ? `${(page - 1) * 10 + 1}–${Math.min(page * 10, total)} από ${total}` : '0 κηδεμόνες'}</p>
+            <div className="flex gap-1">
+              <ClinicButton aria-label="Προηγούμενη σελίδα" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>‹</ClinicButton>
+              <ClinicButton aria-label="Επόμενη σελίδα" disabled={page >= totalPages || loading} onClick={() => setPage(page + 1)}>›</ClinicButton>
             </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Δεν υπάρχουν πελάτες</h3>
-            <p className="text-slate-500">Προσθέστε τον πρώτο σας πελάτη για να ξεκινήσετε.</p>
-          </div>
-        )}
+          </footer>
+        </ClinicPanel>
       </div>
-
-      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-
-      {/* Side Panel */}
-      <div
-        className={`fixed top-0 right-0 h-full w-full sm:w-[420px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out overflow-y-auto ${
-          selectedClientId ? 'translate-x-0' : 'translate-x-full'
-        }`}
-      >
+      {panelOpen && <div ref={panelRef} tabIndex={-1} aria-label="Πάνελ κηδεμόνα" className="min-w-0 scroll-mt-20 outline-none xl:sticky xl:top-20 xl:max-h-[calc(100vh-6rem)] xl:overflow-y-auto">
+      <div className={formOpen ? 'hidden' : 'overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xs'}>
         {selectedClientId && (
-          <div className="min-h-screen flex flex-col">
+          <div className="flex flex-col">
             {/* Panel Header */}
-            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 p-5">
+            <div className="border-b border-ink-200 p-5">
               <div className="flex items-center justify-between mb-4">
-                <button
+                <ClinicButton variant="secondary"
                   onClick={() => setSelectedClientId(null)}
-                  className="bg-white/20 backdrop-blur-md p-2 rounded-full text-white hover:bg-white/40 transition-colors"
+                  aria-label="Κλείσιμο στοιχείων κηδεμόνα"
+                  className="backdrop-blur-md"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
-                </button>
+                </ClinicButton>
                 {selectedClient && (
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                    statusConfig[selectedClient.status]?.bg || 'bg-slate-100 text-slate-600'
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    statusConfig[selectedClient.status]?.bg || 'bg-ink-100 text-ink-600'
                   }`}>
                     {statusConfig[selectedClient.status]?.label || selectedClient.status}
                   </span>
@@ -913,9 +878,9 @@ export default function VetClientsPage() {
                 <div className="animate-pulse h-8 w-40 bg-white/30 rounded" />
               ) : selectedClient ? (
                 <>
-                  <h2 className="text-2xl font-bold text-white">{selectedClient.name}</h2>
+                  <div className="mb-3"><ClinicAvatar large name={selectedClient.name} imageUrl={clients.find(client => client.id === selectedClient.id)?.image_url} /></div><h2 className="text-xl font-semibold text-ink-900">{selectedClient.name}</h2>
                   {selectedClient.email && (
-                    <p className="text-white/80 text-sm mt-1">{selectedClient.email}</p>
+                    <p className="text-ink-500 text-sm mt-1 break-all">{selectedClient.email}</p>
                   )}
                 </>
               ) : null}
@@ -923,36 +888,38 @@ export default function VetClientsPage() {
 
             {clientLoading ? (
               <div className="flex items-center justify-center py-10">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600" />
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-clinic-600" />
               </div>
             ) : selectedClient ? (
               <div className="p-5 space-y-5 flex-1">
                 {/* Contact Info */}
-                <div className="space-y-2">
+                <section className="space-y-2 border-b border-ink-200 pb-4">
+                  <h3 className="text-sm font-semibold text-ink-900">Επικοινωνία</h3>
+                  {selectedClient.email && <a href={`mailto:${selectedClient.email}`} className="block break-all text-sm text-clinic-700 hover:underline">{selectedClient.email}</a>}
                   {selectedClient.phone && (
                     <div className="flex items-center gap-3 text-sm">
-                      <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-ink-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                       </svg>
-                      <span className="text-slate-700">{selectedClient.phone}</span>
+                      <a href={`tel:${selectedClient.phone}`} className="text-clinic-700 hover:underline">{selectedClient.phone}</a>
                     </div>
                   )}
                   {selectedClient.address && (
                     <div className="flex items-center gap-3 text-sm">
-                      <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4 text-ink-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      <span className="text-slate-700">{selectedClient.address}</span>
+                      <span className="text-ink-700">{selectedClient.address}</span>
                     </div>
                   )}
-                </div>
+                </section>
 
                 {/* Notes */}
                 {selectedClient.notes && (
-                  <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase mb-2">Σημειώσεις</h3>
-                    <p className="text-sm text-slate-700">{selectedClient.notes}</p>
+                  <div className="border-b border-ink-200 pb-4">
+                    <h3 className="text-sm font-semibold text-ink-900 mb-2">Σημειώσεις</h3>
+                    <p className="text-sm text-ink-700">{selectedClient.notes}</p>
                   </div>
                 )}
 
@@ -962,19 +929,19 @@ export default function VetClientsPage() {
                     <svg className="w-5 h-5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="text-sm font-bold text-green-700">Η υπενθύμιση δημιουργήθηκε και στάλθηκε στον ιδιοκτήτη!</p>
+                    <p className="text-sm font-semibold text-green-700">Η υπενθύμιση δημιουργήθηκε και στάλθηκε στον ιδιοκτήτη!</p>
                   </div>
                 )}
 
                 {/* Pets */}
                 {selectedClient.status === 'linked' && selectedClient.linked_pets?.length > 0 ? (
                   <div>
-                    <h3 className="font-bold text-slate-800 text-sm mb-3">
+                    <h3 className="font-semibold text-ink-800 text-sm mb-3">
                       Κατοικίδια ({selectedClient.linked_pets.length})
                     </h3>
                     <div className="space-y-2">
                       {selectedClient.linked_pets.map(pet => (
-                        <div key={pet.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
+                        <ClinicPanel key={pet.id} className="p-3">
                           <div className="flex items-center gap-3">
                             {pet.image_url ? (
                               <img src={getImageUrl(pet.image_url)} alt={pet.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
@@ -982,8 +949,8 @@ export default function VetClientsPage() {
                               <span className="text-lg flex-shrink-0">{pet.type === 'DOG' ? '🐕' : pet.type === 'CAT' ? '🐈' : '🐾'}</span>
                             )}
                             <div className="flex-1 min-w-0">
-                              <p className="font-bold text-slate-800 text-sm">{pet.name}</p>
-                              <p className="text-xs text-slate-500">
+                              <p className="font-semibold text-ink-800 text-sm">{pet.name}</p>
+                              <p className="text-xs text-ink-500">
                                 {petTypeLabels[pet.type] || pet.type}
                                 {pet.breed ? ` · ${pet.breed}` : ''}
                                 {pet.age != null ? ` · ${pet.age} ετών` : ''}
@@ -991,52 +958,52 @@ export default function VetClientsPage() {
                                 {pet.gender ? ` · ${genderLabels[pet.gender] || pet.gender}` : ''}
                               </p>
                               {pet.chip_number && (
-                                <p className="text-xs text-slate-400 mt-0.5">Microchip: {pet.chip_number}</p>
+                                <p className="text-xs text-ink-400 mt-0.5">Microchip: {pet.chip_number}</p>
                               )}
                             </div>
                           </div>
                           {/* History toggle */}
                           <div className="mt-2 flex gap-2 flex-wrap">
-                            <button
+                            <ClinicButton variant="ghost"
                               onClick={() => setHistoryPetId(historyPetId === pet.id ? null : pet.id)}
-                              className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                              className=""
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                               </svg>
                               Ιστορικό
-                            </button>
-                            <button
+                            </ClinicButton>
+                            <ClinicButton variant="ghost"
                               onClick={() => { setShowReminderPetId(showReminderPetId === pet.id ? null : pet.id); setReminderError(''); }}
-                              className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                              className="text-teal-600 hover:text-teal-700"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                               Υπενθύμιση
-                            </button>
+                            </ClinicButton>
                           </div>
                           {/* Create Reminder inline form */}
                           {showReminderPetId === pet.id && (
-                            <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
-                              <p className="text-xs font-bold text-slate-700">Νέα Υπενθύμιση</p>
+                            <div className="mt-3 border-t border-ink-200 pt-3 space-y-2">
+                              <p className="text-xs font-semibold text-ink-700">Νέα Υπενθύμιση</p>
                               {reminderError && (
                                 <p className="text-xs text-red-600">{reminderError}</p>
                               )}
                               <div className="flex gap-1.5">
                                 <div className="relative flex-1" ref={reminderTypeDropdownRef}>
-                                  <button
+                                  <ClinicButton variant="secondary"
                                     type="button"
                                     onClick={() => setReminderTypeDropdownOpen(!reminderTypeDropdownOpen)}
-                                    className="w-full flex items-center justify-between border border-slate-200 rounded-lg px-2 py-1.5 text-xs text-slate-800 bg-white hover:border-slate-300 transition-colors"
+                                    className="w-full justify-between"
                                   >
                                     <span>{{ vaccination: 'Εμβολιασμός', checkup: 'Έλεγχος', medication: 'Φαρμακευτική Αγωγή', custom: 'Γενικό' }[reminderForm.type] || reminderForm.type}</span>
-                                    <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform ${reminderTypeDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className={`w-3.5 h-3.5 text-ink-400 transition-transform ${reminderTypeDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                     </svg>
-                                  </button>
+                                  </ClinicButton>
                                   {reminderTypeDropdownOpen && (
-                                    <div className="absolute z-20 w-full mt-1 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                                    <ClinicPanel className="absolute z-20 w-full mt-1 overflow-hidden">
                                       {[
                                         { value: 'vaccination', label: 'Εμβολιασμός' },
                                         { value: 'checkup', label: 'Έλεγχος' },
@@ -1047,19 +1014,19 @@ export default function VetClientsPage() {
                                           key={opt.value}
                                           type="button"
                                           onClick={() => { setReminderForm(f => ({ ...f, type: opt.value })); setReminderTypeDropdownOpen(false); }}
-                                          className={`w-full text-left px-2.5 py-2 text-xs hover:bg-indigo-50 transition-colors ${reminderForm.type === opt.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                                          className={`w-full text-left px-2.5 py-2 text-xs hover:bg-clinic-50 transition-colors ${reminderForm.type === opt.value ? 'bg-clinic-50 text-clinic-700 font-semibold' : 'text-ink-700'}`}
                                         >
                                           {opt.label}
                                         </button>
                                       ))}
                                       {customReminderTypes.length > 0 && (
-                                        <div className="border-t border-slate-100">
+                                        <div className="border-t border-ink-200">
                                           {customReminderTypes.map((ct, idx) => (
                                             <div key={idx} className="group">
                                               <button
                                                 type="button"
                                                 onClick={() => { setReminderForm(f => ({ ...f, type: ct })); setReminderTypeDropdownOpen(false); }}
-                                                className={`w-full text-left px-2.5 py-2 text-xs hover:bg-indigo-50 transition-colors flex items-center ${reminderForm.type === ct ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700'}`}
+                                                className={`w-full text-left px-2.5 py-2 text-xs hover:bg-clinic-50 transition-colors flex items-center ${reminderForm.type === ct ? 'bg-clinic-50 text-clinic-700 font-semibold' : 'text-ink-700'}`}
                                               >
                                                 <span className="flex-1">{ct}</span>
                                                 <span className="hidden group-hover:flex items-center gap-0.5">
@@ -1075,7 +1042,7 @@ export default function VetClientsPage() {
                                                         if (reminderForm.type === ct) setReminderForm(f => ({ ...f, type: newName.trim() }));
                                                       }
                                                     }}
-                                                    className="text-slate-400 hover:text-indigo-600 p-0.5 transition-colors"
+                                                    className="text-ink-400 hover:text-clinic-600 p-0.5 transition-colors"
                                                   >
                                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -1090,7 +1057,7 @@ export default function VetClientsPage() {
                                                       updateCustomReminderTypes(updated).catch(() => {});
                                                       if (reminderForm.type === ct) setReminderForm(f => ({ ...f, type: 'checkup' }));
                                                     }}
-                                                    className="text-slate-400 hover:text-red-500 p-0.5 transition-colors"
+                                                    className="text-ink-400 hover:text-red-500 p-0.5 transition-colors"
                                                   >
                                                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1103,9 +1070,9 @@ export default function VetClientsPage() {
                                         </div>
                                       )}
                                       {showAddReminderType && (
-                                        <div className="border-t border-slate-100 p-1.5">
+                                        <div className="border-t border-ink-200 p-1.5">
                                           <div className="flex gap-1">
-                                            <input
+                                            <ClinicInput
                                               type="text"
                                               value={newReminderTypeName}
                                               onChange={(e) => setNewReminderTypeName(e.target.value)}
@@ -1125,10 +1092,10 @@ export default function VetClientsPage() {
                                                 if (e.key === 'Escape') setShowAddReminderType(false);
                                               }}
                                               placeholder="Νέος τύπος..."
-                                              className="flex-1 border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                              className="flex-1 px-2 py-1"
                                               autoFocus
                                             />
-                                            <button
+                                            <ClinicButton variant="primary"
                                               type="button"
                                               onClick={() => {
                                                 const trimmed = newReminderTypeName.trim();
@@ -1141,20 +1108,20 @@ export default function VetClientsPage() {
                                                 setShowAddReminderType(false);
                                                 setReminderTypeDropdownOpen(false);
                                               }}
-                                              className="px-2 py-1 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-colors shrink-0"
+                                              className="shrink-0"
                                             >
                                               OK
-                                            </button>
+                                            </ClinicButton>
                                           </div>
                                         </div>
                                       )}
-                                    </div>
+                                    </ClinicPanel>
                                   )}
                                 </div>
                                 <button
                                   type="button"
                                   onClick={() => { setShowAddReminderType(true); setReminderTypeDropdownOpen(true); }}
-                                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300 transition-all shrink-0"
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-ink-200 text-ink-500 hover:bg-clinic-50 hover:text-clinic-600 hover:border-clinic-300 transition-all shrink-0"
                                   title="Προσθήκη νέου τύπου"
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1162,12 +1129,12 @@ export default function VetClientsPage() {
                                   </svg>
                                 </button>
                               </div>
-                              <input
+                              <ClinicInput
                                 type="text"
                                 placeholder="Τίτλος (προαιρετικό)"
                                 value={reminderForm.title}
                                 onChange={e => setReminderForm(f => ({ ...f, title: e.target.value }))}
-                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                className="w-full px-2 py-1.5"
                               />
                               <DatePicker
                                 value={reminderForm.due_date}
@@ -1175,72 +1142,72 @@ export default function VetClientsPage() {
                                 placeholder="Ημερομηνία *"
                               />
                               <div>
-                                <label className="text-xs text-slate-500 mb-1 block">Υπενθύμιση πριν (ημέρες)</label>
-                                <input
+                                <label className="text-xs text-ink-500 mb-1 block">Υπενθύμιση πριν (ημέρες)</label>
+                                <ClinicInput
                                   type="number"
                                   value={reminderForm.reminder_days_before}
                                   onChange={e => setReminderForm(f => ({ ...f, reminder_days_before: Number(e.target.value) }))}
                                   min={1}
                                   max={365}
-                                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                  className="w-full px-2 py-1.5"
                                 />
                               </div>
-                              <textarea
+                              <ClinicTextarea
                                 placeholder="Μήνυμα (προαιρετικό)"
                                 value={reminderForm.message}
                                 onChange={e => setReminderForm(f => ({ ...f, message: e.target.value }))}
                                 rows={2}
-                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300 resize-none"
+                                className="w-full px-2 py-1.5 resize-none"
                               />
                               <div className="flex gap-2">
-                                <button
+                                <ClinicButton variant="secondary"
                                   onClick={() => setShowReminderPetId(null)}
-                                  className="flex-1 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
+                                  className="flex-1"
                                 >
                                   Ακύρωση
-                                </button>
-                                <button
+                                </ClinicButton>
+                                <ClinicButton variant="primary"
                                   onClick={() => handleCreateReminder(pet.id)}
                                   disabled={reminderSubmitting}
-                                  className="flex-1 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                  className="flex-1 disabled:opacity-50"
                                 >
                                   {reminderSubmitting ? '...' : 'Αποθήκευση'}
-                                </button>
+                                </ClinicButton>
                               </div>
                             </div>
                           )}
                           {/* Medical History */}
                           {historyPetId === pet.id && (
-                            <div className="mt-3 border-t border-slate-100 pt-3">
+                            <div className="mt-3 border-t border-ink-200 pt-3">
                               {historyLoading ? (
                                 <div className="flex justify-center py-3">
-                                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
+                                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-clinic-600" />
                                 </div>
                               ) : historyEvents.length > 0 ? (
                                 <div className="space-y-2 max-h-60 overflow-y-auto">
                                   {historyEvents.map(event => (
-                                    <div key={event.id} className="bg-slate-50 rounded-lg p-2.5">
+                                    <div key={event.id} className="bg-ink-50 rounded-lg p-2.5">
                                       <div className="flex items-center justify-between">
-                                        <p className="font-bold text-slate-700 text-xs">{event.title}</p>
-                                        <span className="text-[10px] text-slate-400">
+                                        <p className="font-semibold text-ink-700 text-xs">{event.title}</p>
+                                        <span className="text-[10px] text-ink-400">
                                           {new Date(event.date).toLocaleDateString('el-GR')}
                                         </span>
                                       </div>
-                                      <span className="inline-block mt-1 px-1.5 py-0.5 bg-indigo-100 text-indigo-600 rounded text-[10px] font-bold">
+                                      <span className="inline-block mt-1 px-1.5 py-0.5 bg-clinic-100 text-clinic-600 rounded text-[10px] font-semibold">
                                         {event.event_type}
                                       </span>
                                       {event.notes && (
-                                        <p className="text-xs text-slate-500 mt-1">{event.notes}</p>
+                                        <p className="text-xs text-ink-500 mt-1">{event.notes}</p>
                                       )}
                                     </div>
                                   ))}
                                 </div>
                               ) : (
-                                <p className="text-xs text-slate-400 italic text-center py-2">Δεν υπάρχει ιστορικό.</p>
+                                <p className="text-xs text-ink-400 italic text-center py-2">Δεν υπάρχει ιστορικό.</p>
                               )}
                             </div>
                           )}
-                        </div>
+                        </ClinicPanel>
                       ))}
                     </div>
                   </div>
@@ -1251,31 +1218,31 @@ export default function VetClientsPage() {
                         <svg className="w-5 h-5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <p className="text-sm font-bold text-green-700">Η υπενθύμιση δημιουργήθηκε και στάλθηκε στον ιδιοκτήτη!</p>
+                        <p className="text-sm font-semibold text-green-700">Η υπενθύμιση δημιουργήθηκε και στάλθηκε στον ιδιοκτήτη!</p>
                       </div>
                     )}
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-bold text-slate-800 text-sm">Κατοικίδια ({selectedClient.pets.length})</h3>
-                      <button
+                      <h3 className="font-semibold text-ink-800 text-sm">Κατοικίδια ({selectedClient.pets.length})</h3>
+                      <ClinicButton variant="ghost"
                         onClick={() => { setEditingPet(null); setShowAddPet(true); }}
-                        className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                        className=""
                       >
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                         Προσθήκη
-                      </button>
+                      </ClinicButton>
                     </div>
                     {selectedClient.pets.length > 0 ? (
                       <div className="space-y-2">
                         {selectedClient.pets.map(pet => (
-                          <div key={pet.id} className="bg-white border border-slate-100 rounded-xl p-3 shadow-sm">
+                          <ClinicPanel key={pet.id} className="p-3">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span className="text-lg">{pet.type === 'Dog' ? '🐕' : pet.type === 'Cat' ? '🐈' : '🐾'}</span>
                                 <div>
-                                  <p className="font-bold text-slate-800 text-sm">{pet.name}</p>
-                                  <p className="text-xs text-slate-500">
+                                  <p className="font-semibold text-ink-800 text-sm">{pet.name}</p>
+                                  <p className="text-xs text-ink-500">
                                     {petTypeLabels[pet.type] || pet.type}
                                     {pet.breed ? ` · ${pet.breed}` : ''}
                                     {pet.age != null ? ` · ${pet.age} ετών` : ''}
@@ -1285,58 +1252,59 @@ export default function VetClientsPage() {
                                 </div>
                               </div>
                               <div className="flex gap-1">
-                                <button
+                                <ClinicButton variant="secondary"
+                                  aria-label={`Επεξεργασία κατοικιδίου: ${pet.name}`}
                                   onClick={(e) => { e.stopPropagation(); setEditingPet(pet); setShowAddPet(true); }}
-                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                  className=""
                                 >
                                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                   </svg>
-                                </button>
-                                <button
+                                </ClinicButton>
+                                <ClinicButton variant="danger"
                                   onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'pet', id: pet.id, name: pet.name }); }}
-                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                  className=""
                                 >
                                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                   </svg>
-                                </button>
+                                </ClinicButton>
                               </div>
                             </div>
                             {pet.notes && (
-                              <p className="text-xs text-slate-500 mt-2 bg-slate-50 rounded-lg p-2">{pet.notes}</p>
+                              <p className="text-xs text-ink-500 mt-2 bg-ink-50 rounded-lg p-2">{pet.notes}</p>
                             )}
                             <div className="mt-2">
-                              <button
+                              <ClinicButton variant="ghost"
                                 onClick={(e) => { e.stopPropagation(); setShowReminderPetId(showReminderPetId === pet.id ? null : pet.id); setReminderError(''); }}
-                                className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                                className="text-teal-600 hover:text-teal-700"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 Δημιουργία Υπενθύμισης
-                              </button>
+                              </ClinicButton>
                             </div>
                             {showReminderPetId === pet.id && (
-                              <div className="mt-3 border-t border-slate-100 pt-3 space-y-2">
-                                <p className="text-xs font-bold text-slate-700">Νέα Υπενθύμιση</p>
+                              <div className="mt-3 border-t border-ink-200 pt-3 space-y-2">
+                                <p className="text-xs font-semibold text-ink-700">Νέα Υπενθύμιση</p>
                                 {reminderError && <p className="text-xs text-red-600">{reminderError}</p>}
-                                <select
+                                <ClinicSelect
                                   value={reminderForm.type}
                                   onChange={e => setReminderForm(f => ({ ...f, type: e.target.value }))}
-                                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                  className="w-full px-2 py-1.5"
                                 >
                                   <option value="vaccination">Εμβολιασμός</option>
                                   <option value="checkup">Έλεγχος</option>
                                   <option value="medication">Φαρμακευτική Αγωγή</option>
                                   <option value="custom">Γενικό</option>
-                                </select>
-                                <input
+                                </ClinicSelect>
+                                <ClinicInput
                                   type="text"
                                   placeholder="Τίτλος *"
                                   value={reminderForm.title}
                                   onChange={e => setReminderForm(f => ({ ...f, title: e.target.value }))}
-                                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                                  className="w-full px-2 py-1.5"
                                 />
                                 <DatePicker
                                   value={reminderForm.due_date}
@@ -1344,91 +1312,84 @@ export default function VetClientsPage() {
                                   placeholder="Ημερομηνία"
                                 />
                                 <div className="flex gap-2">
-                                  <button
+                                  <ClinicButton variant="secondary"
                                     onClick={() => setShowReminderPetId(null)}
-                                    className="flex-1 py-1.5 text-xs border border-slate-200 rounded-lg text-slate-600 hover:bg-slate-50"
+                                    className="flex-1"
                                   >
                                     Ακύρωση
-                                  </button>
-                                  <button
+                                  </ClinicButton>
+                                  <ClinicButton variant="primary"
                                     onClick={() => handleCreateReminder(pet.id)}
                                     disabled={reminderSubmitting}
-                                    className="flex-1 py-1.5 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                                    className="flex-1 disabled:opacity-50"
                                   >
                                     {reminderSubmitting ? '...' : 'Αποθήκευση'}
-                                  </button>
+                                  </ClinicButton>
                                 </div>
                               </div>
                             )}
-                          </div>
+                          </ClinicPanel>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-400 italic">Δεν έχουν καταχωρηθεί κατοικίδια.</p>
+                      <p className="text-sm text-ink-400 italic">Δεν έχουν καταχωρηθεί κατοικίδια.</p>
                     )}
                   </div>
                 )}
               </div>
             ) : null}
 
+            {clientError && <div role="alert" className="p-5 text-sm text-red-700">{clientError}<ClinicButton onClick={refetchClient}>Δοκιμή ξανά</ClinicButton></div>}
             {/* Panel Footer Actions */}
             {selectedClient && (
-              <div className="p-5 border-t border-slate-100 bg-slate-50 mt-auto space-y-2">
+              <div className="p-5 border-t border-ink-200 bg-ink-50 mt-auto space-y-2">
                 {selectedClient.status === 'managed' && (
-                  <button
+                  <ClinicButton variant="primary"
                     onClick={() => handleGenerateInvite(selectedClient.id)}
-                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                    className="w-full"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
                     Πρόσκληση στο Vetly
-                  </button>
+                  </ClinicButton>
                 )}
                 {selectedClient.status === 'invited' && (
-                  <button
+                  <ClinicButton variant="secondary"
                     onClick={() => handleResendInvite(selectedClient.id)}
-                    className="w-full py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                    className="w-full"
                   >
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     Αποστολή ξανά
-                  </button>
+                  </ClinicButton>
                 )}
                 <div className="flex gap-2">
-                  <button
+                  <ClinicButton variant="secondary"
                     onClick={() => setShowEditClient(true)}
-                    className="flex-1 py-3 border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-white transition-colors flex items-center justify-center gap-2"
+                    className="flex-1"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
                     Επεξεργασία
-                  </button>
-                  <button
+                  </ClinicButton>
+                  <ClinicButton variant="danger"
                     onClick={() => setDeleteTarget({ type: 'client', id: selectedClient.id, name: selectedClient.name })}
-                    className="flex-1 py-3 border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                    className="flex-1"
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                     Διαγραφή
-                  </button>
+                  </ClinicButton>
                 </div>
                 </div>
             )}
           </div>
         )}
       </div>
-
-      {/* Overlay */}
-      {selectedClientId && (
-        <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity"
-          onClick={() => setSelectedClientId(null)}
-        />
-      )}
 
       {/* Dialogs */}
       {showAddClient && (
@@ -1440,6 +1401,7 @@ export default function VetClientsPage() {
 
       {showAddPet && selectedClientId && (
         <PetDialog
+          key={`${selectedClientId}-${editingPet?.id || 'new'}`}
           clientId={selectedClientId}
           pet={editingPet}
           onClose={() => { setShowAddPet(false); setEditingPet(null); }}
@@ -1449,6 +1411,7 @@ export default function VetClientsPage() {
 
       {showEditClient && selectedClient && (
         <EditClientDialog
+          key={selectedClient.id}
           client={selectedClient}
           onClose={() => setShowEditClient(false)}
           onSaved={handleClientSaved}
@@ -1463,6 +1426,8 @@ export default function VetClientsPage() {
         />
       )}
 
+      </div>}
+      </div>
       {deleteTarget && (
         <DeleteConfirmDialog
           title={deleteTarget.type === 'client' ? 'Διαγραφή Πελάτη' : 'Διαγραφή Κατοικιδίου'}

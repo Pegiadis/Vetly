@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
 
+    # Closed pilot: only these email addresses can register or use authenticated APIs.
+    PILOT_MODE: bool = False
+    PILOT_ALLOWED_EMAILS: List[str] = []
+
     # Database
     DATABASE_URL: str
 
@@ -34,6 +38,8 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     EMAIL_FROM: str = "Vetly <noreply@vetly.gr>"
     EMAIL_NOTIFICATIONS_ENABLED: bool = False
+    PUSH_NOTIFICATIONS_ENABLED: bool = False
+    EXPO_ACCESS_TOKEN: str = ""
     FRONTEND_URL: str = "http://localhost:3000"
     EMAIL_VERIFY_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_EXPIRE_HOURS: int = 1

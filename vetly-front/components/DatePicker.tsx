@@ -106,11 +106,11 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
         onClick={() => setOpen(!open)}
         className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
           value
-            ? 'bg-teal-50 text-teal-700 border border-teal-200 hover:border-teal-300'
+            ? 'bg-control-50 text-control-700 border border-control-200 hover:border-control-300'
             : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
         }`}
       >
-        <svg className={`w-4 h-4 flex-shrink-0 ${value ? 'text-teal-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className={`w-4 h-4 flex-shrink-0 ${value ? 'text-control-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <span className="whitespace-nowrap">{value ? formatDisplay(value) : placeholder}</span>
@@ -118,7 +118,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
           <span
             role="button"
             onClick={(e) => { e.stopPropagation(); clear(); }}
-            className="ml-0.5 text-teal-400 hover:text-teal-600 transition-colors"
+            className="ml-0.5 text-control-400 hover:text-control-600 transition-colors"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -185,9 +185,9 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
                   onClick={() => selectDay(day)}
                   className={`h-9 w-full rounded-lg text-sm transition-all ${
                     isSelected
-                      ? 'bg-teal-600 text-white font-bold shadow-sm'
+                      ? 'bg-control-600 text-white font-bold shadow-sm'
                       : isToday
-                        ? 'bg-teal-50 text-teal-700 font-bold ring-1 ring-teal-200'
+                        ? 'bg-control-50 text-control-700 font-bold ring-1 ring-control-200'
                         : 'text-slate-700 hover:bg-slate-100 font-medium'
                   }`}
                 >
@@ -209,7 +209,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
             <button
               type="button"
               onClick={goToToday}
-              className="text-xs font-bold text-teal-600 hover:text-teal-700 transition-colors px-2 py-1 rounded-lg hover:bg-teal-50"
+              className="text-xs font-bold text-control-600 hover:text-control-700 transition-colors px-2 py-1 rounded-lg hover:bg-control-50"
             >
               Σήμερα
             </button>

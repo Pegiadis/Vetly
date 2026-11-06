@@ -15,6 +15,7 @@ engine = create_engine(
     pool_size=10,  # Number of connections to maintain
     max_overflow=20,  # Maximum overflow connections
     echo=settings.ENVIRONMENT == "development",  # Log SQL in development
+    hide_parameters=True,  # Device tokens and credentials must not appear in SQL logs.
 )
 
 # Create session factory

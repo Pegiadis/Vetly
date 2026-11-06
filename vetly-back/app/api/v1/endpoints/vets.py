@@ -4,11 +4,12 @@ Vet API endpoints
 
 from uuid import UUID
 from datetime import date
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_current_vet
-from app.db.base import Vet
+from app.core.deps import get_db, get_current_vet, get_current_pet_owner, oauth2_scheme_optional
+from app.core.security import decode_token
+from app.db.base import Vet, Appointment
 from app.services.vet import VetService
 from app.schemas.vet import (
     VetResponse,
@@ -101,11 +102,25 @@ def get_on_call_vets(
 def get_available_slots(
     vet_id: UUID,
     date: date = Query(..., description="Date to check availability (YYYY-MM-DD)"),
+    duration_minutes: int = Query(30, ge=15, le=180),
+    exclude_appointment_id: UUID | None = None,
+    token: str | None = Depends(oauth2_scheme_optional),
     db: Session = Depends(get_db),
 ) -> AvailableSlotsResponse:
     """Get available time slots for a vet on a specific date"""
+    if exclude_appointment_id is not None:
+        identity = decode_token(token) if token else None
+        if identity is None:
+            raise HTTPException(401, "Authentication required")
+        principal = (get_current_vet(token, db) if identity.type == "vet"
+                     else get_current_pet_owner(token, db))
+        appointment = db.get(Appointment, exclude_appointment_id)
+        if (appointment is None or appointment.vet_id != vet_id or
+                (appointment.vet_id if identity.type == "vet" else appointment.pet_owner_id) != principal.id):
+            raise HTTPException(404, "Appointment not found")
     service = VetService(db)
-    return service.get_available_slots(vet_id, date)
+    return service.get_available_slots(vet_id, date, duration_minutes=duration_minutes,
+                                       exclude_id=exclude_appointment_id)
 
 
 @router.get("/{vet_id}", response_model=VetResponse)

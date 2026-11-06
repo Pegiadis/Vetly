@@ -99,7 +99,8 @@ class VetService:
         return VetResponse.model_validate(updated_vet)
 
     def get_available_slots(
-        self, vet_id: UUID, target_date: date, slot_interval: int = 30
+        self, vet_id: UUID, target_date: date, slot_interval: int = 30,
+        duration_minutes: int = 30, exclude_id: UUID | None = None,
     ) -> AvailableSlotsResponse:
         """Compute available time slots for a vet on a given date"""
         vet = self.repository.get_by_id(vet_id)
@@ -133,7 +134,7 @@ class VetService:
             shift_close = _parse_time(shift["close"])
             slots = []
             current = shift_open
-            while current + timedelta(minutes=slot_interval) <= shift_close:
+            while current + timedelta(minutes=duration_minutes) <= shift_close:
                 slots.append(current)
                 current += timedelta(minutes=slot_interval)
             return slots
@@ -159,6 +160,8 @@ class VetService:
         # Build booked time ranges
         booked_ranges = []
         for apt in booked:
+            if apt.id == exclude_id:
+                continue
             apt_start = apt.scheduled_at
             apt_end = apt_start + timedelta(minutes=apt.duration_minutes)
             booked_ranges.append((apt_start, apt_end))
@@ -166,7 +169,7 @@ class VetService:
         # Filter out booked slots
         available = []
         for slot_start in all_slots:
-            slot_end = slot_start + timedelta(minutes=slot_interval)
+            slot_end = slot_start + timedelta(minutes=duration_minutes)
             is_booked = any(
                 slot_start < apt_end and slot_end > apt_start
                 for apt_start, apt_end in booked_ranges
@@ -175,7 +178,8 @@ class VetService:
                 available.append(slot_start)
 
         # If today, filter out past slots
-        now = datetime.utcnow()
+        from app.services.scheduling import ATHENS
+        now = datetime.now(ATHENS).replace(tzinfo=None)
         if target_date == now.date():
             available = [s for s in available if s > now]
 

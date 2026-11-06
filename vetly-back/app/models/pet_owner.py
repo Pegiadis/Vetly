@@ -2,7 +2,7 @@
 Pet Owner model
 """
 
-from sqlalchemy import Column, String, Boolean
+from sqlalchemy import Column, String, Boolean, Integer
 from sqlalchemy.orm import relationship
 
 from app.db.base_class import BaseModel
@@ -23,6 +23,10 @@ class PetOwner(BaseModel):
     phone = Column(String(50), nullable=True)
     address = Column(String(500), nullable=True)
     image_url = Column(String(500), nullable=True)
+
+    auth_version = Column(Integer, default=0, server_default="0", nullable=False)
+    email_appointments = Column(Boolean, default=True, server_default="true", nullable=False)
+    email_reminders = Column(Boolean, default=True, server_default="true", nullable=False)
 
     # Verification
     email_verified = Column(Boolean, default=False, nullable=False)

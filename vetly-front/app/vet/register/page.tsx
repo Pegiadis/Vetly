@@ -70,7 +70,7 @@ export default function VetRegisterPage() {
   if (formData.password.length > 0 && formData.password.length < 6) fieldErrors.password = 'Τουλάχιστον 6 χαρακτήρες.';
   if (formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword) fieldErrors.confirmPassword = 'Οι κωδικοί δεν ταιριάζουν.';
 
-  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-300';
+  const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-ink-300';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,15 +132,13 @@ export default function VetRegisterPage() {
     }
   };
 
-  const inputBase = "appearance-none rounded-xl relative block w-full px-4 py-3 border placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-indigo-500 focus:border-indigo-500";
+  const inputBase = "appearance-none rounded-xl relative block w-full px-4 py-3 border placeholder-ink-500 text-ink-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-clinic-500 focus:border-clinic-500";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-indigo-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-ink-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Background decorations */}
-      <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-indigo-600/10 rounded-full filter blur-[80px]" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-teal-600/5 rounded-full filter blur-[80px]" />
 
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-3xl shadow-xl relative z-10 border border-slate-100">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-sm relative z-10 border border-ink-200">
         {/* Header */}
         <div className="text-center">
           <img
@@ -148,10 +146,10 @@ export default function VetRegisterPage() {
             alt="Vetly Pro"
             className="mx-auto h-14 w-auto object-contain mb-2"
           />
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-2xl font-semibold text-ink-900 tracking-tight">
             Εγγραφή Ιατρείου
           </h2>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-ink-600">
             Δημιουργήστε επαγγελματικό λογαριασμό κτηνιάτρου.
           </p>
         </div>
@@ -217,7 +215,7 @@ export default function VetRegisterPage() {
                 className={`${inputBase} ${inputErr('email')}`}
                 placeholder="Επαγγελματικό Email"
               />
-              {checkingEmail && <p className="text-xs text-slate-500 mt-1">Έλεγχος email...</p>}
+              {checkingEmail && <p className="text-xs text-ink-500 mt-1">Έλεγχος email...</p>}
               {touched.email && fieldErrors.email && <p className="text-xs text-red-600 mt-1">{fieldErrors.email}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -338,7 +336,7 @@ export default function VetRegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-70 bg-indigo-900 hover:bg-indigo-800"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-70 bg-clinic-900 hover:bg-clinic-800"
             >
               {loading ? (
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -354,18 +352,18 @@ export default function VetRegisterPage() {
 
         {/* Login Link */}
         <div className="text-center mt-4">
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-ink-600">
             Έχετε ήδη λογαριασμό;{' '}
-            <Link href="/vet/login" className="font-bold text-indigo-600 hover:text-indigo-500">
+            <Link href="/vet/login" className="font-semibold text-clinic-600 hover:text-clinic-500">
               Σύνδεση
             </Link>
           </p>
 
           {/* Owner Registration Link */}
-          <div className="border-t border-slate-100 pt-4 mt-6">
+          <div className="border-t border-ink-200 pt-4 mt-6">
             <Link
               href="/register"
-              className="text-xs font-medium text-slate-400 hover:text-teal-600 flex items-center justify-center gap-1 mx-auto transition-colors"
+              className="text-xs font-medium text-ink-400 hover:text-teal-600 flex items-center justify-center gap-1 mx-auto transition-colors"
             >
               <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,7 @@ interface VerifyResponse {
   access_token: string;
   token_type: string;
   message: string;
+  pending_professional_verification?: boolean;
 }
 
 export default function VerifyEmailPageContent() {
@@ -16,9 +17,11 @@ export default function VerifyEmailPageContent() {
   const router = useRouter();
   const { login } = useAuth();
   const token = searchParams.get('token') || '';
+  const startedToken = useRef<string | null>(null);
 
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying');
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('Ανακατεύθυνση στον πίνακα ελέγχου...');
   const [userType, setUserType] = useState<'vet' | 'pet_owner'>('pet_owner');
 
   useEffect(() => {
@@ -27,6 +30,9 @@ export default function VerifyEmailPageContent() {
       setErrorMessage('Δεν βρέθηκε token επιβεβαίωσης.');
       return;
     }
+    // Strict Mode replays effects; a verification link is consumed only once.
+    if (startedToken.current === token) return;
+    startedToken.current = token;
 
     // Decode user type from token for redirect
     try {
@@ -42,6 +48,10 @@ export default function VerifyEmailPageContent() {
       try {
         const response = await api.post<VerifyResponse>('/auth/verify-email', { token });
         setStatus('success');
+        if (response.pending_professional_verification) {
+          setSuccessMessage('Το email επιβεβαιώθηκε. Εκκρεμεί ο έλεγχος των επαγγελματικών στοιχείων σας για την πιλοτική δοκιμή.');
+          return;
+        }
 
         // Decode type from returned token
         let resolvedType: 'vet' | 'pet_owner' = userType;
@@ -98,7 +108,7 @@ export default function VerifyEmailPageContent() {
               </svg>
             </div>
             <h2 className="text-2xl font-extrabold text-slate-900">Επιτυχής επιβεβαίωση!</h2>
-            <p className="text-sm text-slate-600">Ανακατεύθυνση στο dashboard...</p>
+            <p className="text-sm text-slate-600">{successMessage}</p>
           </>
         )}
 

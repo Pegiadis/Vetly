@@ -1,0 +1,51 @@
+{
+  "expo": {
+    "name": "vetly-mobile",
+    "slug": "vetly-mobile",
+    "scheme": "vetly",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-asset",
+      "expo-font",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Επίλεξε φωτογραφία για το κατοικίδιό σου.",
+          "cameraPermission": "Φωτογράφισε το κατοικίδιό σου για το προφίλ του.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#006064",
+          "defaultChannel": "vetly-care"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Το Vetly χρησιμοποιεί την τοποθεσία σου για να βρεις κοντινούς κτηνιάτρους."
+        }
+      ]
+    ]
+  }
+}

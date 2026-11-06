@@ -33,8 +33,8 @@ export default function OwnerLayout({
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
+      <div className="min-h-screen bg-ink-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-clinic-600" />
       </div>
     );
   }
@@ -44,15 +44,15 @@ export default function OwnerLayout({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <OwnerSidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className="min-h-screen bg-ink-50">
+      <OwnerSidebar unreadCount={unreadCount} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="md:ml-64">
         {/* Mobile header with hamburger */}
-        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100 sticky top-0 z-30">
+        <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-ink-100 sticky top-0 z-30">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+            className="p-2 rounded-lg text-ink-600 hover:bg-ink-100 transition-colors"
             aria-label="Άνοιγμα μενού"
           >
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,7 +60,7 @@ export default function OwnerLayout({
             </svg>
           </button>
           <div className="flex items-center">
-            <img src="/images/1-tight.jpg" alt="Vetly" className="h-8 w-auto object-contain" />
+            <img src="/branding/vetly-logo-transparent.png" alt="Vetly" className="h-8 w-auto object-contain" />
           </div>
           {/* Spacer to center the logo */}
           <div className="w-10" />

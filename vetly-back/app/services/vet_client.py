@@ -12,11 +12,11 @@ from sqlalchemy.orm import Session
 
 from app.db.base import PetOwner
 from app.core.email import send_email
-from app.core.security import create_access_token, get_password_hash
+from app.core.security import get_password_hash
 from app.models.pet import PetType, Gender
 from app.repositories.vet_client import VetClientRepository
 from app.services.notification import NotificationService
-from app.schemas.auth import TokenResponse
+from app.schemas.auth import RegisterResponse
 from app.schemas.vet_client import (
     InviteInfoResponse,
     InviteLinkResponse,
@@ -238,7 +238,9 @@ class VetClientService:
             client_email=client.email,
         )
 
-    def register_via_invite(self, token: str, data: InviteRegisterRequest) -> TokenResponse:
+    def register_via_invite(self, token: str, data: InviteRegisterRequest) -> RegisterResponse:
+        from app.core.pilot import require_pilot_access
+        require_pilot_access(data.email)
         client = self.repo.get_by_invite_token(token)
         if not client:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite link")
@@ -246,6 +248,9 @@ class VetClientService:
             raise HTTPException(status_code=status.HTTP_410_GONE, detail="Invite link has expired")
         if client.status == "linked":
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite already used")
+
+        if data.email.casefold() != (client.email or "").casefold():
+            raise HTTPException(400, "Το email πρέπει να αντιστοιχεί στην πρόσκληση.")
 
         # Check email not taken
         existing = self.db.scalar(select(PetOwner).where(PetOwner.email == data.email))
@@ -287,8 +292,11 @@ class VetClientService:
             message=f"Ο {data.name} αποδέχτηκε την πρόσκλησή σας και δημιούργησε λογαριασμό",
         )
 
-        access_token = create_access_token(subject=str(pet_owner.id), token_type="pet_owner")
-        return TokenResponse(access_token=access_token)
+        from app.core.security import create_email_verification_token
+        from app.core.email import send_verification_email
+        verification = create_email_verification_token(str(pet_owner.id), "pet_owner")
+        send_verification_email(pet_owner.email, verification, "pet_owner")
+        return RegisterResponse(email=pet_owner.email, message="Ελέγξτε το email σας για επιβεβαίωση.")
 
     # --- Pets ---
 

@@ -2,7 +2,8 @@
 Reminder service - business logic layer for automated reminders
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from app.services.scheduling import ATHENS
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -60,7 +61,8 @@ class ReminderService:
     ) -> ReminderResponse:
         """Create a reminder for a pet. Calculates reminder_date from due_date - reminder_days_before."""
         # Look up the pet to get pet_owner_id
-        pet = self.db.scalar(select(Pet).where(Pet.id == data.pet_id))
+        from app.repositories.pet import PetRepository
+        pet = PetRepository(self.db).get_patient_by_id(data.pet_id, vet_id)
         if not pet:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -98,6 +100,27 @@ class ReminderService:
             date_str=date_str,
         )
 
+        return _build_reminder_response(reminder)
+
+    def update_reminder(self, reminder_id: UUID, vet_id: UUID, data: ReminderCreateRequest) -> ReminderResponse:
+        reminder = self.db.scalar(select(Reminder).where(
+            Reminder.id == reminder_id, Reminder.vet_id == vet_id
+        ).with_for_update())
+        if not reminder:
+            raise HTTPException(status_code=404, detail="Η υπενθύμιση δεν βρέθηκε.")
+        if reminder.is_sent or reminder.is_dismissed:
+            raise HTTPException(status_code=409, detail="Η υπενθύμιση έχει ήδη σταλεί ή απορριφθεί.")
+        if data.pet_id != reminder.pet_id:
+            raise HTTPException(status_code=400, detail="Δεν επιτρέπεται αλλαγή ασθενούς.")
+        reminder.type = data.type.strip()
+        if not reminder.type:
+            raise HTTPException(status_code=422, detail="Ο τύπος είναι υποχρεωτικός.")
+        reminder.title = data.get_title()
+        reminder.message = data.message
+        reminder.due_date = data.due_date
+        reminder.reminder_date = data.due_date - timedelta(days=data.reminder_days_before)
+        self.db.commit()
+        self.db.refresh(reminder)
         return _build_reminder_response(reminder)
 
     def get_vet_reminders(
@@ -169,14 +192,14 @@ class ReminderService:
         self.repository.delete(reminder)
         self.db.commit()
 
-    def process_due_reminders(self) -> int:
+    def process_due_reminders(self, vet_id: UUID | None = None) -> int:
         """
         Find all due reminders (reminder_date <= today, not sent, not dismissed),
         create a Notification for each owner, and mark reminders as sent.
         Returns the count of processed reminders.
         """
-        today = date.today()
-        due_reminders = self.repository.get_due_reminders(today)
+        today = datetime.now(ATHENS).date()
+        due_reminders = self.repository.get_due_reminders(today, vet_id=vet_id)
 
         for reminder in due_reminders:
             pet_name = reminder.pet.name if reminder.pet else "your pet"
@@ -203,7 +226,7 @@ class ReminderService:
         if not pet:
             return
 
-        today = date.today()
+        today = datetime.now(ATHENS).date()
         due_date = today + timedelta(days=365)
         reminder_date = due_date - timedelta(days=14)
 

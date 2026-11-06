@@ -1,259 +1,55 @@
 'use client';
-
-import { useState } from 'react';
-import { useOwnerReminders, dismissReminder } from '@/hooks/useOwnerData';
-import { getImageUrl } from '@/lib/api';
-import Pagination from '@/components/Pagination';
+import { useRef, useState } from 'react';
+import Link from 'next/link';
+import { useOwnerReminders, dismissReminder, type OwnerReminder } from '@/hooks/useOwnerData';
+import ClinicDrawer from '@/components/vet/ClinicDrawer';
+import ClinicAvatar from '@/components/vet/ClinicAvatar';
+import { ClinicButton, ClinicInput, ClinicSelect, ClinicLoading, ClinicPagination } from '@/components/vet/ClinicUI';
 import { useToast } from '@/components/Toast';
-
-const DEFAULT_TYPE_LABELS: Record<string, string> = {
-  vaccination: 'Εμβολιασμός',
-  checkup: 'Έλεγχος',
-  medication: 'Φαρμακευτική Αγωγή',
-  custom: 'Γενικό',
-};
-
-const TYPE_BADGE_CLASSES: Record<string, string> = {
-  vaccination: 'bg-green-100 text-green-700',
-  checkup: 'bg-blue-100 text-blue-700',
-  medication: 'bg-purple-100 text-purple-700',
-  custom: 'bg-slate-100 text-slate-700',
-};
-
-function getTypeBadgeClass(type: string): string {
-  return TYPE_BADGE_CLASSES[type] || 'bg-slate-100 text-slate-700';
-}
-
-function getTypeLabel(type: string): string {
-  return DEFAULT_TYPE_LABELS[type] || type;
-}
-
-function getDueDateStyle(dueDateStr: string): { text: string; border: string } {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const due = new Date(dueDateStr);
-  due.setHours(0, 0, 0, 0);
-  const diffDays = Math.floor((due.getTime() - today.getTime()) / 86400000);
-
-  if (diffDays < 0) return { text: 'text-red-600', border: 'border-red-200' };
-  if (diffDays <= 7) return { text: 'text-amber-600', border: 'border-amber-200' };
-  return { text: 'text-green-600', border: 'border-green-200' };
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('el-GR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-interface DismissDialogProps {
-  reminder: { id: string; title: string; due_date: string } | null;
-  loading: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-function DismissDialog({ reminder, loading, onConfirm, onCancel }: DismissDialogProps) {
-  if (!reminder) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/40" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-        <h3 className="text-lg font-bold text-slate-900 mb-2">Απόρριψη Υπενθύμισης</h3>
-        <p className="text-slate-600 mb-1">
-          Είστε σίγουροι ότι θέλετε να απορρίψετε αυτή την υπενθύμιση; Ο κτηνίατρος θα ειδοποιηθεί.
-        </p>
-        <div className="bg-slate-50 rounded-xl p-3 my-4 space-y-1">
-          <p className="text-sm font-semibold text-slate-800">{reminder.title}</p>
-          <p className="text-xs text-slate-500">{formatDate(reminder.due_date)}</p>
-        </div>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="px-4 py-2 text-sm font-semibold text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
-          >
-            Πίσω
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Απόρριψη...' : 'Απόρριψη'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
+const types: Record<string,string> = { vaccination:'Εμβολιασμός',checkup:'Έλεγχος',medication:'Φαρμακευτική αγωγή',custom:'Γενικό' };
+const date = (value: string) => new Date(value).toLocaleDateString('el-GR',{day:'numeric',month:'short',year:'numeric'});
+function overdue(r: OwnerReminder) { const today = new Date();today.setHours(0,0,0,0);return !r.is_dismissed && new Date(r.due_date) < today; }
+function status(r: OwnerReminder) { return r.is_dismissed ? 'Απορρίφθηκε' : overdue(r) ? 'Πέρασε η ημερομηνία' : 'Προσεχής'; }
 export default function OwnerRemindersPage() {
-  const [page, setPage] = useState(1);
-  const { reminders, totalPages, loading, error, refetch } = useOwnerReminders(page, 10);
-  const [dismissing, setDismissing] = useState<string | null>(null);
-  const [dismissTarget, setDismissTarget] = useState<{ id: string; title: string; due_date: string } | null>(null);
+  const [page,setPage] = useState(1);
+  const {reminders,total,totalPages,loading,error,refetch} = useOwnerReminders(page,10);
+  const [filter,setFilter] = useState('all');
+  const [query,setQuery] = useState('');
+  const [selected,setSelected] = useState<OwnerReminder|null>(null);
+  const [confirm,setConfirm] = useState(false);
+  const [busy,setBusy] = useState(false);
+  const [actionError,setActionError] = useState('');
+  const pending = useRef(false);
   const toast = useToast();
-
-  const openDismissDialog = (reminder: { id: string; title: string; due_date: string }) => {
-    if (dismissing) return;
-    setDismissTarget(reminder);
-  };
-
-  const handleDismiss = async () => {
-    if (!dismissTarget || dismissing) return;
-    setDismissing(dismissTarget.id);
-    try {
-      await dismissReminder(dismissTarget.id);
-      setDismissTarget(null);
-      refetch();
-      toast.success('Η υπενθύμιση απορρίφθηκε.');
-    } catch {
-      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
-    } finally {
-      setDismissing(null);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600" />
-      </div>
-    );
+  const visible = reminders.filter(r => (filter === 'all' || (filter === 'active' ? !r.is_dismissed : filter === 'overdue' ? overdue(r) : r.is_dismissed)) && `${r.title} ${r.pet_name || ''} ${r.vet_name || ''}`.toLocaleLowerCase('el').includes(query.toLocaleLowerCase('el')));
+  async function dismiss() {
+    if (!selected || pending.current) return;
+    pending.current = true;setBusy(true);setActionError('');
+    try {await dismissReminder(selected.id);setSelected({...selected,is_dismissed:true});setConfirm(false);void refetch();toast.success('Η υπενθύμιση απορρίφθηκε.');}
+    catch {setActionError('Δεν ολοκληρώθηκε η απόρριψη. Δοκιμάστε ξανά.');}
+    finally {pending.current=false;setBusy(false);}
   }
-
-  if (error) {
-    return (
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center">
-          <p className="text-red-700 font-medium">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Υπενθυμίσεις</h1>
-        <p className="text-slate-500 mt-1">
-          {reminders.length > 0
-            ? `${reminders.length} υπενθυμίσεις`
-            : 'Δεν υπάρχουν ενεργές υπενθυμίσεις'}
-        </p>
-      </div>
-
-      {/* Reminders List */}
-      <div className="space-y-3">
-        {reminders.length > 0 ? (
-          reminders.map((reminder) => {
-            const dueDateStyle = getDueDateStyle(reminder.due_date);
-            const typeBadge = getTypeBadgeClass(reminder.type);
-            const typeLabel = getTypeLabel(reminder.type);
-
-            return (
-              <div
-                key={reminder.id}
-                className={`bg-white rounded-2xl p-5 shadow-sm border transition-all ${dueDateStyle.border} ${
-                  reminder.is_dismissed ? 'opacity-60' : ''
-                }`}
-              >
-                <div className="flex gap-4">
-                  {/* Pet Icon */}
-                  <div className="w-12 h-12 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {reminder.pet_image_url ? (
-                      <img src={getImageUrl(reminder.pet_image_url)} alt={reminder.pet_name || ''} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-2xl">{reminder.pet_type === 'Dog' ? '🐕' : reminder.pet_type === 'Cat' ? '🐈' : '🐾'}</span>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    {/* Top row: pet name + type badge */}
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="font-bold text-slate-800 text-sm">
-                        {reminder.pet_name || 'Κατοικίδιο'}
-                      </span>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${typeBadge}`}>
-                        {typeLabel}
-                      </span>
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="font-bold text-slate-900 mb-1">{reminder.title}</h3>
-
-                    {/* Message */}
-                    {reminder.message && (
-                      <p className="text-sm text-slate-600 mb-2">{reminder.message}</p>
-                    )}
-
-                    {/* Due date + vet name */}
-                    <div className="flex flex-wrap items-center gap-4 text-xs">
-                      <span className={`flex items-center gap-1 font-semibold ${dueDateStyle.text}`}>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        {formatDate(reminder.due_date)}
-                      </span>
-                      {reminder.vet_name && (
-                        <span className="text-slate-400 flex items-center gap-1">
-                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          {reminder.vet_name}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Dismiss button */}
-                  {!reminder.is_dismissed && (
-                    <div className="flex-shrink-0">
-                      <button
-                        onClick={() => openDismissDialog({ id: reminder.id, title: reminder.title, due_date: reminder.due_date })}
-                        disabled={dismissing === reminder.id}
-                        className="text-xs font-bold text-slate-500 hover:text-red-600 border border-slate-200 hover:border-red-200 px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
-                      >
-                        {dismissing === reminder.id ? '...' : 'Απόρριψη'}
-                      </button>
-                    </div>
-                  )}
-                  {reminder.is_dismissed && (
-                    <div className="flex-shrink-0">
-                      <span className="text-xs text-slate-400 border border-slate-100 px-3 py-1.5 rounded-lg">
-                        Απορρίφθηκε
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })
-        ) : (
-          <div className="bg-white rounded-2xl p-12 shadow-sm border border-slate-100 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Δεν υπάρχουν υπενθυμίσεις</h3>
-            <p className="text-slate-500">Ο κτηνίατρός σας δεν έχει στείλει υπενθυμίσεις ακόμα.</p>
-          </div>
-        )}
-
-        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
-      </div>
-
-      <DismissDialog
-        reminder={dismissTarget}
-        loading={dismissing !== null}
-        onConfirm={handleDismiss}
-        onCancel={() => setDismissTarget(null)}
-      />
-    </div>
-  );
+  return <div className="mx-auto max-w-[1280px]">
+    <header className="mb-5"><h1 className="text-xl font-semibold text-ink-900">Υπενθυμίσεις</h1><p className="mt-1 text-sm text-ink-500">Προγραμματισμένη φροντίδα και επόμενες ενέργειες για τα κατοικίδιά σας.</p></header>
+    <section className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 px-4 py-3"><h2 className="text-sm font-semibold text-ink-900">Το πλάνο φροντίδας σας</h2><span className="text-xs text-ink-500">{loading ? 'Φόρτωση…' : `${total} καταχωρίσεις συνολικά`}</span></div>
+      <div className="grid gap-3 border-b border-ink-200 p-4 sm:grid-cols-2"><ClinicSelect aria-label="Κατάσταση υπενθυμίσεων στη σελίδα" value={filter} onChange={e=>setFilter(e.target.value)}><option value="all">Όλες στη σελίδα</option><option value="active">Ενεργές</option><option value="overdue">Πέρασε η ημερομηνία</option><option value="dismissed">Απορριφθείσες</option></ClinicSelect><ClinicInput aria-label="Αναζήτηση υπενθυμίσεων" placeholder="Αναζήτηση στη σελίδα…" value={query} onChange={e=>setQuery(e.target.value)} /></div>
+      <div className="hidden grid-cols-[1.6fr_1fr_140px_170px] gap-4 border-b border-ink-200 bg-ink-50 px-5 py-2 text-xs text-ink-500 lg:grid"><span>Υπενθύμιση</span><span>Κατοικίδιο</span><span>Ημερομηνία</span><span>Κατάσταση</span></div>
+      {loading ? <ClinicLoading /> : error ? <div role="alert" className="p-5 text-sm text-red-700">{error}<ClinicButton className="ml-2" onClick={refetch}>Επανάληψη</ClinicButton></div> : visible.length ? visible.map(r=><button key={r.id} onClick={()=>{setSelected(r);setConfirm(false);setActionError('');}} className="grid w-full gap-3 border-b border-ink-100 px-4 py-4 text-left hover:bg-ink-50 focus-visible:outline-clinic-600 sm:px-5 lg:grid-cols-[1.6fr_1fr_140px_170px] lg:items-center lg:gap-4">
+        <span className="min-w-0"><span className="block break-words text-sm font-semibold text-ink-900">{r.title}</span><span className="mt-1 block text-xs text-ink-500">{types[r.type] || r.type}{r.vet_name ? ` · ${r.vet_name}` : ''}</span></span>
+        <span className="flex min-w-0 items-center gap-2"><ClinicAvatar name={r.pet_name || 'Κατοικίδιο'} imageUrl={r.pet_image_url}/><span className="truncate text-sm text-ink-700">{r.pet_name || 'Κατοικίδιο'}</span></span>
+        <time className="text-xs text-ink-600">{date(r.due_date)}</time><span className="flex items-center justify-between gap-2"><span className={`w-fit rounded-md px-2 py-1 text-xs ${r.is_dismissed ? 'bg-ink-100 text-ink-500' : overdue(r) ? 'bg-amber-50 text-amber-800' : 'bg-clinic-100 text-clinic-800'}`}>{status(r)}</span><span aria-hidden="true" className="text-ink-400">↗</span></span>
+      </button>) : <div className="px-5 py-12 text-center"><h3 className="text-sm font-semibold text-ink-900">{reminders.length ? 'Δεν βρέθηκαν αποτελέσματα στη σελίδα' : 'Δεν υπάρχουν υπενθυμίσεις'}</h3><p className="mt-2 text-sm text-ink-500">{reminders.length ? 'Δοκιμάστε άλλη αναζήτηση ή φίλτρο.' : 'Οι υπενθυμίσεις του κτηνιάτρου θα εμφανίζονται εδώ.'}</p></div>}
+      <div className="px-4"><ClinicPagination page={page} totalPages={totalPages} onPageChange={p=>{setPage(p);setQuery('');}} /></div>
+    </section>
+    {selected && <ClinicDrawer label="Λεπτομέρειες υπενθύμισης" busy={busy} onClose={()=>setSelected(null)}><div className="space-y-5 p-5">
+      <div className="flex justify-end"><ClinicButton disabled={busy} onClick={()=>setSelected(null)}>Κλείσιμο ×</ClinicButton></div>
+      <header><p className="text-xs font-medium text-clinic-700">{types[selected.type] || selected.type}</p><h2 className="mt-2 break-words text-lg font-semibold text-ink-900">{selected.title}</h2></header>
+      <div className="flex items-center gap-3 rounded-xl border border-ink-200 p-4"><ClinicAvatar large name={selected.pet_name || 'Κατοικίδιο'} imageUrl={selected.pet_image_url}/><div className="min-w-0"><p className="break-words text-sm font-semibold">{selected.pet_name || 'Κατοικίδιο'}</p><p className="mt-1 text-xs text-ink-500">Από: {selected.vet_name || 'Κτηνίατρο'}</p></div></div>
+      <dl className="grid gap-3 text-sm"><div><dt className="text-ink-500">Προγραμματισμένη ημερομηνία</dt><dd className="mt-1 font-medium">{date(selected.due_date)}</dd></div><div><dt className="text-ink-500">Κατάσταση</dt><dd>{status(selected)}</dd></div></dl>
+      <section className="border-t border-ink-200 pt-4"><h3 className="text-sm font-semibold">Μήνυμα κτηνιάτρου</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-600">{selected.message || 'Δεν έχει προστεθεί επιπλέον μήνυμα.'}</p></section>
+      {actionError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
+      {!selected.is_dismissed && (confirm ? <section className="rounded-xl border border-red-200 p-4"><h3 className="text-sm font-semibold">Απόρριψη υπενθύμισης;</h3><p className="mt-2 text-sm text-ink-600">Ο κτηνίατρος θα ειδοποιηθεί για την απόρριψη.</p><div className="mt-4 flex flex-wrap gap-2"><ClinicButton disabled={busy} onClick={()=>{setConfirm(false);setActionError('');}}>Πίσω</ClinicButton><ClinicButton variant="danger" disabled={busy} onClick={dismiss}>{busy ? 'Απόρριψη…' : 'Επιβεβαίωση απόρριψης'}</ClinicButton></div></section> : <div className="flex flex-wrap gap-2 border-t border-ink-200 pt-4"><Link href="/owner/book" className="rounded-lg bg-clinic-600 px-3 py-2 text-sm font-medium text-white">Κράτηση ραντεβού</Link><ClinicButton variant="danger" onClick={()=>setConfirm(true)}>Απόρριψη</ClinicButton></div>)}
+    </div></ClinicDrawer>}
+  </div>;
 }

@@ -53,6 +53,7 @@ def create_appointment(
 
 @router.get("", response_model=AppointmentListResponse)
 def list_appointments(
+    search: str | None = Query(None, max_length=100, description="Pet or guardian name"),
     status: str | None = Query(None, description="Filter by status (pending, confirmed, completed, cancelled)"),
     date_from: date | None = Query(None, description="Filter from date"),
     date_to: date | None = Query(None, description="Filter to date"),
@@ -65,6 +66,7 @@ def list_appointments(
     """Get paginated list of vet's appointments"""
     service = AppointmentService(db)
     return service.list_appointments(
+        search=search,
         vet_id=current_vet.id,
         status=status,
         date_from=date_from,

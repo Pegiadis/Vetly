@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_db
 from app.services.vet_client import VetClientService
-from app.schemas.auth import TokenResponse
+from app.schemas.auth import RegisterResponse
 from app.schemas.vet_client import InviteInfoResponse, InviteRegisterRequest
 
 router = APIRouter()
@@ -23,12 +23,12 @@ def get_invite_info(
     return service.get_invite_info(token)
 
 
-@router.post("/{token}/register", response_model=TokenResponse)
+@router.post("/{token}/register", response_model=RegisterResponse)
 def register_via_invite(
     token: str,
     data: InviteRegisterRequest,
     db: Session = Depends(get_db),
-) -> TokenResponse:
+) -> RegisterResponse:
     """Register as a pet owner through an invite link (public, no auth required)"""
     service = VetClientService(db)
     return service.register_via_invite(token, data)

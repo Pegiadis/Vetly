@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
 
 interface InviteInfo {
@@ -12,16 +11,15 @@ interface InviteInfo {
   client_email: string | null;
 }
 
-interface TokenResponse {
-  access_token: string;
-  token_type: string;
+interface RegisterResponse {
+  email: string;
+  message: string;
 }
 
 export default function InviteRegisterPage() {
   const router = useRouter();
   const params = useParams();
   const token = params.token as string;
-  const { login } = useAuth();
 
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
@@ -104,14 +102,13 @@ export default function InviteRegisterPage() {
 
     setLoading(true);
     try {
-      const tokenResponse = await api.post<TokenResponse>(`/invite/${token}/register`, {
+      await api.post<RegisterResponse>(`/invite/${token}/register`, {
         name: formData.name,
         email: formData.email,
         password: formData.password,
         phone: formData.phone || undefined,
       });
-      await login(tokenResponse.access_token, 'pet_owner');
-      router.push('/owner/dashboard');
+      router.push(`/verify-email/pending?email=${encodeURIComponent(formData.email)}&userType=pet_owner`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

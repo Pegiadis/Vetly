@@ -42,7 +42,7 @@ class PetRepository:
         )
 
         # Base query for pets
-        base_filter = Pet.id.in_(select(pet_ids_subquery))
+        base_filter = Pet.id.in_(select(pet_ids_subquery)) & Pet.deleted_at.is_(None)
 
         if search:
             base_filter = base_filter & Pet.name.ilike(f"%{search}%")
@@ -84,7 +84,7 @@ class PetRepository:
         if not appointment_exists:
             return None
 
-        query = select(Pet).where(Pet.id == pet_id).options(joinedload(Pet.owner))
+        query = select(Pet).where(Pet.id == pet_id, Pet.deleted_at.is_(None)).options(joinedload(Pet.owner))
         return self.db.scalar(query)
 
     def get_patient_medical_history(

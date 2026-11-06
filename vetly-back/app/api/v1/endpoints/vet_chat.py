@@ -3,6 +3,8 @@ Vet chat API endpoints
 """
 
 import json
+from typing import Literal
+from pydantic import BaseModel, Field
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -21,6 +23,24 @@ from app.schemas.chat import (
 )
 
 router = APIRouter()
+
+
+class PatientDraftRequest(BaseModel):
+    pet_id: UUID
+    task: Literal["summary", "instructions"]
+    notes: str = Field(default="", max_length=5000)
+
+
+@router.get("/patients/{pet_id}/context")
+def patient_context(pet_id: UUID, current_vet: Vet = Depends(get_current_vet), db: Session = Depends(get_db)):
+    from app.services.vet_assistant import VetAssistantService
+    return VetAssistantService(db).context(current_vet.id, pet_id)
+
+
+@router.post("/patient-draft")
+def patient_draft(body: PatientDraftRequest, current_vet: Vet = Depends(get_current_vet), db: Session = Depends(get_db)):
+    from app.services.vet_assistant import VetAssistantService
+    return VetAssistantService(db).draft(current_vet.id, body.pet_id, body.task, body.notes)
 
 
 @router.get("/conversations", response_model=ChatConversationListResponse)

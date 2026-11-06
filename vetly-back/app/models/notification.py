@@ -31,10 +31,13 @@ class Notification(BaseModel):
         index=True
     )
     
+    appointment_id = Column(UUID(as_uuid=True), ForeignKey("appointments.id", ondelete="SET NULL"), nullable=True)
+
     # Notification Content
     type = Column(String(50), nullable=False)  # e.g., "appointment", "medication", "system"
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
+    source_key = Column(String(200), nullable=True, unique=True)
     
     # Status
     is_read = Column(Boolean, default=False, nullable=False, index=True)

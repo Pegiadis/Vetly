@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.db.base import Vet, PetOwner
 from app.core.security import decode_token
+from app.core.pilot import require_pilot_access
 
 
 # OAuth2 scheme for token authentication
@@ -77,6 +78,9 @@ def get_current_vet(
     if vet is None:
         raise credentials_exception
 
+    require_pilot_access(vet.email)
+    if not vet.is_verified or not vet.email_verified:
+        raise HTTPException(403, "Εκκρεμεί η επαλήθευση του λογαριασμού σας.")
     return vet
 
 
@@ -122,7 +126,10 @@ def get_current_pet_owner(
     query = select(PetOwner).where(PetOwner.id == pet_owner_id)
     pet_owner = db.scalar(query)
 
-    if pet_owner is None:
+    if pet_owner is None or token_data.version != pet_owner.auth_version:
         raise credentials_exception
 
+    require_pilot_access(pet_owner.email)
+    if not pet_owner.email_verified:
+        raise HTTPException(403, "Email not verified")
     return pet_owner

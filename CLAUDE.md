@@ -150,15 +150,12 @@ See `scripts/README.md` for flags and rollback.
 
 ### Shared infrastructure on moltbot
 
-- **Postgres**: the `vetly-postgres` container currently hosts both Vetly's DB
-  and sports-holics' `sportsholics_cms` DB. This coupling is an accident, not a
-  design — a future migration will give sports-holics its own Postgres.
-  Meanwhile, DO NOT `docker compose down -v` on this stack: it would destroy
-  sports-holics' data too.
-- **Network**: `vetly_default` is a shared external network. Both Vetly and
-  sports-holics declare it with `external: true` — neither compose owns it.
-  If it ever needs to be recreated: `docker network create vetly_default`
-  then restart both app stacks.
+- **Postgres**: Vetly owns its own Postgres container (`vetly-postgres`) with a
+  single database (`vetly`). No other app shares this container. `docker
+  compose down -v` on this stack destroys only Vetly data.
+- **Network**: `vetly_default` is declared `external: true` in this compose.
+  If it doesn't exist on a fresh server: `docker network create vetly_default`
+  before bringing the stack up.
 - **Caddy**: reverse-proxy at `vetly.gr` points to `127.0.0.1:8000` (backend)
   and `127.0.0.1:3000` (frontend). Managed in the `vps-manager` repo.
 
