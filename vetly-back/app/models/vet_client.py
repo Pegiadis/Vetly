@@ -35,6 +35,8 @@ class VetClient(BaseModel):
         index=True,
     )
 
+    pending_owner_id = Column(UUID(as_uuid=True), ForeignKey("pet_owners.id", ondelete="SET NULL"), nullable=True)
+
     # Client Info
     name = Column(String(255), nullable=False)
     email = Column(String(255), nullable=True)
@@ -51,7 +53,7 @@ class VetClient(BaseModel):
 
     # Relationships
     vet = relationship("Vet", back_populates="clients")
-    pet_owner = relationship("PetOwner", back_populates="vet_client_records")
+    pet_owner = relationship("PetOwner", back_populates="vet_client_records", foreign_keys=[pet_owner_id])
     pets = relationship(
         "VetClientPet",
         back_populates="client",
@@ -77,6 +79,10 @@ class VetClientPet(BaseModel):
         nullable=False,
         index=True,
     )
+
+    # Stable clinical identity; notes below remain private to this clinic.
+    pet_id = Column(UUID(as_uuid=True), ForeignKey("pets.id", ondelete="RESTRICT"), nullable=False, unique=True)
+    clinical_pet = relationship("Pet")
 
     # Pet Info
     name = Column(String(100), nullable=False)

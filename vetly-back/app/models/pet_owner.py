@@ -17,7 +17,8 @@ class PetOwner(BaseModel):
     __tablename__ = "pet_owners"
 
     # Basic Information
-    email = Column(String(255), unique=True, nullable=False, index=True)
+    # Clinic-only records have no login identity; contact email stays on VetClient.
+    email = Column(String(255), unique=True, nullable=True, index=True)
     password_hash = Column(String(255), nullable=True)
     name = Column(String(255), nullable=False)
     phone = Column(String(50), nullable=True)
@@ -56,6 +57,7 @@ class PetOwner(BaseModel):
     vet_client_records = relationship(
         "VetClient",
         back_populates="pet_owner",
+        foreign_keys="VetClient.pet_owner_id",
     )
     chat_conversations = relationship(
         "ChatConversation",

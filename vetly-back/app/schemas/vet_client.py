@@ -5,13 +5,14 @@ Vet client management schemas
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # --- Pet schemas ---
 
 class VetClientPetResponse(BaseModel):
     id: UUID
+    pet_id: UUID
     name: str
     type: str
     breed: str | None = None
@@ -136,3 +137,10 @@ class InviteRegisterRequest(BaseModel):
     password: str = Field(..., min_length=6, max_length=128)
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)
+
+    @field_validator("password")
+    @classmethod
+    def password_bytes(cls, value: str) -> str:
+        if len(value.encode("utf-8")) > 72:
+            raise ValueError("Password exceeds the 72-byte limit")
+        return value

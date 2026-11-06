@@ -17,7 +17,7 @@ class AppointmentPetResponse(BaseModel):
     id: UUID
     name: str
     type: str
-    breed: str
+    breed: str | None = None
     image_url: str | None = None
 
 
@@ -27,7 +27,7 @@ class AppointmentPetOwnerResponse(BaseModel):
 
     id: UUID
     name: str
-    email: str
+    email: str | None = None
     phone: str | None = None
     image_url: str | None = None
 

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, joinedload, subqueryload
 from app.db.base import VetClient, VetClientPet
 from app.models.appointment import Appointment
 from app.models.pet_owner import PetOwner
-from app.models.pet import PetType, Gender
+from app.models.pet import Pet, PetType, Gender
 
 
 class VetClientRepository:
@@ -49,14 +49,12 @@ class VetClientRepository:
                 existing_by_email = self.db.scalar(
                     select(VetClient).where(
                         VetClient.vet_id == vet_id,
-                        VetClient.email == owner.email,
-                        VetClient.pet_owner_id.is_(None),
+                        func.lower(VetClient.email) == owner.email.casefold(),
                     )
                 )
                 if existing_by_email:
-                    existing_by_email.pet_owner_id = owner.id
-                    existing_by_email.status = "linked"
-                    existing_by_email.name = owner.name
+                    # Matching contact details do not authorize claiming a clinic record.
+                    # The owner must accept the invitation with a verified identity.
                     continue
 
             client = VetClient(
@@ -82,6 +80,9 @@ class VetClientRepository:
     def create(self, vet_id: UUID, name: str, email: str | None = None,
                phone: str | None = None, address: str | None = None,
                notes: str | None = None) -> VetClient:
+        owner = PetOwner(name=name, phone=phone, address=address, email=None, password_hash=None)
+        self.db.add(owner)
+        self.db.flush()
         client = VetClient(
             id=uuid4(),
             vet_id=vet_id,
@@ -91,6 +92,7 @@ class VetClientRepository:
             address=address,
             notes=notes,
             status="managed",
+            pet_owner_id=owner.id,
         )
         self.db.add(client)
         self.db.commit()
@@ -144,7 +146,7 @@ class VetClientRepository:
     def get_by_email_for_vet(self, vet_id: UUID, email: str) -> VetClient | None:
         query = select(VetClient).where(
             VetClient.vet_id == vet_id,
-            VetClient.email == email,
+            func.lower(VetClient.email) == email.casefold(),
         )
         return self.db.scalar(query)
 
@@ -153,10 +155,15 @@ class VetClientRepository:
             select(VetClient)
             .options(joinedload(VetClient.vet))
             .where(VetClient.invite_token == token)
+            .with_for_update(of=VetClient)
         )
         return self.db.scalar(query)
 
     def update(self, client: VetClient, **kwargs) -> VetClient:
+        if client.pet_owner and not client.pet_owner.email:
+            for key in ('name', 'phone', 'address'):
+                if key in kwargs:
+                    setattr(client.pet_owner, key, kwargs[key])
         for key, value in kwargs.items():
             if hasattr(client, key):
                 setattr(client, key, value)
@@ -165,7 +172,7 @@ class VetClientRepository:
         return client
 
     def delete(self, client: VetClient) -> None:
-        # Delete associated pets first
+        # Keep clinical identities/history; remove only the clinic's contact card.
         for pet in client.pets or []:
             self.db.delete(pet)
         self.db.delete(client)
@@ -177,8 +184,15 @@ class VetClientRepository:
                 breed: str | None = None, age: int | None = None,
                 weight: float | None = None, gender: Gender | None = None,
                 notes: str | None = None) -> VetClientPet:
+        client = self.db.scalar(select(VetClient).where(VetClient.id == vet_client_id).with_for_update())
+        identity = uuid4()
+        clinical = Pet(id=identity, pet_owner_id=client.pet_owner_id, name=name,
+                       type=pet_type, breed=breed, age=age, weight=weight, gender=gender)
+        self.db.add(clinical)
+        self.db.flush()
         pet = VetClientPet(
-            id=uuid4(),
+            id=identity,
+            pet_id=identity,
             vet_client_id=vet_client_id,
             name=name,
             type=pet_type,
@@ -204,10 +218,14 @@ class VetClientRepository:
         for key, value in kwargs.items():
             if hasattr(pet, key):
                 setattr(pet, key, value)
+                if key in ('name', 'type', 'breed', 'age', 'weight', 'gender'):
+                    setattr(pet.clinical_pet, key, value)
         self.db.commit()
         self.db.refresh(pet)
         return pet
 
     def delete_pet(self, pet: VetClientPet) -> None:
-        self.db.delete(pet)
+        from datetime import datetime
+        # Appointments, examinations and private notes must survive removal from lists.
+        pet.clinical_pet.deleted_at = datetime.utcnow()
         self.db.commit()

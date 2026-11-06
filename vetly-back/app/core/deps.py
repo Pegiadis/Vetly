@@ -126,7 +126,7 @@ def get_current_pet_owner(
     query = select(PetOwner).where(PetOwner.id == pet_owner_id)
     pet_owner = db.scalar(query)
 
-    if pet_owner is None or token_data.version != pet_owner.auth_version:
+    if pet_owner is None or not pet_owner.email or not pet_owner.password_hash or token_data.version != pet_owner.auth_version:
         raise credentials_exception
 
     require_pilot_access(pet_owner.email)

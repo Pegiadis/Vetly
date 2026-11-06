@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_vet
+from app.core.config import settings
 from app.db.base import Vet
 from app.services.vet_client import VetClientService
 from app.schemas.vet_client import (
@@ -83,7 +84,7 @@ def generate_invite(
     current_vet: Vet = Depends(get_current_vet),
     db: Session = Depends(get_db),
 ) -> InviteLinkResponse:
-    base_url = str(request.base_url).rstrip("/").replace("/api/v1", "").replace(":8000", ":3000")
+    base_url = settings.FRONTEND_URL.rstrip("/")
     service = VetClientService(db)
     return service.generate_invite(client_id, current_vet.id, base_url)
 
@@ -96,7 +97,7 @@ def resend_invite(
     db: Session = Depends(get_db),
 ) -> InviteLinkResponse:
     """Resend an invite with a new token for an existing invited client"""
-    base_url = str(request.base_url).rstrip("/").replace("/api/v1", "").replace(":8000", ":3000")
+    base_url = settings.FRONTEND_URL.rstrip("/")
     service = VetClientService(db)
     return service.resend_invite(client_id, current_vet.id, base_url)
 

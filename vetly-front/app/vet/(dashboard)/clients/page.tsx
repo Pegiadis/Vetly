@@ -1,6 +1,7 @@
 'use client';
 
 
+import CreateAppointmentDialog from '@/components/vet/CreateAppointmentDialog';
 import ClinicDrawer from '@/components/vet/ClinicDrawer';
 import { ClinicButton, ClinicInput, ClinicPanel, ClinicSelect, ClinicTextarea, ClinicTable, ClinicTableHead, ClinicTableCell } from '@/components/vet/ClinicUI';
 import { useState, useEffect, useRef } from 'react';
@@ -626,6 +627,7 @@ export default function VetClientsPage() {
   // Dialogs
   const [showAddClient, setShowAddClient] = useState(false);
   const [showEditClient, setShowEditClient] = useState(false);
+  const [bookingClient, setBookingClient] = useState<{id: string; name: string} | null>(null);
   const [showAddPet, setShowAddPet] = useState(false);
   const [editingPet, setEditingPet] = useState<VetClientPet | null>(null);
   const [inviteData, setInviteData] = useState<{ invite_url: string; expires_at: string } | null>(null);
@@ -683,7 +685,7 @@ export default function VetClientsPage() {
   const { clients, total, totalPages, loading, error, refetch } = useVetClients(page, 10, debouncedSearch || undefined);
   const { client: loadedClient, loading: clientLoading, error: clientError, refetch: refetchClient } = useVetClient(selectedClientId);
   const selectedClient = loadedClient?.id === selectedClientId ? loadedClient : null;
-  const { events: historyEvents, loading: historyLoading } = usePatientHistory(historyPetId);
+  const { events: historyEvents, loading: historyLoading, error: historyError } = usePatientHistory(historyPetId);
 
   // Reset history when switching clients
   useEffect(() => {
@@ -929,11 +931,12 @@ export default function VetClientsPage() {
                     <svg className="w-5 h-5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <p className="text-sm font-semibold text-green-700">Η υπενθύμιση δημιουργήθηκε και στάλθηκε στον ιδιοκτήτη!</p>
+                    <p className="text-sm font-semibold text-green-700">Η υπενθύμιση αποθηκεύτηκε.</p>
                   </div>
                 )}
 
                 {/* Pets */}
+                <ClinicButton variant="primary" onClick={() => setBookingClient({id: selectedClient.id, name: selectedClient.name})}>Νέο ραντεβού</ClinicButton>
                 {selectedClient.status === 'linked' && selectedClient.linked_pets?.length > 0 ? (
                   <div>
                     <h3 className="font-semibold text-ink-800 text-sm mb-3">
@@ -962,6 +965,7 @@ export default function VetClientsPage() {
                               )}
                             </div>
                           </div>
+                          {selectedClient.pets.find(record => record.pet_id === pet.id)?.notes && <p className="mt-2 text-xs text-ink-500">Εσωτερικές σημειώσεις: {selectedClient.pets.find(record => record.pet_id === pet.id)?.notes}</p>}
                           {/* History toggle */}
                           <div className="mt-2 flex gap-2 flex-wrap">
                             <ClinicButton variant="ghost"
@@ -1218,7 +1222,7 @@ export default function VetClientsPage() {
                         <svg className="w-5 h-5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <p className="text-sm font-semibold text-green-700">Η υπενθύμιση δημιουργήθηκε και στάλθηκε στον ιδιοκτήτη!</p>
+                        <p className="text-sm font-semibold text-green-700">Η υπενθύμιση αποθηκεύτηκε.</p>
                       </div>
                     )}
                     <div className="flex items-center justify-between mb-3">
@@ -1271,6 +1275,10 @@ export default function VetClientsPage() {
                                 </ClinicButton>
                               </div>
                             </div>
+                            <ClinicButton variant="ghost" onClick={() => setHistoryPetId(historyPetId === pet.pet_id ? null : pet.pet_id)}>Ιατρικό ιστορικό</ClinicButton>
+                            {historyPetId === pet.pet_id && <div className="mt-2 space-y-2" aria-live="polite">
+                              {historyLoading ? <p>Φόρτωση ιστορικού…</p> : historyError ? <p role="alert">{historyError}</p> : historyEvents.length ? historyEvents.map(event => <div key={event.id} className="rounded-lg bg-ink-50 p-3 text-sm"><strong>{event.title}</strong><p>{new Date(event.date).toLocaleDateString('el-GR')}</p><p className="whitespace-pre-wrap">{event.notes}</p></div>) : <p>Δεν έχει καταγραφεί εξέταση ακόμη.</p>}
+                            </div>}
                             {pet.notes && (
                               <p className="text-xs text-ink-500 mt-2 bg-ink-50 rounded-lg p-2">{pet.notes}</p>
                             )}
@@ -1428,6 +1436,7 @@ export default function VetClientsPage() {
 
       </div>}
       </div>
+      {bookingClient && <CreateAppointmentDialog key={bookingClient.id} open initialClient={bookingClient} onClose={() => setBookingClient(null)} onSuccess={() => setBookingClient(null)} />}
       {deleteTarget && (
         <DeleteConfirmDialog
           title={deleteTarget.type === 'client' ? 'Διαγραφή Πελάτη' : 'Διαγραφή Κατοικιδίου'}

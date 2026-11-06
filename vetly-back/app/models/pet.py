@@ -47,10 +47,10 @@ class Pet(BaseModel):
     # Basic Information
     name = Column(String(100), nullable=False)
     type = Column(Enum(PetType), nullable=False)
-    breed = Column(String(100), nullable=False)
-    age = Column(Integer, nullable=False)
-    weight = Column(Float, nullable=False)  # in kg
-    gender = Column(Enum(Gender), nullable=False)
+    breed = Column(String(100), nullable=True)
+    age = Column(Integer, nullable=True)
+    weight = Column(Float, nullable=True)  # in kg; unknown is not zero
+    gender = Column(Enum(Gender), nullable=True)
     
     # Identification
     chip_number = Column(String(50), unique=True, nullable=True, index=True)

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import AcceptClientInvite from '@/components/owner/AcceptClientInvite';
 import { api, ApiError } from '@/lib/api';
 
 interface InviteInfo {
@@ -32,6 +33,7 @@ export default function InviteRegisterPage() {
     confirmPassword: '',
     phone: '',
   });
+  const [existingAccount, setExistingAccount] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
@@ -182,8 +184,8 @@ export default function InviteRegisterPage() {
           </div>
         )}
 
-        {/* Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+        <div className="mt-5 flex gap-3 text-sm"><button type="button" aria-pressed={!existingAccount} onClick={() => setExistingAccount(false)} className="font-semibold text-teal-700">Νέος λογαριασμός</button><button type="button" aria-pressed={existingAccount} onClick={() => setExistingAccount(true)} className="font-semibold text-teal-700">Έχω ήδη λογαριασμό</button></div>
+        {existingAccount ? <AcceptClientInvite token={token} email={inviteInfo?.client_email || ''} /> : <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
               <label htmlFor="name" className="sr-only">Ονοματεπώνυμο</label>
@@ -286,15 +288,13 @@ export default function InviteRegisterPage() {
               )}
             </button>
           </div>
-        </form>
+        </form>}
 
         {/* Login Link */}
         <div className="text-center mt-4">
           <p className="text-sm text-slate-600">
             Έχετε ήδη λογαριασμό;{' '}
-            <Link href="/owner/login" className="font-bold text-teal-600 hover:text-teal-500">
-              Σύνδεση
-            </Link>
+            <button type="button" onClick={() => setExistingAccount(true)} className="font-bold text-teal-600 hover:text-teal-500">Σύνδεση και αποδοχή πρόσκλησης</button>
           </p>
         </div>
       </div>

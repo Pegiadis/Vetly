@@ -3,10 +3,11 @@ Pet repository - data access layer for vet patient management
 """
 
 from uuid import UUID
-from sqlalchemy import select, func, distinct
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.base import Pet, Appointment, PetOwner, MedicalEvent
+from app.models.vet_client import VetClient, VetClientPet
 
 
 class PetRepository:
@@ -14,6 +15,12 @@ class PetRepository:
 
     def __init__(self, db: Session):
         self.db = db
+
+    @staticmethod
+    def access_filter(vet_id: UUID):
+        appointments = select(Appointment.pet_id).where(Appointment.vet_id == vet_id)
+        managed = select(VetClientPet.pet_id).join(VetClient).where(VetClient.vet_id == vet_id)
+        return or_(Pet.id.in_(appointments), Pet.id.in_(managed)) & Pet.deleted_at.is_(None)
 
     def get_vet_patients(
         self,
@@ -23,7 +30,7 @@ class PetRepository:
         limit: int = 10,
     ) -> tuple[list[Pet], int]:
         """
-        Get pets that have had appointments with this vet
+        Get clinical patients registered by this vet or seen in their appointments
 
         Args:
             vet_id: The vet's UUID
@@ -34,15 +41,8 @@ class PetRepository:
         Returns:
             Tuple of (list of pets, total count)
         """
-        # Subquery to get pet IDs that have appointments with this vet
-        pet_ids_subquery = (
-            select(distinct(Appointment.pet_id))
-            .where(Appointment.vet_id == vet_id)
-            .subquery()
-        )
-
         # Base query for pets
-        base_filter = Pet.id.in_(select(pet_ids_subquery)) & Pet.deleted_at.is_(None)
+        base_filter = self.access_filter(vet_id)
 
         if search:
             base_filter = base_filter & Pet.name.ilike(f"%{search}%")
@@ -65,7 +65,7 @@ class PetRepository:
 
     def get_patient_by_id(self, pet_id: UUID, vet_id: UUID) -> Pet | None:
         """
-        Get a specific patient by ID, ensuring they have an appointment with this vet
+        Get a specific patient by ID, ensuring they belong to this clinic or have an appointment with it
 
         Args:
             pet_id: The pet's UUID
@@ -74,17 +74,9 @@ class PetRepository:
         Returns:
             Pet model or None if not found or not a patient of this vet
         """
-        # Verify pet has had an appointment with this vet
-        appointment_exists = self.db.scalar(
-            select(Appointment.id)
-            .where(Appointment.pet_id == pet_id, Appointment.vet_id == vet_id)
-            .limit(1)
-        )
-
-        if not appointment_exists:
-            return None
-
-        query = select(Pet).where(Pet.id == pet_id, Pet.deleted_at.is_(None)).options(joinedload(Pet.owner))
+        # Clinical writes using this identity must finish before an invitation can
+        # transfer it. Otherwise a concurrent booking could retain the old owner.
+        query = select(Pet).where(Pet.id == pet_id, self.access_filter(vet_id)).options(joinedload(Pet.owner)).with_for_update(of=Pet)
         return self.db.scalar(query)
 
     def get_patient_medical_history(

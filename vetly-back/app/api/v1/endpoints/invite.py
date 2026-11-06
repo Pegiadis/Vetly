@@ -5,12 +5,18 @@ Public invite endpoints for client registration
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db
+from app.core.deps import get_db, get_current_pet_owner
+from app.models.pet_owner import PetOwner
 from app.services.vet_client import VetClientService
 from app.schemas.auth import RegisterResponse
 from app.schemas.vet_client import InviteInfoResponse, InviteRegisterRequest
 
 router = APIRouter()
+
+
+@router.post("/{token}/accept")
+def accept_invite(token: str, owner: PetOwner = Depends(get_current_pet_owner), db: Session = Depends(get_db)):
+    return VetClientService(db).accept_invite(token, owner)
 
 
 @router.get("/{token}", response_model=InviteInfoResponse)

@@ -248,7 +248,7 @@ export function useDashboardStats() {
 export interface PatientOwner {
   id: string;
   name: string;
-  email: string;
+  email: string | null;
   phone: string | null;
   image_url: string | null;
 }
@@ -258,10 +258,10 @@ export interface Patient {
   pet_owner_id: string;
   name: string;
   type: string;
-  breed: string;
-  age: number;
-  weight: number;
-  gender: string;
+  breed: string | null;
+  age: number | null;
+  weight: number | null;
+  gender: string | null;
   chip_number: string | null;
   image_url: string | null;
   cover_image_url: string | null;
@@ -865,6 +865,7 @@ export async function getVetLatestUnread(): Promise<VetNotification | null> {
 
 export interface VetClientPet {
   id: string;
+  pet_id: string;
   name: string;
   type: string;
   breed: string | null;

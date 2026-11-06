@@ -32,11 +32,12 @@ interface CreateAppointmentDialogProps {
   onClose: () => void;
   onSuccess: () => void;
   embedded?: boolean;
+  initialClient?: { id: string; name: string };
   initialDate?: string;
   initialTime?: string;
 }
 
-export default function CreateAppointmentDialog({ open, onClose, onSuccess, embedded = false, initialDate, initialTime }: CreateAppointmentDialogProps) {
+export default function CreateAppointmentDialog({ open, onClose, onSuccess, embedded = false, initialDate, initialTime, initialClient }: CreateAppointmentDialogProps) {
   const { user } = useAuth();
   const vetId = user?.id ?? null;
 
@@ -48,8 +49,8 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess, embe
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Selection state
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
-  const [selectedClientName, setSelectedClientName] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(initialClient?.id || null);
+  const [selectedClientName, setSelectedClientName] = useState(initialClient?.name || '');
   const [selectedPet, setSelectedPet] = useState<LinkedPet | null>(null);
 
   // Form state
@@ -68,7 +69,6 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess, embe
 
   // Derived state
   const availablePets = clientDetail?.linked_pets ?? [];
-  const isLinkedClient = clientDetail?.status === 'linked';
   const hasClient = !!selectedClientId;
   const hasPet = !!selectedPet;
 
@@ -307,14 +307,9 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess, embe
                   <div className="flex items-center justify-center py-3 rounded-xl border border-ink-200">
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-clinic-600" />
                   </div>
-                ) : !isLinkedClient ? (
-                  <div className="px-4 py-3 bg-amber-50 rounded-xl border border-amber-200">
-                    <p className="text-amber-700 text-sm font-medium">Δεν έχει λογαριασμό Vetly</p>
-                    <p className="text-amber-600 text-xs mt-0.5">Στείλτε πρόσκληση πρώτα</p>
-                  </div>
                 ) : availablePets.length === 0 ? (
                   <div className="px-4 py-3 rounded-xl border border-dashed border-ink-200 bg-ink-50">
-                    <p className="text-ink-400 text-sm">Δεν υπάρχουν κατοικίδια</p>
+                    <p className="text-ink-400 text-sm">Δεν υπάρχουν κατοικίδια. Προσθέστε ένα από την καρτέλα πελάτη.</p>
                   </div>
                 ) : availablePets.length === 1 ? (
                   // Auto-select single pet, show as selected chip

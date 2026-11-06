@@ -1,0 +1,49 @@
+Clinic clients without a Vetly account
+======================================
+
+Workflow
+--------
+1. In the vet's Clients page, add a guardian and their pets. Email is optional.
+2. Open the guardian card and select New appointment. The guardian is already
+   selected; pets are available even without a Vetly login.
+3. Use the normal examination and patient-history flows to record clinical care.
+4. To connect an account, add the guardian's email and send an invitation.
+5. A new guardian registers through the invitation and verifies their email.
+   An existing guardian uses the existing-account option on the invitation page,
+   signs in and accepts it with the same verified email.
+
+Linking preserves the same pet, appointment and medical-history identities.
+Existing medication records stay attached to those pets. Reminder and notification
+ownership moves in the same transaction. Private clinic/contact/pet notes remain
+private to the clinic. An ordinary signup or a matching name/email alone does not
+claim a clinical card; the verified invitation flow is required.
+
+Clinic-only identities have no login email or password. Invitation links expire
+and are single-use. Another account cannot accept them. Vets retain access to
+their patients, not all unrelated pets belonging to a linked guardian.
+Removing a clinic pet hides it without deleting its clinical history. A client
+card containing pets or appointment history cannot be permanently removed.
+Unknown breed, age, weight and gender remain unspecified until entered.
+
+Release / migration
+-------------------
+Deploy backend and frontend together. Back up the database and validate restoration
+before running Alembic upgrade head. Revision d9e031a7b423 follows c8d920f6a312,
+creates clinical identities for existing clinic pets and keeps private notes in
+their original records. A destructive downgrade is intentionally unavailable;
+rollback requires the verified backup and the matching application version.
+
+On 2026-11-07 the migration was applied to the local development database only.
+A restored copy was migrated separately, preserving existing pet, appointment,
+medical-event, medication, reminder and client IDs and private pet notes.
+Production has not been migrated or deployed by this change.
+
+Validation
+----------
+118 backend tests passed, including no-account booking/history, verified new and
+existing-account claims, access boundaries, expired/replayed/wrong-email invites,
+soft deletion, and concurrent booking during account linking.
+Frontend production build and lint passed (existing lint warnings remain).
+Browser smoke verified the client-card booking action, preselected guardian and
+missing-pet guidance. End-to-end record mutations were tested in an isolated
+PostgreSQL database; local UI verification did not send invitations.

@@ -7,13 +7,15 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.db.base import PetOwner
 from app.core.email import send_email
 from app.core.security import get_password_hash
-from app.models.pet import PetType, Gender
+from app.models.pet import Pet, PetType, Gender
+from app.models.vet_client import VetClient, VetClientPet
+from app.repositories.pet import PetRepository
 from app.repositories.vet_client import VetClientRepository
 from app.services.notification import NotificationService
 from app.schemas.auth import RegisterResponse
@@ -87,11 +89,8 @@ class VetClientService:
         clients, total = self.repo.get_by_vet(vet_id, search=search, skip=skip, limit=page_size)
         items = []
         for c in clients:
-            # For linked clients, count real pets from PetOwner
-            if c.pet_owner_id and c.pet_owner:
-                pet_count = len(c.pet_owner.pets) if c.pet_owner.pets else 0
-            else:
-                pet_count = len(c.pets) if c.pets else 0
+            pet_count = len(self.db.scalars(select(Pet).where(
+                Pet.pet_owner_id == c.pet_owner_id, PetRepository.access_filter(vet_id))).all())
             owner_image = c.pet_owner.image_url if c.pet_owner_id and c.pet_owner else None
             items.append(VetClientListItem(
                 id=c.id,
@@ -112,12 +111,9 @@ class VetClientService:
 
         response = VetClientResponse.model_validate(client)
 
-        # For linked clients, include real Pet records from PetOwner
-        if client.pet_owner_id and client.pet_owner:
-            response.linked_pets = [
-                LinkedPetResponse.model_validate(p)
-                for p in client.pet_owner.pets
-            ]
+        response.pets = [VetClientPetResponse.model_validate(p) for p in client.pets if not p.clinical_pet.deleted_at]
+        response.linked_pets = [LinkedPetResponse.model_validate(p) for p in self.db.scalars(
+            select(Pet).where(Pet.pet_owner_id == client.pet_owner_id, PetRepository.access_filter(vet_id))).all()]
 
         return response
 
@@ -163,6 +159,10 @@ class VetClientService:
         if not client:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
+        from app.models.appointment import Appointment
+        if client.pets or self.db.scalar(select(Appointment.id).where(
+            Appointment.vet_id == vet_id, Appointment.pet_owner_id == client.pet_owner_id).limit(1)):
+            raise HTTPException(409, 'Η καρτέλα έχει κατοικίδια ή ιστορικό και δεν μπορεί να διαγραφεί.')
         self.repo.delete(client)
 
     # --- Invite ---
@@ -177,6 +177,8 @@ class VetClientService:
                 detail="Client already has a Vetly account",
             )
 
+        if not client.email:
+            raise HTTPException(400, 'Προσθέστε email στην καρτέλα πριν στείλετε πρόσκληση.')
         token = secrets.token_hex(32)
         expires_at = datetime.utcnow() + timedelta(days=INVITE_EXPIRY_DAYS)
 
@@ -208,6 +210,8 @@ class VetClientService:
                 detail="Client has not been invited yet. Use the invite endpoint first.",
             )
 
+        if not client.email:
+            raise HTTPException(400, 'Προσθέστε email στην καρτέλα πριν στείλετε πρόσκληση.')
         token = secrets.token_hex(32)
         expires_at = datetime.utcnow() + timedelta(days=INVITE_EXPIRY_DAYS)
 
@@ -253,7 +257,7 @@ class VetClientService:
             raise HTTPException(400, "Το email πρέπει να αντιστοιχεί στην πρόσκληση.")
 
         # Check email not taken
-        existing = self.db.scalar(select(PetOwner).where(PetOwner.email == data.email))
+        existing = self.db.scalar(select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()))
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -272,31 +276,30 @@ class VetClientService:
         self.db.add(pet_owner)
         self.db.flush()
 
-        # Link client
-        self.repo.update(
-            client,
-            pet_owner_id=pet_owner.id,
-            status="linked",
-            invite_token=None,
-            invite_expires_at=None,
-        )
-
+        if client.pet_owner_id is None:
+            clinic_owner = PetOwner(name=client.name, phone=client.phone, address=client.address)
+            self.db.add(clinic_owner)
+            self.db.flush()
+            client.pet_owner_id = clinic_owner.id
+        # Retain the clinic identity until the new owner proves access to the email.
+        client.pending_owner_id = pet_owner.id
         self.db.commit()
         self.db.refresh(pet_owner)
-
-        # Notify vet that client accepted the invite
-        self.notifications.notify_vet(
-            client.vet_id,
-            type="client",
-            title="Νέος πελάτης",
-            message=f"Ο {data.name} αποδέχτηκε την πρόσκλησή σας και δημιούργησε λογαριασμό",
-        )
 
         from app.core.security import create_email_verification_token
         from app.core.email import send_verification_email
         verification = create_email_verification_token(str(pet_owner.id), "pet_owner")
         send_verification_email(pet_owner.email, verification, "pet_owner")
         return RegisterResponse(email=pet_owner.email, message="Ελέγξτε το email σας για επιβεβαίωση.")
+
+    def accept_invite(self, token: str, owner: PetOwner) -> dict:
+        client = self.repo.get_by_invite_token(token)
+        if not client:
+            raise HTTPException(404, 'Η πρόσκληση δεν βρέθηκε ή έχει ήδη χρησιμοποιηθεί.')
+        from app.services.client_claim import claim_client
+        claim_client(self.db, client, owner)
+        self.db.commit()
+        return {"message": "Η καρτέλα και το ιστορικό συνδέθηκαν με τον λογαριασμό σας."}
 
     # --- Pets ---
 
@@ -323,6 +326,9 @@ class VetClientService:
         if not client:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
 
+        if client.status == 'linked':
+            raise HTTPException(409, 'Το κατοικίδιο έχει συνδεθεί με τον κηδεμόνα του.')
+
         pet = self.repo.get_pet(pet_id, client.id)
         if not pet:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
@@ -340,6 +346,9 @@ class VetClientService:
         client = self.repo.get_by_id_for_vet(client_id, vet_id)
         if not client:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Client not found")
+
+        if client.status == 'linked':
+            raise HTTPException(409, 'Το κατοικίδιο έχει συνδεθεί με τον κηδεμόνα του.')
 
         pet = self.repo.get_pet(pet_id, client.id)
         if not pet:

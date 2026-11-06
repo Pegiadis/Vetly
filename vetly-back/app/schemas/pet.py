@@ -13,7 +13,7 @@ class PetOwnerResponse(BaseModel):
 
     id: UUID
     name: str
-    email: str
+    email: str | None = None
     phone: str | None = None
     image_url: str | None = None
 
@@ -26,10 +26,10 @@ class PetResponse(BaseModel):
     pet_owner_id: UUID
     name: str
     type: str
-    breed: str
-    age: int
-    weight: float
-    gender: str
+    breed: str | None = None
+    age: int | None = None
+    weight: float | None = None
+    gender: str | None = None
     chip_number: str | None = None
     image_url: str | None = None
     cover_image_url: str | None = None

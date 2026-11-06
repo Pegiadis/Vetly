@@ -4,7 +4,7 @@ Authentication service - business logic for auth operations
 
 from uuid import UUID
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.db.base import Vet, PetOwner
@@ -126,7 +126,7 @@ class AuthService:
         return self.db.scalar(query)
 
     def login_pet_owner(self, credentials: LoginRequest) -> TokenResponse:
-        query = select(PetOwner).where(PetOwner.email == credentials.email)
+        query = select(PetOwner).where(func.lower(PetOwner.email) == credentials.email.casefold())
         pet_owner = self.db.scalar(query)
 
         if not pet_owner:
@@ -162,7 +162,7 @@ class AuthService:
 
     def register_pet_owner(self, data: PetOwnerRegisterRequest) -> RegisterResponse:
         require_pilot_access(data.email)
-        existing_email = self.db.scalar(select(PetOwner).where(PetOwner.email == data.email))
+        existing_email = self.db.scalar(select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()))
         if existing_email:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -218,6 +218,9 @@ class AuthService:
         if user_type == 'pet_owner' and user.email_verified:
             raise HTTPException(400, 'Το email έχει ήδη επιβεβαιωθεί. Συνδεθείτε με τον κωδικό σας.')
         user.email_verified = True
+        if user_type == 'pet_owner':
+            from app.services.client_claim import claim_verified_invitations
+            claim_verified_invitations(self.db, user)
         self.db.commit()
 
         access_token = create_access_token(subject=str(user.id), token_type=user_type, version=user.auth_version if user_type == "pet_owner" else 0)
@@ -231,7 +234,7 @@ class AuthService:
         if user_type == "vet":
             user = self.db.scalar(select(Vet).where(Vet.email == email))
         else:
-            user = self.db.scalar(select(PetOwner).where(PetOwner.email == email))
+            user = self.db.scalar(select(PetOwner).where(func.lower(PetOwner.email) == email.casefold()))
 
         # Generic response to avoid revealing whether the email exists
         if user and not user.email_verified:
@@ -244,7 +247,7 @@ class AuthService:
         if data.user_type == "vet":
             user = self.db.scalar(select(Vet).where(Vet.email == data.email))
         else:
-            user = self.db.scalar(select(PetOwner).where(PetOwner.email == data.email))
+            user = self.db.scalar(select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()))
 
         if user and user.email_verified:
             token = create_password_reset_token(str(user.id), data.user_type, version=user.auth_version if data.user_type == 'pet_owner' else 0)
