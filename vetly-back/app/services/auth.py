@@ -215,7 +215,8 @@ class AuthService:
                 detail="User not found",
             )
 
-        if user_type == 'pet_owner' and user.email_verified:
+        if user.email_verified:
+            # The link is single-use: once verified it can no longer sign anyone in.
             raise HTTPException(400, 'Το email έχει ήδη επιβεβαιωθεί. Συνδεθείτε με τον κωδικό σας.')
         user.email_verified = True
         if user_type == 'pet_owner':
