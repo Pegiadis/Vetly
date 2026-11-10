@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { useVetProfile, useServiceTypes, type VetAppointment } from '@/hooks/useVetData';
+import { useVetProfile, type VetAppointment } from '@/hooks/useVetData';
 import { ClinicButton, ClinicPanel, ClinicPageHeader, ClinicLoading, ClinicStatusBadge } from './ClinicUI';
 import ClinicAvatar from './ClinicAvatar';
 import CreateAppointmentDialog from './CreateAppointmentDialog';
@@ -24,7 +24,6 @@ function appointmentLink(apt: VetAppointment) { return `/vet/${apt.status === 'p
 
 export default function ClinicHome() {
   const profileQuery = useVetProfile();
-  const services = useServiceTypes();
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -55,13 +54,6 @@ export default function ClinicHome() {
     };
   }, [refresh]);
   const profile = profileQuery.profile;
-  const setup = profile ? [
-    { done: Boolean(profile.description?.trim() && profile.image_url), label: 'Φωτογραφία και περιγραφή', href: '/vet/settings' },
-    { done: Boolean(profile.address?.trim() && profile.city?.trim()), label: 'Διεύθυνση κτηνιατρείου', href: '/vet/settings' },
-    { done: Object.values(profile.hours || {}).some(d => !d.closed && Boolean(d.morning?.open && d.morning?.close || d.afternoon?.open && d.afternoon?.close)), label: 'Ωράριο λειτουργίας', href: '/vet/settings#working-hours' },
-    ...(!services.loading && !services.error ? [{ done: services.total > 0, label: 'Υπηρεσίες και τιμές', href: '/vet/services' }] : []),
-  ] : [];
-  const incomplete = setup.filter(item => !item.done);
   const next = data?.next_appointment;
 
   function row(apt: VetAppointment) {
@@ -112,7 +104,6 @@ export default function ClinicHome() {
             {data.pending_items.length ? data.pending_items.map(row) : <p className="p-5 text-sm text-ink-500">Δεν υπάρχουν εκκρεμή αιτήματα για σήμερα.</p>}
             <div className="border-t border-ink-100 px-5 py-3"><Link className={linkStyle} href="/vet/pending">Όλα τα αιτήματα{data.pending_today > data.pending_items.length ? ` · ${data.pending_today - data.pending_items.length} ακόμη για σήμερα` : ''} →</Link></div>
           </ClinicPanel>
-          {!profileQuery.loading && !profileQuery.error && incomplete.length > 0 && <ClinicPanel className="p-4"><details><summary className="cursor-pointer text-sm font-medium">Ολοκλήρωση προφίλ · {incomplete.length} βήματα</summary><div className="mt-3 space-y-1">{incomplete.map(item => <Link key={item.label} href={item.href} className="block rounded-lg px-2 py-2 text-xs text-clinic-700 hover:bg-clinic-50">{item.label} →</Link>)}</div></details></ClinicPanel>}
         </div>
       </div>
     </>}
