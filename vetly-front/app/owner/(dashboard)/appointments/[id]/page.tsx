@@ -43,11 +43,9 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// Appointment times are Athens wall-clock strings; show them as written, in 24-hour form.
 function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString('el-GR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  return dateStr.slice(11, 16);
 }
 
 function formatShortDate(dateStr: string): string {
