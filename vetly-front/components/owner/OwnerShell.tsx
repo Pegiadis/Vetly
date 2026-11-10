@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getImageUrl } from '@/lib/api';
+import AssistantWidget, { AssistantAvatar } from '@/components/vet/AssistantWidget';
 
 type NavLink = readonly [href: string, label: string, icon: string];
 
@@ -66,6 +67,8 @@ export default function OwnerShell({ children, unreadCount }: { children: ReactN
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const onAssistantPage = pathname === '/owner/chat';
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const inMore = moreLinks.some(([href]) => isCurrent(href));
   const name = user?.name || '';
@@ -112,6 +115,10 @@ export default function OwnerShell({ children, unreadCount }: { children: ReactN
     <main className="min-h-[calc(100vh-56px)] min-w-0 border-ink-200 bg-white px-4 pb-28 pt-5 md:ml-60 md:min-h-[calc(100vh-60px)] md:rounded-tl-2xl md:border-l md:border-t md:px-8 md:pb-10 md:pt-7">
       <div className="mx-auto max-w-[1200px]">{children}</div>
     </main>
+
+    {/* Assistant: floating mascot bottom right, above the tab bar on phones */}
+    {!onAssistantPage && !assistantOpen && !moreOpen && <button type="button" aria-label="Άνοιγμα βοηθού" onClick={() => setAssistantOpen(true)} className="fixed bottom-20 right-4 z-30 rounded-full shadow-[0_6px_20px_rgba(15,23,42,0.22)] ring-2 ring-white transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600 md:bottom-5 md:right-5"><AssistantAvatar size={52} /></button>}
+    {!onAssistantPage && <AssistantWidget role="owner" aboveTabBar open={assistantOpen} onClose={() => setAssistantOpen(false)} />}
 
     {/* Phone: bottom tab bar with booking in the middle */}
     <nav aria-label="Κύρια πλοήγηση" className="fixed inset-x-0 bottom-0 z-30 flex h-16 items-stretch border-t border-ink-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
