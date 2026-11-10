@@ -37,30 +37,28 @@ export default function VerifyEmailPendingPageContent() {
   const loginPath = userType === 'vet' ? '/vet/login' : '/owner/login';
 
   return (
-    <div className={`min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden ${isTeal ? 'bg-teal-50' : 'bg-indigo-50'}`}>
-      <div className={`absolute top-[-10%] right-[-10%] w-[600px] h-[600px] ${isTeal ? 'bg-teal-600/10' : 'bg-indigo-600/10'} rounded-full filter blur-[80px]`} />
-      <div className={`absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] ${isTeal ? 'bg-indigo-600/5' : 'bg-teal-600/5'} rounded-full filter blur-[80px]`} />
+    <div className={`min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-ink-50`}>
 
-      <div className="max-w-md w-full space-y-6 bg-white p-8 rounded-3xl shadow-xl relative z-10 border border-slate-100 text-center">
-        <div className={`mx-auto h-20 w-20 rounded-full flex items-center justify-center ${isTeal ? 'bg-teal-100 text-teal-600' : 'bg-indigo-100 text-indigo-600'}`}>
+      <div className="max-w-sm w-full space-y-5 bg-white p-6 rounded-xl relative z-10 border border-ink-200 text-center">
+        <div className={`mx-auto h-20 w-20 rounded-full flex items-center justify-center ${isTeal ? 'bg-teal-100 text-teal-600' : 'bg-clinic-100 text-clinic-700'}`}>
           <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
           </svg>
         </div>
 
         <div>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-2xl font-semibold text-ink-900 tracking-tight">
             Ελέγξτε το email σας
           </h2>
-          <p className="mt-3 text-sm text-slate-600 leading-relaxed">
+          <p className="mt-3 text-sm text-ink-600 leading-relaxed">
             Σας στείλαμε ένα email στο{' '}
-            <span className="font-semibold text-slate-800">{email}</span>.
+            <span className="font-semibold text-ink-800">{email}</span>.
             Πατήστε τον σύνδεσμο για να επιβεβαιώσετε τον λογαριασμό σας.
           </p>
         </div>
 
         {resent && (
-          <div className={`${isTeal ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-indigo-50 border-indigo-200 text-indigo-700'} border px-4 py-3 rounded-xl text-sm`}>
+          <div className={`${isTeal ? 'bg-teal-50 border-teal-200 text-teal-700' : 'bg-clinic-50 border-clinic-200 text-clinic-800'} border px-3 py-2.5 rounded-[10px] text-sm`}>
             Νέο email επιβεβαίωσης εστάλη!
           </div>
         )}
@@ -68,10 +66,10 @@ export default function VerifyEmailPendingPageContent() {
         <button
           onClick={handleResend}
           disabled={cooldown > 0 || resending}
-          className={`w-full py-3 px-4 border-2 text-sm font-bold rounded-xl transition-all disabled:opacity-50 ${
+          className={`w-full px-3 py-2.5 border-2 text-sm font-medium rounded-[10px] transition-all disabled:opacity-50 ${
             isTeal
               ? 'border-teal-600 text-teal-600 hover:bg-teal-50'
-              : 'border-indigo-600 text-indigo-600 hover:bg-indigo-50'
+              : 'border-clinic-600 text-clinic-700 hover:bg-clinic-50'
           }`}
         >
           {resending ? 'Αποστολή...' : cooldown > 0 ? `Αποστολή ξανά (${cooldown}s)` : 'Αποστολή ξανά'}
@@ -79,7 +77,7 @@ export default function VerifyEmailPendingPageContent() {
 
         <Link
           href={loginPath}
-          className="block text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors"
+          className="block text-sm font-medium text-ink-500 hover:text-ink-700 transition-colors"
         >
           Επιστροφή στη σύνδεση
         </Link>

@@ -87,19 +87,19 @@ export default function ResetPasswordPageContent() {
 
   if (!token) {
     return (
-      <div className={`min-h-screen flex items-center justify-center py-12 px-4 ${isTeal ? 'bg-teal-50' : 'bg-indigo-50'}`}>
-        <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-slate-100 text-center space-y-4">
+      <div className={`min-h-screen flex items-center justify-center py-12 px-4 bg-ink-50`}>
+        <div className="max-w-sm w-full bg-white p-6 rounded-xl border border-ink-200 text-center space-y-4">
           <div className="mx-auto h-16 w-16 rounded-full flex items-center justify-center bg-red-100 text-red-600">
             <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900">Μη έγκυρος σύνδεσμος</h2>
-          <p className="text-sm text-slate-600">Ο σύνδεσμος επαναφοράς δεν είναι έγκυρος.</p>
+          <h2 className="text-2xl font-semibold text-ink-900">Μη έγκυρος σύνδεσμος</h2>
+          <p className="text-sm text-ink-600">Ο σύνδεσμος επαναφοράς δεν είναι έγκυρος.</p>
           <Link
             href={`/forgot-password?userType=${userType}`}
-            className={`inline-block py-3 px-6 text-sm font-bold rounded-xl text-white transition-all ${
-              isTeal ? 'bg-teal-600 hover:bg-teal-700' : 'bg-indigo-600 hover:bg-indigo-700'
+            className={`inline-block px-4 py-2.5 text-sm font-medium rounded-[10px] text-white transition-all ${
+              isTeal ? 'bg-teal-600 hover:bg-teal-700' : 'bg-clinic-600 hover:bg-clinic-700'
             }`}
           >
             Νέο αίτημα επαναφοράς
@@ -110,20 +110,19 @@ export default function ResetPasswordPageContent() {
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden ${isTeal ? 'bg-teal-50' : 'bg-indigo-50'}`}>
-      <div className={`absolute top-[-10%] right-[-10%] w-[600px] h-[600px] ${isTeal ? 'bg-teal-600/10' : 'bg-indigo-600/10'} rounded-full filter blur-[80px]`} />
+    <div className={`min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden bg-ink-50`}>
 
-      <div className="max-w-md w-full space-y-6 bg-white p-8 rounded-3xl shadow-xl relative z-10 border border-slate-100">
+      <div className="max-w-sm w-full space-y-5 bg-white p-6 rounded-xl relative z-10 border border-ink-200">
         <div className="text-center">
-          <div className={`mx-auto h-16 w-16 rounded-full flex items-center justify-center mb-4 ${isTeal ? 'bg-teal-100 text-teal-600' : 'bg-indigo-100 text-indigo-600'}`}>
+          <div className={`mx-auto h-16 w-16 rounded-full flex items-center justify-center mb-4 ${isTeal ? 'bg-teal-100 text-teal-600' : 'bg-clinic-100 text-clinic-700'}`}>
             <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+          <h2 className="text-2xl font-semibold text-ink-900 tracking-tight">
             Νέος Κωδικός
           </h2>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-ink-600">
             Εισάγετε τον νέο κωδικό πρόσβασης.
           </p>
         </div>
@@ -135,18 +134,18 @@ export default function ResetPasswordPageContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <p className="text-slate-700 font-medium">Ο κωδικός ενημερώθηκε!</p>
-            <p className="text-sm text-slate-500">Ανακατεύθυνση στο dashboard...</p>
+            <p className="text-ink-700 font-medium">Ο κωδικός ενημερώθηκε!</p>
+            <p className="text-sm text-ink-500">Ανακατεύθυνση στο dashboard...</p>
           </div>
         ) : (
           <>
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2.5 rounded-[10px] text-sm">
                 {error}
                 {error.includes('ληγμένος') && (
                   <Link
                     href={`/forgot-password?userType=${userType}`}
-                    className={`block mt-2 font-bold ${isTeal ? 'text-teal-600' : 'text-indigo-600'}`}
+                    className={`block mt-2 font-medium ${isTeal ? 'text-teal-600' : 'text-clinic-700'}`}
                   >
                     Νέο αίτημα επαναφοράς
                   </Link>
@@ -164,8 +163,8 @@ export default function ResetPasswordPageContent() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors ${
-                    isTeal ? 'focus:ring-teal-500 focus:border-teal-500' : 'focus:ring-indigo-500 focus:border-indigo-500'
+                  className={`appearance-none rounded-[10px] relative block w-full px-3 py-2.5 border border-ink-300 placeholder-ink-400 text-ink-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors ${
+                    isTeal ? 'focus:ring-teal-500 focus:border-teal-500' : 'focus:ring-clinic-200 focus:border-clinic-600'
                   }`}
                   placeholder="Νέος Κωδικός"
                 />
@@ -181,10 +180,10 @@ export default function ResetPasswordPageContent() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`appearance-none rounded-xl relative block w-full px-4 py-3 border placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors ${
+                  className={`appearance-none rounded-[10px] relative block w-full px-3 py-2.5 border placeholder-ink-400 text-ink-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors ${
                     confirmPassword && password !== confirmPassword
                       ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      : `border-slate-300 ${isTeal ? 'focus:ring-teal-500 focus:border-teal-500' : 'focus:ring-indigo-500 focus:border-indigo-500'}`
+                      : `border-ink-300 ${isTeal ? 'focus:ring-teal-500 focus:border-teal-500' : 'focus:ring-clinic-200 focus:border-clinic-600'}`
                   }`}
                   placeholder="Επιβεβαίωση Κωδικού"
                 />
@@ -196,8 +195,8 @@ export default function ResetPasswordPageContent() {
               <button
                 type="submit"
                 disabled={loading || password.length < 6 || password !== confirmPassword}
-                className={`w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-70 ${
-                  isTeal ? 'bg-teal-600 hover:bg-teal-700' : 'bg-indigo-900 hover:bg-indigo-800'
+                className={`w-full flex justify-center px-3 py-2.5 border border-transparent text-sm font-medium rounded-[10px] text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-70 ${
+                  isTeal ? 'bg-teal-600 hover:bg-teal-700' : 'bg-clinic-600 hover:bg-clinic-700'
                 }`}
               >
                 {loading ? (
