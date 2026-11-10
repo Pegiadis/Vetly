@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 import { useClinicSetup } from './useClinicSetup';
+import AssistantWidget, { AssistantAvatar } from './AssistantWidget';
 
 type NavLink = readonly [href: string, label: string, icon: string];
 
@@ -68,6 +69,8 @@ export default function ClinicHomeShell({ children, unreadCount }: { children: R
   const pathname = usePathname();
   const setup = useClinicSetup();
   const [pending, setPending] = useState(0);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const onAssistantPage = pathname === '/vet/chat';
 
   // Pending-request count for the sidebar badge: refreshed on navigation, on
   // window focus, and whenever a page approves or rejects a request.
@@ -127,6 +130,8 @@ export default function ClinicHomeShell({ children, unreadCount }: { children: R
         <button onClick={logout} className={`${navItem} w-full hover:bg-black/[0.04]`}><ClinicIcon name="logout" className="text-ink-500" />Αποσύνδεση</button>
       </div>
     </aside>
+    {!onAssistantPage && !assistantOpen && <button type="button" aria-label="Άνοιγμα βοηθού" onClick={() => setAssistantOpen(true)} className="fixed bottom-5 right-5 z-30 rounded-full shadow-[0_6px_20px_rgba(15,23,42,0.22)] ring-2 ring-white transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600"><AssistantAvatar size={56} /></button>}
+    {!onAssistantPage && <AssistantWidget open={assistantOpen} onClose={() => setAssistantOpen(false)} />}
     <main className="min-h-[calc(100vh-60px)] min-w-0 border-ink-200 bg-white md:ml-60 md:rounded-tl-2xl md:border-l md:border-t">{pathname === '/vet/dashboard' || pathname === '/vet/chat' ? children : <div className="mx-auto max-w-[1280px] px-4 py-7 sm:px-8 lg:py-9">{children}</div>}</main>
   </div>;
 }

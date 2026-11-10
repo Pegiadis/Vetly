@@ -87,3 +87,43 @@
 .animate-slide-in-right {
   animation: slide-in-right 0.3s ease-out;
 }
+
+/* Assistant mascot: small idle motions so it reads as alive, never distracting.
+   Lengths are in the avatar's own 1024-unit space, so they scale with its size. */
+.assistant-avatar :is(.aa-head, .aa-highlights, .aa-ear-dog, .aa-ear-cat, .aa-tag) {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.assistant-avatar .aa-head { animation: aa-breathe 3.6s ease-in-out infinite; }
+.assistant-avatar .aa-eyes-open { animation: aa-eyes-open 5.2s step-end infinite; }
+.assistant-avatar .aa-eyes-closed { animation: aa-eyes-closed 5.2s step-end infinite; }
+.assistant-avatar .aa-highlights { animation: aa-glance 9s ease-in-out infinite; }
+.assistant-avatar .aa-ear-cat { transform-origin: 10% 90%; animation: aa-twitch 7s ease-in-out infinite; }
+.assistant-avatar .aa-ear-dog { transform-origin: 90% 10%; animation: aa-flop 7s ease-in-out infinite 1.2s; }
+.assistant-avatar .aa-tag { transform-origin: 50% -20%; animation: aa-swing 3.6s ease-in-out infinite; }
+
+/* While a reply is being written: quicker bob, eyes up, mouth moving. */
+.assistant-avatar[data-mood="thinking"] .aa-head { animation: aa-bob 0.9s ease-in-out infinite; }
+.assistant-avatar[data-mood="thinking"] .aa-highlights { animation: aa-look-up 1.8s ease-in-out infinite; }
+.assistant-avatar[data-mood="thinking"] .aa-mouth-smile { animation: aa-eyes-open 0.5s step-end infinite; }
+.assistant-avatar[data-mood="thinking"] .aa-mouth-open { animation: aa-eyes-closed 0.5s step-end infinite; }
+.assistant-avatar[data-mood="thinking"] .aa-tag { animation-duration: 0.9s; }
+
+/* A little hello when the launcher is hovered or focused. */
+:is(button, a):is(:hover, :focus-visible) > .assistant-avatar .aa-head { animation: aa-wiggle 0.6s ease-in-out 2; }
+
+@keyframes aa-breathe { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(12px); } }
+@keyframes aa-bob { 0%, 100% { transform: translateY(0) rotate(-1.5deg); } 50% { transform: translateY(-16px) rotate(1.5deg); } }
+/* Open and closed layers swap: closed for a beat twice per cycle. */
+@keyframes aa-eyes-open { 0% { opacity: 1; } 45% { opacity: 0; } 48% { opacity: 1; } 93% { opacity: 0; } 96% { opacity: 1; } }
+@keyframes aa-eyes-closed { 0% { opacity: 0; } 45% { opacity: 1; } 48% { opacity: 0; } 93% { opacity: 1; } 96% { opacity: 0; } }
+@keyframes aa-glance { 0%, 30%, 50%, 80%, 100% { transform: translateX(0); } 36%, 44% { transform: translateX(-14px); } 86%, 94% { transform: translateX(10px); } }
+@keyframes aa-look-up { 0%, 100% { transform: translate(-8px, -18px); } 50% { transform: translate(8px, -18px); } }
+@keyframes aa-twitch { 0%, 86%, 100% { transform: rotate(0); } 89% { transform: rotate(-10deg); } 92% { transform: rotate(4deg); } 95% { transform: rotate(-5deg); } }
+@keyframes aa-flop { 0%, 88%, 100% { transform: rotate(0); } 92% { transform: rotate(6deg); } 96% { transform: rotate(-3deg); } }
+@keyframes aa-swing { 0%, 100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+@keyframes aa-wiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-6deg); } 75% { transform: rotate(6deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-avatar * { animation: none !important; }
+}

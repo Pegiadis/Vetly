@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024"><g id="shoulders" fill="#006064"><path d="M205 940 Q235 830 350 803 H674 Q789 830 819 940 Q825 962 802 962 H222 Q199 962 205 940Z"/></g>
+<g id="ear-cat" fill="#004E52"><path d="M640 219 L867 82 Q902 61 916 103 Q945 232 867 428Z"/></g>
+<g id="collar" fill="#004E52"><path d="M340 750 H684 V838 Q512 891 340 838Z"/></g>
+<g id="head" fill="#006064"><ellipse cx="512" cy="492" rx="350" ry="325"/></g>
+<g id="ear-dog" fill="#004E52"><path d="M386 199 Q331 141 250 175 Q151 220 83 345 Q17 472 39 529 Q61 578 114 562 Q175 539 208 455 L268 327 Q300 255 365 243 Q407 235 386 199Z"/></g>
+<g id="muzzle" fill="#DEF5ED"><path d="M411 524 Q512 459 613 524 C788 509 814 671 729 742 C635 828 393 828 295 742 C209 671 235 509 411 524Z"/></g>
+<g id="nose" fill="#002E32"><path d="M463 537 Q512 518 561 537 Q583 547 565 572 L537 603 Q512 628 487 603 L459 572 Q441 547 463 537Z"/></g>
+<g id="tag"><circle cx="512" cy="886" r="70" fill="#4CC9A6"/><path fill="white" d="M500 848 H524 V874 H550 V898 H524 V924 H500 V898 H474 V874 H500Z"/></g><g id="eyes" fill="#002E32"><ellipse id="eye-left" cx="363" cy="437" rx="55" ry="58"/><ellipse id="eye-right" cx="661" cy="437" rx="55" ry="58"/><g id="eye-highlights" fill="white"><circle cx="380" cy="397" r="15"/><circle cx="678" cy="397" r="15"/></g></g><g id="mouth"><path d="M425 651 Q512 733 599 651" fill="none" stroke="#002E32" stroke-width="27" stroke-linecap="round"/></g></svg>
