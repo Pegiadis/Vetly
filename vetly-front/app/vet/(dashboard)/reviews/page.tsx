@@ -129,20 +129,19 @@ export default function VetReviewsPage() {
             {reviews.map(review => {
               const isEditing = editingReply === review.id;
               const formOpen = isEditing || replyingTo === review.id;
-              return <article key={review.id} className="p-4 sm:p-5" aria-labelledby={`review-${review.id}`}>
-                <header className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0"><h3 id={`review-${review.id}`} className="break-words text-sm font-semibold text-ink-900">{review.pet_owner?.name || 'Κηδεμόνας'}</h3><div className="mt-1.5 flex flex-wrap items-center gap-2"><ReviewStars rating={review.rating} /><time dateTime={review.created_at} className="text-xs text-ink-500">{formatDate(review.created_at)}</time></div></div>
-                  <span className={`rounded-md px-2 py-1 text-[11px] ${review.reply ? 'bg-clinic-100 text-clinic-700' : 'bg-ink-100 text-ink-600'}`}>{review.reply ? 'Απαντήθηκε' : 'Χωρίς απάντηση'}</span>
+              return <article key={review.id} className="px-4 py-3.5 sm:px-5" aria-labelledby={`review-${review.id}`}>
+                <header className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0"><h3 id={`review-${review.id}`} className="break-words text-sm font-semibold text-ink-900">{review.pet_owner?.name || 'Κηδεμόνας'}</h3><div className="mt-1 flex flex-wrap items-center gap-2"><ReviewStars rating={review.rating} /><time dateTime={review.created_at} className="text-xs text-ink-500">{formatDate(review.created_at)}</time></div></div>
+                  <div className="flex items-center gap-2"><span className={`inline-flex h-5 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${review.reply ? 'bg-clinic-100 text-clinic-800' : 'bg-ink-100 text-ink-600'}`}>{review.reply ? 'Απαντήθηκε' : 'Χωρίς απάντηση'}</span>{!review.reply && !formOpen && <ClinicButton variant="secondary" disabled={submitting} onClick={() => { setReplyingTo(review.id); setEditingReply(null); setReplyText(''); }}>Απάντηση</ClinicButton>}</div>
                 </header>
-                <p className="mt-4 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{review.comment || 'Ο κηδεμόνας άφησε μόνο βαθμολογία.'}</p>
-                {review.reply && !isEditing && <div className="mt-4 rounded-lg border border-ink-200 bg-ink-50/60 p-3">
+                <p className="mt-2.5 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{review.comment || 'Ο κηδεμόνας άφησε μόνο βαθμολογία.'}</p>
+                {review.reply && !isEditing && <div className="mt-3 rounded-[10px] bg-ink-50 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-xs font-semibold text-ink-800">Απάντηση κτηνιατρείου</h4><div className="flex gap-1">
                     <ClinicButton variant="ghost" disabled={submitting} onClick={() => { setEditingReply(review.id); setReplyingTo(null); setReplyText(review.reply || ''); }}>Επεξεργασία</ClinicButton>
                     <ClinicButton variant="danger" disabled={submitting} onClick={() => handleDeleteReply(review.id)}>Διαγραφή</ClinicButton>
                   </div></div>
                   <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{review.reply}</p>
                 </div>}
-                {!review.reply && !formOpen && <ClinicButton variant="secondary" disabled={submitting} className="mt-4" onClick={() => { setReplyingTo(review.id); setEditingReply(null); setReplyText(''); }}>Απάντηση</ClinicButton>}
                 {formOpen && <form className="mt-4 overflow-hidden rounded-lg border border-ink-200" onSubmit={e => { e.preventDefault(); if (!submitting) void (isEditing ? handleEditReply(review.id) : handleReply(review.id)); }}>
                   <div className="border-b border-ink-200 bg-ink-50/60 px-3 py-3"><label htmlFor={`reply-${review.id}`} className="text-xs font-semibold text-ink-900">{isEditing ? 'Επεξεργασία απάντησης' : 'Η απάντησή σας'}</label><p className="mt-1 text-xs text-ink-500">Προς {review.pet_owner?.name || 'τον κηδεμόνα'} · Δημόσια απάντηση</p></div>
                   <div className="p-3"><ClinicTextarea id={`reply-${review.id}`} autoFocus disabled={submitting} className="w-full" rows={4} placeholder={isEditing ? 'Επεξεργασία απάντησης...' : 'Γράψτε την απάντησή σας...'} value={replyText} onChange={e => setReplyText(e.target.value)} /></div>

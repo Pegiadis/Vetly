@@ -44,7 +44,7 @@ export default function VetAnalyticsPage() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Header */}
-      <ClinicPageHeader title={<>Στατιστικά</>} description={<>Στατιστικά ιατρείου</>}  />
+      <ClinicPageHeader title={<>Στατιστικά</>} description={<>Επισκέψεις, υπηρεσίες και ασθενείς του κτηνιατρείου.</>}  />
 
       <ClinicPanel className="mb-5 grid grid-cols-2 overflow-hidden md:grid-cols-4">
         {[
@@ -64,7 +64,7 @@ export default function VetAnalyticsPage() {
               {appointment_trends.items.slice(-30).map(data => (
                 <div key={data.date} className="h-full min-w-0 flex-1 flex flex-col justify-end items-center gap-1">
                   <div
-                    className="w-full bg-clinic-500 rounded-t-sm transition-all hover:bg-clinic-600 min-h-[2px]"
+                    className="w-full bg-clinic-600 rounded-t-sm transition-all hover:bg-clinic-700 min-h-[2px]"
                     role="img" aria-label={`${data.date}: ${data.count} ραντεβού`} style={{ height: `${(data.count / maxTrendCount) * 100}%` }}
                     title={`${data.date}: ${data.count}`}
                   />
@@ -91,7 +91,7 @@ export default function VetAnalyticsPage() {
                   </div>
                   <div className="h-2 bg-ink-100 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-clinic-500 rounded-full"
+                      className="h-full bg-clinic-600 rounded-full"
                       style={{ width: `${service.percentage}%` }}
                     />
                   </div>
@@ -120,7 +120,7 @@ export default function VetAnalyticsPage() {
                     <span className="w-28 text-sm text-ink-600">{String(slot.hour).padStart(2, '0')}:00 - {String(slot.hour + 1).padStart(2, '0')}:00</span>
                     <div className="flex-1 h-3 bg-ink-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-clinic-400 rounded-full"
+                        className="h-full bg-clinic-600 rounded-full"
                         style={{ width: `${slot.percentage}%` }}
                       />
                     </div>
