@@ -32,8 +32,8 @@ import { getImageUrl } from '@/lib/api';
 
 const statusConfig: Record<string, { label: string; bg: string }> = {
   managed: { label: 'Χωρίς λογαριασμό', bg: 'bg-ink-100 text-ink-600' },
-  invited: { label: 'Προσκλήθηκε', bg: 'bg-amber-100 text-amber-700' },
-  linked: { label: 'Συνδεδεμένος', bg: 'bg-green-100 text-green-700' },
+  invited: { label: 'Προσκλήθηκε', bg: 'bg-[#ffe0c7] text-[#622700]' },
+  linked: { label: 'Συνδεδεμένος', bg: 'bg-clinic-100 text-clinic-800' },
 };
 
 const petTypeLabels: Record<string, string> = { Dog: 'Σκύλος', Cat: 'Γάτα', Other: 'Άλλο' };
@@ -792,52 +792,44 @@ export default function VetClientsPage() {
 
   return (
     <div className="max-w-7xl mx-auto relative">
-      <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-ink-900">
-          <svg aria-hidden="true" className="h-5 w-5 text-ink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M9 11a4 4 0 100-8 4 4 0 000 8zm8-7.87a4 4 0 010 7.75" /></svg>
-          Κηδεμόνες
-        </h1>
+      <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Κηδεμόνες</h1>
+          <p className="mt-1.5 text-sm text-ink-500">Στοιχεία επικοινωνίας, κατοικίδια και ιστορικό φροντίδας κάθε κηδεμόνα.</p>
+        </div>
         <ClinicButton variant="primary" onClick={() => { setSelectedClientId(null); setShowAddClient(true); }}>Προσθήκη Κηδεμόνα</ClinicButton>
       </header>
 
       <div className={`grid items-start gap-4 ${panelOpen ? 'xl:grid-cols-[minmax(0,1fr)_400px]' : ''}`}><div className="min-w-0 space-y-4">
-        <ClinicPanel className="overflow-hidden">
-          <div className="px-5 py-4">
-            <p className="text-sm font-semibold text-ink-900" aria-live="polite">{total} {debouncedSearch ? 'αποτελέσματα αναζήτησης' : 'κηδεμόνες'}</p>
-            <p className="mt-1 text-xs text-ink-500">{debouncedSearch ? `Για «${debouncedSearch}» στο μητρώο σας` : 'Το μητρώο κηδεμόνων του ιατρείου σας'}</p>
-          </div>
-          <div className="border-t border-ink-100 bg-ink-50/50 px-5 py-3 text-xs leading-5 text-ink-500">Επιλέξτε έναν κηδεμόνα για στοιχεία επικοινωνίας, κατοικίδια και ιστορικό φροντίδας.</div>
-        </ClinicPanel>
-
         <ClinicPanel className="overflow-hidden" aria-busy={loading}>
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 px-3 py-2.5">
-            <span className="rounded-md bg-ink-100 px-3 py-1.5 text-xs font-semibold text-ink-800">{debouncedSearch ? 'Αναζήτηση' : 'Όλοι οι κηδεμόνες'}</span>
-            {searchTerm && <button type="button" onClick={() => handleSearchChange('')} className="px-2 py-1 text-xs text-ink-600 underline underline-offset-2">Καθαρισμός</button>}
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 px-4 py-3">
+            <h2 className="text-sm font-semibold">Μητρώο κηδεμόνων</h2>
+            <span role="status" aria-live="polite" className="text-xs text-ink-500">{total} {debouncedSearch ? `αποτελέσματα για «${debouncedSearch}»` : 'κηδεμόνες'}</span>
           </div>
-          <div className="relative border-b border-ink-200 p-3">
-            <svg aria-hidden="true" className="absolute left-6 top-5.5 h-4 w-4 text-ink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            <ClinicInput aria-label="Αναζήτηση κηδεμόνων" type="search" placeholder="Αναζήτηση με όνομα, email ή τηλέφωνο..." className="w-full pl-9 text-xs!" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-2 border-b border-ink-200 p-3">
+            <ClinicInput aria-label="Αναζήτηση κηδεμόνων" type="search" placeholder="Αναζήτηση με όνομα, email ή τηλέφωνο…" className="w-full sm:w-80 sm:max-w-full" value={searchTerm} onChange={e => handleSearchChange(e.target.value)} />
+            {searchTerm && <ClinicButton variant="ghost" onClick={() => handleSearchChange('')}>Καθαρισμός</ClinicButton>}
           </div>
-          <ClinicTable className="table-fixed [&_th]:py-2! [&_td]:py-3! [&_th]:px-3! [&_td]:px-3!">
+          <ClinicTable className="table-fixed [&_th]:py-2! [&_td]:py-2! [&_th]:px-3! [&_td]:px-3! sm:[&_th]:px-4! sm:[&_td]:px-4!">
             <thead><tr>
               <ClinicTableHead className={panelOpen ? 'w-[58%] sm:w-[45%]' : 'w-[58%] sm:w-[30%]'}>Κηδεμόνας</ClinicTableHead>
               <ClinicTableHead className={panelOpen ? 'hidden' : 'hidden lg:table-cell'}>Email</ClinicTableHead>
               <ClinicTableHead className="hidden sm:table-cell">Τηλέφωνο</ClinicTableHead>
               <ClinicTableHead>Λογαριασμός</ClinicTableHead>
-              <ClinicTableHead className="hidden w-20 text-right! sm:table-cell">Κατοικίδια</ClinicTableHead>
+              <ClinicTableHead className="hidden w-28 text-right! sm:table-cell">Κατοικίδια</ClinicTableHead>
             </tr></thead>
             <tbody>
               {clients.map(client => {
                 const st = statusConfig[client.status] || statusConfig.managed;
                 return <tr key={client.id} onClick={() => setSelectedClientId(client.id)} className={`cursor-pointer ${selectedClientId === client.id ? 'bg-ink-100! shadow-[inset_3px_0_0_#303030]' : ''}`}>
                   <ClinicTableCell>
-                    <div className="flex items-start gap-2"><ClinicAvatar name={client.name} imageUrl={client.image_url} /><div className="min-w-0"><button type="button" aria-label={`Στοιχεία: ${client.name}`} aria-expanded={selectedClientId === client.id} onClick={e => { e.stopPropagation(); setSelectedClientId(client.id); }} className="text-left text-[13px] font-semibold text-ink-900 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600">{client.name}</button>
-                    <p className="mt-1 text-xs text-ink-500 sm:hidden">{client.phone || 'Χωρίς τηλέφωνο'} · {client.pet_count} κατοικίδια</p></div></div>
+                    <div className="flex items-center gap-2.5"><ClinicAvatar name={client.name} imageUrl={client.image_url} /><div className="min-w-0"><button type="button" aria-label={`Στοιχεία: ${client.name}`} aria-expanded={selectedClientId === client.id} onClick={e => { e.stopPropagation(); setSelectedClientId(client.id); }} className="block max-w-full break-words text-left text-sm font-semibold text-ink-900 hover:underline sm:truncate focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600">{client.name}</button>
+                    <p className="truncate text-xs text-ink-500 sm:hidden">{client.phone || 'Χωρίς τηλέφωνο'} · {client.pet_count} κατοικίδια</p></div></div>
                   </ClinicTableCell>
-                  <ClinicTableCell className={panelOpen ? 'hidden' : 'hidden break-all text-xs! lg:table-cell'}>{client.email || '—'}</ClinicTableCell>
-                  <ClinicTableCell className="hidden text-xs! tabular-nums sm:table-cell">{client.phone || '—'}</ClinicTableCell>
-                  <ClinicTableCell><span className={`inline-block rounded-md px-1.5 py-0.5 text-[11px] leading-4 ${st.bg}`}>{st.label}</span></ClinicTableCell>
-                  <ClinicTableCell className="hidden text-right! text-xs! tabular-nums sm:table-cell">{client.pet_count}</ClinicTableCell>
+                  <ClinicTableCell className={panelOpen ? 'hidden' : 'hidden truncate lg:table-cell'}>{client.email || '—'}</ClinicTableCell>
+                  <ClinicTableCell className="hidden tabular-nums sm:table-cell">{client.phone || '—'}</ClinicTableCell>
+                  <ClinicTableCell><span className={`inline-flex h-5 items-center whitespace-nowrap rounded-full px-2 text-xs font-medium ${st.bg}`}>{st.label}</span></ClinicTableCell>
+                  <ClinicTableCell className="hidden text-right! tabular-nums sm:table-cell">{client.pet_count}</ClinicTableCell>
                 </tr>;
               })}
             </tbody>
