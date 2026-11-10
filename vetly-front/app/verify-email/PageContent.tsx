@@ -4,6 +4,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
+import { consumePendingNext } from '@/lib/next-path';
 
 interface VerifyResponse {
   access_token: string;
@@ -49,6 +50,7 @@ export default function VerifyEmailPageContent() {
         const response = await api.post<VerifyResponse>('/auth/verify-email', { token });
         setStatus('success');
         if (response.pending_professional_verification) {
+          consumePendingNext();
           setSuccessMessage('Το email επιβεβαιώθηκε. Εκκρεμεί ο έλεγχος των επαγγελματικών στοιχείων σας για την πιλοτική δοκιμή.');
           return;
         }
@@ -66,7 +68,8 @@ export default function VerifyEmailPageContent() {
 
         await login(response.access_token, resolvedType);
         const dashboard = resolvedType === 'vet' ? '/vet/dashboard' : '/owner/dashboard';
-        router.push(dashboard);
+        // The return path was stored on this browser when the user registered or signed in.
+        router.push(consumePendingNext() ?? dashboard);
       } catch (err) {
         setStatus('error');
         if (err instanceof ApiError) {

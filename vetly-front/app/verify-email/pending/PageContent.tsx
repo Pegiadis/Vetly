@@ -51,9 +51,12 @@ export default function VerifyEmailPendingPageContent() {
             Ελέγξτε το email σας
           </h2>
           <p className="mt-3 text-sm text-ink-600 leading-relaxed">
-            Σας στείλαμε ένα email στο{' '}
-            <span className="font-semibold text-ink-800">{email}</span>.
-            Πατήστε τον σύνδεσμο για να επιβεβαιώσετε τον λογαριασμό σας.
+            Αν το email{' '}
+            {email && <span className="font-semibold text-ink-800">{email}</span>}{' '}
+            δεν έχει ήδη λογαριασμό, σας στείλαμε σύνδεσμο επιβεβαίωσης. Πατήστε τον για να ολοκληρώσετε την εγγραφή.
+          </p>
+          <p className="mt-2 text-sm text-ink-600 leading-relaxed">
+            Αν έχετε ήδη λογαριασμό, συνδεθείτε ή επαναφέρετε τον κωδικό σας.
           </p>
         </div>
 

@@ -77,7 +77,7 @@ export default function InviteRegisterPage() {
 
   const fieldErrors: Record<string, string> = {};
   if (formData.name.length > 0 && formData.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
-  if (formData.password.length > 0 && formData.password.length < 6) fieldErrors.password = 'Τουλάχιστον 6 χαρακτήρες.';
+  if (formData.password.length > 0 && formData.password.length < 8) fieldErrors.password = 'Τουλάχιστον 8 χαρακτήρες.';
   if (formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword) fieldErrors.confirmPassword = 'Οι κωδικοί δεν ταιριάζουν.';
 
   const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-slate-300';
@@ -92,8 +92,8 @@ export default function InviteRegisterPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες.');
+    if (formData.password.length < 8) {
+      setError('Ο κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες.');
       return;
     }
 
@@ -242,7 +242,7 @@ export default function InviteRegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={6}
+                minLength={8}
                 maxLength={128}
                 value={formData.password}
                 onChange={handleChange}
@@ -260,7 +260,7 @@ export default function InviteRegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={6}
+                minLength={8}
                 maxLength={128}
                 value={formData.confirmPassword}
                 onChange={handleChange}

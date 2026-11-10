@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
+import { rememberPendingNext, sanitizeNextPath, withNext } from '@/lib/next-path';
 
 interface TokenResponse {
   access_token: string;
@@ -14,17 +15,18 @@ interface TokenResponse {
 export default function VetLoginPageContent() {
   const router = useRouter();
   const { login, isAuthenticated, userType, isLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const nextPath = sanitizeNextPath(searchParams.get('next'));
   const [email, setEmail] = useState('');
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && userType === 'vet') {
-      router.replace('/vet/dashboard');
+      router.replace(nextPath ?? '/vet/dashboard');
     }
-  }, [isLoading, isAuthenticated, userType, router]);
+  }, [isLoading, isAuthenticated, userType, router, nextPath]);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const searchParams = useSearchParams();
   const sessionExpired = searchParams.get('expired') === 'true';
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -39,10 +41,11 @@ export default function VetLoginPageContent() {
       });
 
       await login(response.access_token, 'vet');
-      router.push('/vet/dashboard');
+      router.push(nextPath ?? '/vet/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 403) {
+          rememberPendingNext(nextPath);
           router.push(`/verify-email/pending?email=${encodeURIComponent(email)}&userType=vet`);
           return;
         }
@@ -101,7 +104,7 @@ export default function VetLoginPageContent() {
 
         <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
           <p className="text-sm text-ink-600">Νέο κτηνιατρείο στο Vetly;</p>
-          <Link href="/vet/register" className="inline-flex h-8 shrink-0 items-center rounded-[10px] bg-black/[0.06] px-3 text-[13px] font-medium text-ink-900 hover:bg-black/10">Εγγραφή ιατρείου</Link>
+          <Link href={withNext('/vet/register', nextPath)} className="inline-flex h-8 shrink-0 items-center rounded-[10px] bg-black/[0.06] px-3 text-[13px] font-medium text-ink-900 hover:bg-black/10">Εγγραφή ιατρείου</Link>
         </div>
 
         <p className="mt-5 text-center text-xs text-ink-500">

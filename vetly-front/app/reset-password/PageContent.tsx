@@ -45,8 +45,8 @@ export default function ResetPasswordPageContent() {
       setError('Οι κωδικοί δεν ταιριάζουν.');
       return;
     }
-    if (password.length < 6) {
-      setError('Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες.');
+    if (password.length < 8) {
+      setError('Ο κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες.');
       return;
     }
 
@@ -161,6 +161,8 @@ export default function ResetPasswordPageContent() {
                   type="password"
                   autoComplete="new-password"
                   required
+                  minLength={8}
+                  maxLength={128}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className={`appearance-none rounded-[10px] relative block w-full px-3 py-2.5 border border-ink-300 placeholder-ink-400 text-ink-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors ${
@@ -194,7 +196,7 @@ export default function ResetPasswordPageContent() {
 
               <button
                 type="submit"
-                disabled={loading || password.length < 6 || password !== confirmPassword}
+                disabled={loading || password.length < 8 || password !== confirmPassword}
                 className={`w-full flex justify-center px-3 py-2.5 border border-transparent text-sm font-medium rounded-[10px] text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-70 ${
                   isTeal ? 'bg-teal-600 hover:bg-teal-700' : 'bg-clinic-600 hover:bg-clinic-700'
                 }`}

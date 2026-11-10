@@ -1,22 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator';
+import { rememberPendingNext, sanitizeNextPath, withNext } from '@/lib/next-path';
 
 export default function VetRegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-ink-50" />}>
+      <VetRegisterForm />
+    </Suspense>
+  );
+}
+
+function VetRegisterForm() {
   const router = useRouter();
   const { isAuthenticated, userType, isLoading } = useAuth();
+  const nextPath = sanitizeNextPath(useSearchParams().get('next'));
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && userType === 'vet') {
-      router.replace('/vet/dashboard');
+      router.replace(nextPath ?? '/vet/dashboard');
     }
-  }, [isLoading, isAuthenticated, userType, router]);
+  }, [isLoading, isAuthenticated, userType, router, nextPath]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,12 +42,11 @@ export default function VetRegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [emailTaken, setEmailTaken] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setTouched(prev => ({ ...prev, [e.target.name]: true }));
-    if (e.target.name === 'email') setEmailTaken(false);
     setError('');
   };
 
@@ -47,13 +56,12 @@ export default function VetRegisterPage() {
 
   const fieldErrors: Record<string, string> = {};
   if (formData.name.length > 0 && formData.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
-  if (emailTaken) fieldErrors.email = 'Αυτό το email χρησιμοποιείται ήδη.';
   if (formData.specialty.length > 0 && formData.specialty.trim().length < 2) fieldErrors.specialty = 'Τουλάχιστον 2 χαρακτήρες.';
   if (formData.license_number.length > 0 && formData.license_number.trim().length < 2) fieldErrors.license_number = 'Τουλάχιστον 2 χαρακτήρες.';
   if (formData.phone.length > 0 && formData.phone.trim().length < 5) fieldErrors.phone = 'Τουλάχιστον 5 χαρακτήρες.';
   if (formData.address.length > 0 && formData.address.trim().length < 5) fieldErrors.address = 'Τουλάχιστον 5 χαρακτήρες.';
   if (formData.city.length > 0 && formData.city.trim().length < 2) fieldErrors.city = 'Τουλάχιστον 2 χαρακτήρες.';
-  if (formData.password.length > 0 && formData.password.length < 6) fieldErrors.password = 'Τουλάχιστον 6 χαρακτήρες.';
+  if (formData.password.length > 0 && formData.password.length < 8) fieldErrors.password = 'Τουλάχιστον 8 χαρακτήρες.';
   if (formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword) fieldErrors.confirmPassword = 'Οι κωδικοί δεν ταιριάζουν.';
 
   const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-ink-300';
@@ -67,8 +75,8 @@ export default function VetRegisterPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες.');
+    if (formData.password.length < 8) {
+      setError('Ο κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες.');
       return;
     }
 
@@ -93,6 +101,11 @@ export default function VetRegisterPage() {
       return;
     }
 
+    if (!acceptedTerms) {
+      setError('Για να συνεχίσετε, αποδεχτείτε τους Όρους Χρήσης και την Πολιτική Απορρήτου.');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -107,11 +120,10 @@ export default function VetRegisterPage() {
         city: formData.city,
       });
 
+      rememberPendingNext(nextPath);
       router.push(`/verify-email/pending?email=${encodeURIComponent(formData.email)}&userType=vet`);
     } catch (err) {
-      if (err instanceof ApiError && err.message === 'Email already registered') {
-        setEmailTaken(true);
-      } else if (err instanceof ApiError) {
+      if (err instanceof ApiError) {
         setError(err.message);
       } else {
         setError('Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.');
@@ -282,7 +294,7 @@ export default function VetRegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={6}
+                minLength={8}
                 maxLength={128}
                 value={formData.password}
                 onChange={handleChange}
@@ -301,7 +313,7 @@ export default function VetRegisterPage() {
                 type="password"
                 autoComplete="new-password"
                 required
-                minLength={6}
+                minLength={8}
                 maxLength={128}
                 value={formData.confirmPassword}
                 onChange={handleChange}
@@ -311,6 +323,15 @@ export default function VetRegisterPage() {
               />
               {touched.confirmPassword && fieldErrors.confirmPassword && <p className="text-xs text-red-600 mt-1">{fieldErrors.confirmPassword}</p>}
             </div>
+          </div>
+
+          <div>
+            <label className="flex items-start gap-2.5 text-xs leading-relaxed text-ink-600">
+              <input type="checkbox" name="acceptTerms" checked={acceptedTerms} onChange={(e) => { setAcceptedTerms(e.target.checked); setError(''); }} className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 accent-clinic-600" />
+              <span>
+                Αποδέχομαι τους <Link href="/terms" target="_blank" rel="noopener" className="font-medium text-clinic-700 underline-offset-4 hover:underline">Όρους Χρήσης</Link> και την <Link href="/privacy" target="_blank" rel="noopener" className="font-medium text-clinic-700 underline-offset-4 hover:underline">Πολιτική Απορρήτου</Link>
+              </span>
+            </label>
           </div>
 
           <div>
@@ -335,7 +356,7 @@ export default function VetRegisterPage() {
         <div className="text-center mt-4">
           <p className="text-sm text-ink-600">
             Έχετε ήδη λογαριασμό;{' '}
-            <Link href="/vet/login" className="font-medium text-clinic-700 underline-offset-4 hover:underline">
+            <Link href={withNext('/vet/login', nextPath)} className="font-medium text-clinic-700 underline-offset-4 hover:underline">
               Σύνδεση
             </Link>
           </p>

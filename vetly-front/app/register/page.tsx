@@ -1,22 +1,32 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
 import PasswordStrengthIndicator from '@/components/PasswordStrengthIndicator';
+import { rememberPendingNext, sanitizeNextPath, withNext } from '@/lib/next-path';
 
 export default function OwnerRegisterPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-ink-50" />}>
+      <OwnerRegisterForm />
+    </Suspense>
+  );
+}
+
+function OwnerRegisterForm() {
   const router = useRouter();
   const { isAuthenticated, userType, isLoading } = useAuth();
+  const nextPath = sanitizeNextPath(useSearchParams().get('next'));
 
   useEffect(() => {
     if (!isLoading && isAuthenticated && userType === 'pet_owner') {
-      router.replace('/owner/dashboard');
+      router.replace(nextPath ?? '/owner/dashboard');
     }
-  }, [isLoading, isAuthenticated, userType, router]);
+  }, [isLoading, isAuthenticated, userType, router, nextPath]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -27,12 +37,11 @@ export default function OwnerRegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [emailTaken, setEmailTaken] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setTouched(prev => ({ ...prev, [e.target.name]: true }));
-    if (e.target.name === 'email') setEmailTaken(false);
     setError('');
   };
 
@@ -42,8 +51,7 @@ export default function OwnerRegisterPage() {
 
   const fieldErrors: Record<string, string> = {};
   if (formData.name.length > 0 && formData.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
-  if (emailTaken) fieldErrors.email = 'Αυτό το email χρησιμοποιείται ήδη.';
-  if (formData.password.length > 0 && formData.password.length < 6) fieldErrors.password = 'Τουλάχιστον 6 χαρακτήρες.';
+  if (formData.password.length > 0 && formData.password.length < 8) fieldErrors.password = 'Τουλάχιστον 8 χαρακτήρες.';
   if (formData.confirmPassword.length > 0 && formData.password !== formData.confirmPassword) fieldErrors.confirmPassword = 'Οι κωδικοί δεν ταιριάζουν.';
 
   const inputErr = (field: string) => touched[field] && fieldErrors[field] ? 'border-red-300 bg-red-50/30' : 'border-ink-300';
@@ -58,13 +66,18 @@ export default function OwnerRegisterPage() {
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('Ο κωδικός πρέπει να έχει τουλάχιστον 6 χαρακτήρες.');
+    if (formData.password.length < 8) {
+      setError('Ο κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες.');
       return;
     }
 
     if (formData.name.trim().length < 2) {
       setError('Το όνομα πρέπει να έχει τουλάχιστον 2 χαρακτήρες.');
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setError('Για να συνεχίσετε, αποδεχτείτε τους Όρους Χρήσης και την Πολιτική Απορρήτου.');
       return;
     }
 
@@ -77,11 +90,10 @@ export default function OwnerRegisterPage() {
         password: formData.password,
       });
 
+      rememberPendingNext(nextPath);
       router.push(`/verify-email/pending?email=${encodeURIComponent(formData.email)}&userType=pet_owner`);
     } catch (err) {
-      if (err instanceof ApiError && err.message === 'Email already registered') {
-        setEmailTaken(true);
-      } else if (err instanceof ApiError) {
+      if (err instanceof ApiError) {
         setError(err.message);
       } else {
         setError('Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.');
@@ -118,14 +130,22 @@ export default function OwnerRegisterPage() {
             </div>
             <div>
               <label htmlFor="password" className="mb-1.5 block text-xs font-medium text-ink-700">Κωδικός</label>
-              <input id="password" name="password" type="password" autoComplete="new-password" required minLength={6} maxLength={128} value={formData.password} onChange={handleChange} onBlur={() => handleBlur('password')} className={`${inputBase} ${inputErr('password')}`} />
+              <input id="password" name="password" type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={formData.password} onChange={handleChange} onBlur={() => handleBlur('password')} className={`${inputBase} ${inputErr('password')}`} />
               <PasswordStrengthIndicator password={formData.password} colorScheme="teal" />
               {touched.password && fieldErrors.password && <p className="mt-1 text-xs text-red-600">{fieldErrors.password}</p>}
             </div>
             <div>
               <label htmlFor="confirmPassword" className="mb-1.5 block text-xs font-medium text-ink-700">Επιβεβαίωση κωδικού</label>
-              <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required minLength={6} maxLength={128} value={formData.confirmPassword} onChange={handleChange} onBlur={() => handleBlur('confirmPassword')} className={`${inputBase} ${inputErr('confirmPassword')}`} />
+              <input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required minLength={8} maxLength={128} value={formData.confirmPassword} onChange={handleChange} onBlur={() => handleBlur('confirmPassword')} className={`${inputBase} ${inputErr('confirmPassword')}`} />
               {touched.confirmPassword && fieldErrors.confirmPassword && <p className="mt-1 text-xs text-red-600">{fieldErrors.confirmPassword}</p>}
+            </div>
+            <div>
+              <label className="flex items-start gap-2.5 text-xs leading-relaxed text-ink-600">
+                <input type="checkbox" name="acceptTerms" checked={acceptedTerms} onChange={(e) => { setAcceptedTerms(e.target.checked); setError(''); }} className="mt-0.5 h-4 w-4 shrink-0 rounded border-ink-300 accent-clinic-600" />
+                <span>
+                  Αποδέχομαι τους <Link href="/terms" target="_blank" rel="noopener" className="font-medium text-clinic-700 underline-offset-4 hover:underline">Όρους Χρήσης</Link> και την <Link href="/privacy" target="_blank" rel="noopener" className="font-medium text-clinic-700 underline-offset-4 hover:underline">Πολιτική Απορρήτου</Link>
+                </span>
+              </label>
             </div>
             <button type="submit" disabled={loading} className="flex h-10 w-full items-center justify-center rounded-[10px] bg-clinic-600 text-sm font-medium text-white transition-colors hover:bg-clinic-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600 disabled:opacity-70">
               {loading ? (
@@ -140,7 +160,7 @@ export default function OwnerRegisterPage() {
 
         <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
           <p className="text-sm text-ink-600">Έχετε ήδη λογαριασμό;</p>
-          <Link href="/owner/login" className="inline-flex h-8 shrink-0 items-center rounded-[10px] bg-black/[0.06] px-3 text-[13px] font-medium text-ink-900 hover:bg-black/10">Σύνδεση</Link>
+          <Link href={withNext('/owner/login', nextPath)} className="inline-flex h-8 shrink-0 items-center rounded-[10px] bg-black/[0.06] px-3 text-[13px] font-medium text-ink-900 hover:bg-black/10">Σύνδεση</Link>
         </div>
 
         <p className="mt-5 text-center text-xs text-ink-500">
