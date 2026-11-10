@@ -114,4 +114,19 @@ export interface Reminder {
   is_sent: boolean;
   is_dismissed: boolean;
   created_at: string;
+
+// --- Admin: professional verification of vets ---
+
+export interface AdminVet {
+  id: string;
+  name: string;
+  email: string;
+  license_number: string;
+  specialty: string;
+  city: string;
+  phone: string;
+  email_verified: boolean;
+  is_verified: boolean;
+  created_at: string;
+}
 }

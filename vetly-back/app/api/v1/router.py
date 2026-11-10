@@ -48,6 +48,8 @@ api_router.include_router(vet_reminders.router, prefix="/vet/reminders", tags=["
 api_router.include_router(owner_reminders.router, prefix="/owner/reminders", tags=["Owner Reminders"])
 api_router.include_router(vet_documents.router, prefix="/vet/documents", tags=["Vet Documents"])
 api_router.include_router(public.router, prefix="/public", tags=["Public"])
+from app.api.v1.endpoints import admin
+api_router.include_router(admin.router, prefix="/admin", tags=["Admin"])
 
 @api_router.get("/")
 async def root():

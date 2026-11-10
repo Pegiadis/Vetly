@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
 
     # AI
+    # Vets with these emails (comma-separated) can approve new clinics. Empty: nobody.
+    ADMIN_EMAILS: str = ""
+
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-sonnet-5-5"
 
