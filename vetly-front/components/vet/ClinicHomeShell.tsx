@@ -34,7 +34,7 @@ const footerLinks: readonly NavLink[] = [
   ['/vet/chat', 'Βοηθός', 'chat'],
   ['/vet/settings', 'Ρυθμίσεις', 'settings'],
 ];
-const navItem = 'flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium';
+const navItem = 'flex h-8 items-center gap-2 rounded-[10px] px-2 text-sm font-medium text-ink-800';
 
 const paths: Record<string, string> = {
   home: 'M3 10 12 3l9 7v11h-6v-7H9v7H3z',
@@ -92,41 +92,41 @@ export default function ClinicHomeShell({ children, unreadCount }: { children: R
   const renderLink = ([href, label, icon]: NavLink) => {
     const current = isCurrent(href);
     const badge = href === '/vet/pending' && pending > 0 ? pending : null;
-    return <Link key={href} href={href} onClick={() => setOpen(false)} aria-current={current ? 'page' : undefined} className={`${navItem} ${current ? 'bg-clinic-100 text-clinic-700 shadow-xs' : 'hover:bg-black/5'}`}>
-      <ClinicIcon name={icon} />
+    return <Link key={href} href={href} onClick={() => setOpen(false)} aria-current={current ? 'page' : undefined} className={`${navItem} ${current ? 'bg-black/[0.06] text-ink-900' : 'hover:bg-black/[0.04]'}`}>
+      <ClinicIcon name={icon} className={current ? 'text-clinic-600' : 'text-ink-500'} />
       <span className="min-w-0 flex-1 truncate">{label}</span>
-      {badge !== null && <span aria-label={`${badge} εκκρεμή`} className="rounded-full bg-clinic-600 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white tabular-nums">{badge > 99 ? '99+' : badge}</span>}
+      {badge !== null && <span aria-label={`${badge} εκκρεμή`} className="grid h-5 min-w-5 place-items-center rounded-full bg-[#ffe0c7] px-1.5 text-xs font-medium tabular-nums text-[#622700]">{badge > 99 ? '99+' : badge}</span>}
     </Link>;
   };
   const nextStep = setup.remaining[0];
   const doneSteps = setup.steps.length - setup.remaining.length;
 
-  return <div className="clinic-shell min-h-screen bg-[#f6f8f7] text-[#293640]">
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 bg-[#1f2937] px-4 text-white">
+  return <div className="clinic-shell min-h-screen bg-ink-50 text-ink-800">
+    <header className="sticky top-0 z-30 flex h-[60px] items-center gap-4 bg-ink-50 px-4 text-ink-900">
       <button aria-label={open ? 'Κλείσιμο μενού' : 'Άνοιγμα μενού'} aria-expanded={open} aria-controls="clinic-navigation" onClick={() => setOpen(!open)} className="p-2 md:hidden"><ClinicIcon name="menu" /></button>
-      <Link href="/vet/dashboard" className="flex items-center gap-2 md:w-52"><span className="shrink-0 rounded-md bg-[#f6f8f7] px-2 py-1"><Image src="/branding/vetly-logo-transparent.png" alt="Vetly — Αρχική" width={2109} height={746} sizes="96px" preload className="h-auto w-24" /></span><span className="hidden rounded-full border border-white/20 px-2 py-0.5 text-[11px] text-white/65 lg:block">Κτηνιατρείο</span></Link>
-      <form action="/vet/clients" className="mx-auto hidden w-full max-w-xl items-center gap-2 rounded-lg border border-white/15 bg-white/10 px-3 sm:flex"><ClinicIcon name="search" className="text-white/60" /><input name="search" aria-label="Αναζήτηση κηδεμόνα" placeholder="Αναζήτηση κηδεμόνα" className="min-w-0 flex-1 bg-transparent py-2 text-sm outline-none placeholder:text-white/60" /><button className="text-xs text-white/70">Αναζήτηση</button></form>
-      <Link href="/vet/notifications" aria-label={`Ειδοποιήσεις: ${unreadCount} μη αναγνωσμένες`} className="relative ml-auto p-2"><ClinicIcon name="bell" />{unreadCount > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-[#def5ed] px-1 text-[10px] text-[#006064]">{unreadCount > 99 ? '99+' : unreadCount}</span>}</Link>
-      <Link href="/vet/settings" aria-label="Το προφίλ σου" className="flex items-center gap-2 text-xs"><span className="grid h-8 w-8 place-items-center rounded-lg bg-[#bae8da] text-[#006064]">{user?.name.split(' ').map(n => n[0]).slice(0, 2).join('')}</span><span className="hidden xl:block">{user?.name}</span></Link>
+      <Link href="/vet/dashboard" className="flex items-center gap-2.5 md:w-56"><Image src="/branding/vetly-logo-transparent.png" alt="Vetly — Αρχική" width={2109} height={746} sizes="96px" preload className="h-auto w-[88px] shrink-0" /><span className="hidden text-xs font-medium text-ink-500 lg:block">Κτηνιατρείο</span></Link>
+      <form action="/vet/clients" className="mx-auto hidden h-9 w-full max-w-md items-center gap-2 rounded-[10px] border border-ink-200 bg-white px-3 focus-within:border-clinic-600 sm:flex"><ClinicIcon name="search" className="text-ink-400" /><input name="search" aria-label="Αναζήτηση κηδεμόνα" placeholder="Αναζήτηση κηδεμόνα" className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-ink-400" /></form>
+      <Link href="/vet/notifications" aria-label={`Ειδοποιήσεις: ${unreadCount} μη αναγνωσμένες`} className="relative ml-auto grid h-8 w-8 place-items-center rounded-[10px] hover:bg-black/[0.06]"><ClinicIcon name="bell" />{unreadCount > 0 && <span className="absolute -right-1 -top-1 rounded-full bg-clinic-600 px-1 text-[10px] font-semibold text-white">{unreadCount > 99 ? '99+' : unreadCount}</span>}</Link>
+      <Link href="/vet/settings" aria-label="Το προφίλ σου" className="flex items-center gap-2 text-xs"><span className="grid h-8 w-8 place-items-center rounded-full bg-clinic-100 text-[11px] font-semibold text-clinic-700">{user?.name.split(' ').map(n => n[0]).slice(0, 2).join('')}</span><span className="hidden font-medium xl:block">{user?.name}</span></Link>
     </header>
-    {open && <button className="fixed inset-x-0 bottom-0 top-14 z-30 bg-black/30 md:hidden" aria-label="Κλείσιμο μενού" onClick={() => setOpen(false)} />}
-    <aside id="clinic-navigation" className={`${open ? 'flex' : 'hidden'} fixed bottom-0 left-0 top-14 z-40 w-56 flex-col overflow-y-auto bg-[#edf2f0] p-3 md:flex`}>
-      {setup.ready && nextStep && <Link href={nextStep.href} onClick={() => setOpen(false)} className="mb-3 block rounded-lg border border-clinic-200 bg-white p-3 hover:border-clinic-400 focus-visible:outline-2 focus-visible:outline-clinic-600">
+    {open && <button className="fixed inset-x-0 bottom-0 top-[60px] z-30 bg-black/30 md:hidden" aria-label="Κλείσιμο μενού" onClick={() => setOpen(false)} />}
+    <aside id="clinic-navigation" className={`${open ? 'flex' : 'hidden'} fixed bottom-0 left-0 top-[60px] z-40 w-60 flex-col overflow-y-auto bg-ink-50 p-3 md:flex`}>
+      {setup.ready && nextStep && <Link href={nextStep.href} onClick={() => setOpen(false)} className="mb-3 block rounded-xl bg-black/[0.04] p-3 hover:bg-black/[0.06] focus-visible:outline-2 focus-visible:outline-clinic-600">
         <span className="flex items-baseline justify-between gap-2 text-xs font-semibold text-ink-900">Ολοκλήρωση προφίλ<span className="font-medium tabular-nums text-ink-500">{doneSteps}/{setup.steps.length}</span></span>
-        <span role="progressbar" aria-label="Ολοκλήρωση προφίλ" aria-valuemin={0} aria-valuemax={setup.steps.length} aria-valuenow={doneSteps} className="mt-2 block h-1.5 overflow-hidden rounded-full bg-ink-100"><span className="block h-full rounded-full bg-clinic-500" style={{ width: `${(doneSteps / setup.steps.length) * 100}%` }} /></span>
-        <span className="mt-2 block text-xs leading-5 text-clinic-700">Επόμενο: {nextStep.label} →</span>
+        <span role="progressbar" aria-label="Ολοκλήρωση προφίλ" aria-valuemin={0} aria-valuemax={setup.steps.length} aria-valuenow={doneSteps} className="mt-2 block h-1.5 overflow-hidden rounded-full bg-black/10"><span className="block h-full rounded-full bg-clinic-600" style={{ width: `${(doneSteps / setup.steps.length) * 100}%` }} /></span>
+        <span className="mt-2 block text-xs leading-5 text-ink-500">Επόμενο: {nextStep.label}</span>
       </Link>}
       <nav aria-label="Κτηνιατρείο">
         {groups.map((group, index) => <div key={group.label || 'main'} role="group" aria-label={group.label} className={index ? 'mt-5' : ''}>
-          {group.label && <p className="px-3 pb-1.5 text-xs font-semibold text-ink-500">{group.label}</p>}
+          {group.label && <p className="px-2 pb-1.5 text-xs font-semibold text-ink-500">{group.label}</p>}
           <div className="space-y-0.5">{group.links.map(renderLink)}</div>
         </div>)}
       </nav>
-      <div className="mt-auto space-y-0.5 border-t border-ink-200 pt-3">
+      <div className="mt-auto space-y-0.5 pt-6">
         {footerLinks.map(renderLink)}
-        <button onClick={logout} className={`${navItem} w-full hover:bg-black/5`}><ClinicIcon name="logout" />Αποσύνδεση</button>
+        <button onClick={logout} className={`${navItem} w-full hover:bg-black/[0.04]`}><ClinicIcon name="logout" className="text-ink-500" />Αποσύνδεση</button>
       </div>
     </aside>
-    <main className="min-w-0 md:ml-56">{pathname === '/vet/dashboard' || pathname === '/vet/chat' ? children : <div className="mx-auto max-w-[1280px] px-4 py-7 sm:px-8 lg:py-9">{children}</div>}</main>
+    <main className="min-h-[calc(100vh-60px)] min-w-0 border-ink-200 bg-white md:ml-60 md:rounded-tl-2xl md:border-l md:border-t">{pathname === '/vet/dashboard' || pathname === '/vet/chat' ? children : <div className="mx-auto max-w-[1280px] px-4 py-7 sm:px-8 lg:py-9">{children}</div>}</main>
   </div>;
 }
