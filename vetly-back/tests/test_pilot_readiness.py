@@ -116,9 +116,9 @@ def test_unverified_vet_cannot_operate_or_receive_bookings(client, db, pilot_dat
     db.commit()
     assert client.get('/api/v1/vet/patients', headers=vet_auth_header).status_code == 403
     assert book(client, owner_auth_header, vet, pet).status_code == 404
-    assert client.get(f'/api/v1/vets/{vet.id}').status_code == 404
+    assert client.get(f'/api/v1/vets/{vet.id}', headers=owner_auth_header).status_code == 404
     for url in ('/api/v1/vets', '/api/v1/vets/search?q=Test', '/api/v1/vets/search?city=Athens', '/api/v1/public/vets'):
-        assert str(vet.id) not in [item['id'] for item in client.get(url).json()['items']]
+        assert str(vet.id) not in [item['id'] for item in client.get(url, headers=owner_auth_header).json()['items']]
 
 
 def test_closed_pilot_blocks_signup_and_existing_token(client, monkeypatch, owner_auth_header, registered_owner):
@@ -138,10 +138,10 @@ def test_explicit_timezone_converted_to_athens_wall_time():
     assert appointment_time(datetime.fromisoformat('2030-01-07T08:00:00+00:00')) == datetime(2030,1,7,10)
 
 
-def test_slots_respect_service_duration(client, pilot_data):
+def test_slots_respect_service_duration(client, pilot_data, owner_auth_header):
     vet, _ = pilot_data
     day = _next_weekday_at(10, 0).date().isoformat()
-    slots = client.get(f'/api/v1/vets/{vet.id}/available-slots?date={day}&duration_minutes=60').json()['slots']
+    slots = client.get(f'/api/v1/vets/{vet.id}/available-slots?date={day}&duration_minutes=60', headers=owner_auth_header).json()['slots']
     assert '17:00' in slots
     assert '17:30' not in slots
 
@@ -169,7 +169,7 @@ def test_reschedule_slot_list_excludes_only_own_appointment(client, db, pilot_da
     assert response.status_code == 201
     day = _next_weekday_at(10, 0).date().isoformat()
     url = f'/api/v1/vets/{vet.id}/available-slots?date={day}&duration_minutes=60'
-    assert '10:30' not in client.get(url).json()['slots']
+    assert '10:30' not in client.get(url, headers=owner_auth_header).json()['slots']
     url += f"&exclude_appointment_id={response.json()['id']}"
     assert client.get(url).status_code == 401
     for headers in (owner_auth_header, vet_auth_header):
@@ -271,3 +271,17 @@ def test_concurrent_bookings_only_one_wins():
             if owner_id:
                 cleanup.execute(delete(PetOwner).where(PetOwner.id == owner_id))
             cleanup.commit()
+
+
+def test_vet_lists_require_sign_in(client, registered_vet, owner_auth_header, vet_auth_header):
+    """There is no public directory: lists and lookups need an account."""
+    vet = registered_vet
+    protected = ('/api/v1/vets', '/api/v1/vets/search?q=Test', '/api/v1/vets/on-call',
+                 f'/api/v1/vets/{vet.id}', f'/api/v1/vets/{vet.id}/available-slots?date=2030-01-07',
+                 '/api/v1/public/vets')
+    for url in protected:
+        assert client.get(url).status_code == 401, url
+        assert client.get(url, headers={'Authorization': 'Bearer not-a-token'}).status_code == 401, url
+    for headers in (owner_auth_header, vet_auth_header):
+        assert client.get('/api/v1/vets', headers=headers).status_code == 200
+        assert client.get('/api/v1/public/vets', headers=headers).status_code == 200

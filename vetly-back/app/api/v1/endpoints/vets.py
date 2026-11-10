@@ -7,9 +7,9 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db, get_current_vet, get_current_pet_owner, oauth2_scheme_optional
+from app.core.deps import get_db, get_current_user, get_current_vet, get_current_pet_owner, oauth2_scheme_optional
 from app.core.security import decode_token
-from app.db.base import Vet, Appointment
+from app.db.base import Vet, PetOwner, Appointment
 from app.services.vet import VetService
 from app.schemas.vet import (
     VetResponse,
@@ -28,9 +28,10 @@ router = APIRouter()
 def list_vets(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    _user: Vet | PetOwner = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> VetListResponse:
-    """Get paginated list of all vets"""
+    """Get paginated list of all vets (signed-in accounts only)"""
     service = VetService(db)
     return service.list_vets(page=page, page_size=page_size)
 
@@ -41,9 +42,10 @@ def search_vets(
     city: str | None = Query(None, description="Filter by city"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(10, ge=1, le=100, description="Items per page"),
+    _user: Vet | PetOwner = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> VetListResponse:
-    """Search vets by name, specialty, or city"""
+    """Search vets by name, specialty, or city (signed-in accounts only)"""
     service = VetService(db)
     return service.search_vets(query=q, city=city, page=page, page_size=page_size)
 
@@ -91,9 +93,10 @@ def toggle_current_vet_on_call(
 
 @router.get("/on-call", response_model=OnCallVetsResponse)
 def get_on_call_vets(
+    _user: Vet | PetOwner = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> OnCallVetsResponse:
-    """Get all currently on-call vets"""
+    """Get all currently on-call vets (signed-in accounts only)"""
     service = VetService(db)
     return service.get_on_call_vets()
 
@@ -104,6 +107,7 @@ def get_available_slots(
     date: date = Query(..., description="Date to check availability (YYYY-MM-DD)"),
     duration_minutes: int = Query(30, ge=15, le=180),
     exclude_appointment_id: UUID | None = None,
+    _user: Vet | PetOwner = Depends(get_current_user),
     token: str | None = Depends(oauth2_scheme_optional),
     db: Session = Depends(get_db),
 ) -> AvailableSlotsResponse:
@@ -126,8 +130,9 @@ def get_available_slots(
 @router.get("/{vet_id}", response_model=VetResponse)
 def get_vet(
     vet_id: UUID,
+    _user: Vet | PetOwner = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> VetResponse:
-    """Get a single vet by ID"""
+    """Get a single vet by ID (signed-in accounts only)"""
     service = VetService(db)
     return service.get_vet(vet_id)

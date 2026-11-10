@@ -133,3 +133,26 @@ def get_current_pet_owner(
     if not pet_owner.email_verified:
         raise HTTPException(403, "Email not verified")
     return pet_owner
+
+
+def get_current_user(
+    token: str | None = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+) -> Vet | PetOwner:
+    """
+    Any signed-in account, pet owner or vet.
+
+    Used where a resource is not public but is shared by both kinds of user,
+    such as the vet list an owner books from. Each account type keeps its own
+    checks (verification, session version, pilot allowlist).
+    """
+    identity = decode_token(token) if token else None
+    if identity is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if identity.type == "vet":
+        return get_current_vet(token, db)
+    return get_current_pet_owner(token, db)

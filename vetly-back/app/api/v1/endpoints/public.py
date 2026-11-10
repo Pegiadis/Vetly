@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db
+from app.core.deps import get_current_user, get_db
 from app.models.review import Review
 from app.models.vet import Vet
 from app.models.pet_owner import PetOwner
@@ -84,9 +84,14 @@ def list_public_vets(
     city: str = Query(None),
     specialty: str = Query(None),
     search: str = Query(None),
+    _user: Vet | PetOwner = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> PublicVetListResponse:
-    """List publicly visible vets with optional filters."""
+    """List verified vets with optional filters.
+
+    Signed-in accounts only: there is no public directory. A single profile
+    stays reachable by its link through the routes below.
+    """
     query = select(Vet)
     count_query = select(func.count(Vet.id))
 
