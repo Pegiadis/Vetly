@@ -27,7 +27,13 @@ export default function Footer() {
       </div>
     </div>
     <div className="border-t border-ink-200">
-      <p className="mx-auto max-w-6xl px-4 py-4 text-xs text-ink-500 sm:px-6">© {new Date().getFullYear()} Vetly</p>
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-4 text-xs text-ink-500 sm:px-6">
+        <p>© {new Date().getFullYear()} Vetly</p>
+        <ul className="flex flex-wrap gap-x-5 gap-y-1">
+          <li><Link href="/terms" className="underline-offset-4 hover:text-clinic-700 hover:underline">Όροι Χρήσης</Link></li>
+          <li><Link href="/privacy" className="underline-offset-4 hover:text-clinic-700 hover:underline">Πολιτική Απορρήτου</Link></li>
+        </ul>
+      </div>
     </div>
   </footer>;
 }
