@@ -56,6 +56,14 @@ def _no_real_emails(monkeypatch):
     monkeypatch.setattr("app.services.vet_client.send_email", _noop, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """Counts are per process, so one test must not use up another's allowance."""
+    from app.core.rate_limit import reset_all
+
+    reset_all()
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------

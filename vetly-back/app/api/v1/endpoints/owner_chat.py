@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import chat_daily_limit, chat_limit
 from app.core.deps import get_db, get_current_pet_owner
 from app.db.base import PetOwner
 from app.services.chat import ChatService
@@ -72,6 +73,8 @@ def owner_send_message(
     db: Session = Depends(get_db),
 ) -> ChatSendMessageResponse:
     """Send a message to the AI assistant"""
+    chat_limit.check(str(current_owner.id))
+    chat_daily_limit.check(str(current_owner.id))
     service = ChatService(db)
     conversation, user_msg, assistant_msg = service.send_message(
         user_message=body.message,
@@ -116,6 +119,8 @@ def owner_send_message_stream(
     request, and the Anthropic SDK's ``messages.stream`` has a sync
     variant that we use directly.
     """
+    chat_limit.check(str(current_owner.id))
+    chat_daily_limit.check(str(current_owner.id))
     service = ChatService(db)
 
     def event_generator():

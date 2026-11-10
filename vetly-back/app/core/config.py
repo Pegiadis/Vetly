@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
 
+    # Per-address and per-user request limits (app/core/rate_limit.py).
+    RATE_LIMIT_ENABLED: bool = True
+
     # Closed pilot: only these email addresses can register or use authenticated APIs.
     PILOT_MODE: bool = False
     PILOT_ALLOWED_EMAILS: List[str] = []

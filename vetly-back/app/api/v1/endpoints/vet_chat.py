@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import chat_daily_limit, chat_limit
 from app.core.deps import get_db, get_current_vet
 from app.db.base import Vet
 from app.services.chat import ChatService
@@ -92,6 +93,8 @@ def vet_send_message(
     db: Session = Depends(get_db),
 ) -> ChatSendMessageResponse:
     """Send a message to the AI assistant"""
+    chat_limit.check(str(current_vet.id))
+    chat_daily_limit.check(str(current_vet.id))
     service = ChatService(db)
     conversation, user_msg, assistant_msg = service.send_message(
         user_message=body.message,
@@ -127,6 +130,8 @@ def vet_send_message_stream(
 
     See ``owner_send_message_stream`` for the event protocol — identical.
     """
+    chat_limit.check(str(current_vet.id))
+    chat_daily_limit.check(str(current_vet.id))
     service = ChatService(db)
 
     def event_generator():
