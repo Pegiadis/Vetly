@@ -2,7 +2,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 
 const columns = [
-  { title: 'Για ιδιοκτήτες', links: [['/vets', 'Εύρεση κτηνιάτρου'], ['/register', 'Δημιουργία λογαριασμού'], ['/owner/login', 'Σύνδεση']] },
+  { title: 'Για ιδιοκτήτες', links: [['/register', 'Δημιουργία λογαριασμού'], ['/owner/login', 'Σύνδεση']] },
   { title: 'Για κτηνιάτρους', links: [['/vet/register', 'Εγγραφή ιατρείου'], ['/vet/login', 'Είσοδος κτηνιατρείου']] },
 ] as const;
 

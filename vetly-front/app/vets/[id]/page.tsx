@@ -187,10 +187,10 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
         <div className="max-w-4xl mx-auto px-4 py-8">
           {/* Back link */}
           <Link
-            href="/vets"
+            href="/"
             className="inline-flex items-center text-teal-600 hover:text-teal-700 mb-6 text-sm font-medium"
           >
-            ← Πίσω στους κτηνιάτρους
+            ← Αρχική
           </Link>
 
           {/* Hero card */}

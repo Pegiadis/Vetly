@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import { AssistantAvatar } from './AssistantAvatar';
 
 const primary = 'inline-flex h-10 items-center justify-center rounded-[10px] bg-clinic-600 px-4 text-sm font-medium text-white hover:bg-clinic-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600';
 const secondary = 'inline-flex h-10 items-center justify-center rounded-[10px] bg-black/[0.06] px-4 text-sm font-medium text-ink-900 hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600';
-const quickSearches = ['Εμβολιασμός', 'Παθολογία', 'Χειρουργική', 'Δερματολογία'];
 
 function Glyph({ d }: { d: string }) {
   return <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[10px] bg-clinic-100 text-clinic-700"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={d} /></svg></span>;
@@ -49,9 +47,6 @@ function ProductPreview() {
 }
 
 export default function HomePage() {
-  const router = useRouter();
-  const [searchText, setSearchText] = useState('');
-  const search = (value: string) => router.push(value.trim() ? `/vets?search=${encodeURIComponent(value.trim())}` : '/vets');
 
   return <div className="min-h-screen bg-white text-ink-800">
     <Navbar />
@@ -62,17 +57,12 @@ export default function HomePage() {
           <div>
             <p className="text-xs font-semibold text-clinic-700">Για ιδιοκτήτες κατοικιδίων στην Ελλάδα</p>
             <h1 className="mt-3 text-4xl font-semibold leading-[1.1] tracking-tight text-ink-900 sm:text-5xl">Ο κτηνίατρός σας, <span className="text-clinic-600">ένα ραντεβού μακριά.</span></h1>
-            <p className="mt-4 max-w-lg text-base leading-7 text-ink-600">Βρείτε κτηνίατρο κοντά σας, ζητήστε ραντεβού και κρατήστε εμβόλια, θεραπείες και υπενθυμίσεις του κατοικιδίου σας σε ένα μέρος.</p>
-            <form onSubmit={event => { event.preventDefault(); search(searchText); }} className="mt-7 flex max-w-lg items-center gap-2 rounded-xl border border-ink-300 bg-white p-1.5 focus-within:border-clinic-600">
-              <label htmlFor="home-search" className="sr-only">Αναζήτηση κτηνιάτρου</label>
-              <svg className="ml-2 h-5 w-5 shrink-0 text-ink-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M21 21l-5-5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0" /></svg>
-              <input id="home-search" type="search" value={searchText} onChange={event => setSearchText(event.target.value)} placeholder="Όνομα, ειδικότητα ή περιοχή" className="h-10 min-w-0 flex-1 bg-transparent text-sm text-ink-900 outline-none placeholder:text-ink-400" />
-              <button type="submit" className={primary}>Αναζήτηση</button>
-            </form>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-ink-500">
-              <span>Συχνές αναζητήσεις:</span>
-              {quickSearches.map(tag => <button key={tag} type="button" onClick={() => search(tag)} className="rounded-full border border-ink-200 bg-white px-2.5 py-1 font-medium text-ink-700 hover:border-clinic-300 hover:text-clinic-700 focus-visible:outline-2 focus-visible:outline-clinic-600">{tag}</button>)}
+            <p className="mt-4 max-w-lg text-base leading-7 text-ink-600">Ζητήστε ραντεβού από τον κτηνίατρό σας και κρατήστε εμβόλια, θεραπείες και υπενθυμίσεις του κατοικιδίου σας σε ένα μέρος.</p>
+            <div className="mt-7 flex flex-wrap gap-2">
+              <Link href="/register" className={primary}>Δημιουργία λογαριασμού</Link>
+              <Link href="/owner/login" className={secondary}>Έχω ήδη λογαριασμό</Link>
             </div>
+            <p className="mt-3 text-xs text-ink-500">Δωρεάν για ιδιοκτήτες. Ο κτηνίατρός σας σάς έστειλε πρόσκληση; Ανοίξτε τον σύνδεσμο που λάβατε.</p>
           </div>
           <div className="relative">
             <Image src="/images/home/hero-dog-cat.jpg" alt="Ένας σκύλος και μια γάτα ξαπλωμένοι μαζί σε καναπέ" width={1600} height={1200} sizes="(min-width: 1024px) 540px, 100vw" preload className="aspect-[4/3] w-full rounded-2xl object-cover" />
@@ -85,7 +75,7 @@ export default function HomePage() {
       <section>
         <div className="mx-auto grid max-w-6xl gap-4 px-4 py-12 sm:px-6 md:grid-cols-3">
           {[
-            { href: '/vets', d: 'M21 21l-5-5M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0', title: 'Βρείτε κτηνίατρο', text: 'Αναζητήστε με όνομα, ειδικότητα ή περιοχή και δείτε προφίλ, υπηρεσίες και αξιολογήσεις.', cta: 'Κατάλογος κτηνιάτρων' },
+            { href: '/owner/login', d: 'M4 5h16v16H4zM8 3v4m8-4v4M4 10h16', title: 'Ραντεβού χωρίς τηλέφωνα', text: 'Διαλέξτε υπηρεσία, ημέρα και ώρα και στείλτε το αίτημα στον κτηνίατρό σας, όποτε σας βολεύει.', cta: 'Ζητήστε ραντεβού' },
             { href: '/owner/on-call', d: 'M12 8v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0', title: 'Εφημερεύοντες τώρα', text: 'Με τον λογαριασμό σας βλέπετε ποια ιατρεία έχουν δηλώσει ότι εφημερεύουν, για όταν δεν μπορείτε να περιμένετε.', cta: 'Εφημερίες' },
             { href: '/owner/login', d: 'M8 14q4-7 8 0t-4 5q-8 2-4-5M5 8h.01M9 5h.01M15 5h.01M19 8h.01', title: 'Το κατοικίδιό μου', text: 'Ιατρικό ιστορικό, ραντεβού και υπενθυμίσεις εμβολίων, πάντα μαζί σας στο κινητό.', cta: 'Σύνδεση' },
           ].map(item => <Link key={item.title} href={item.href} className="group flex flex-col rounded-xl border border-ink-200 bg-white p-5 hover:border-clinic-300 focus-visible:outline-2 focus-visible:outline-clinic-600">
@@ -100,8 +90,8 @@ export default function HomePage() {
       <Section tinted eyebrow="Πώς λειτουργεί" title="Τρία βήματα μέχρι το ραντεβού">
         <ol className="grid gap-4 md:grid-cols-3">
           {[
-            ['Βρείτε', 'Διαλέξτε κτηνίατρο από τον κατάλογο και δείτε τις υπηρεσίες και το ωράριό του.'],
-            ['Ζητήστε ραντεβού', 'Επιλέξτε υπηρεσία, ημέρα και ώρα. Ο κτηνίατρος επιβεβαιώνει το αίτημα και ενημερώνεστε.'],
+            ['Φτιάξτε το προφίλ', 'Δημιουργήστε λογαριασμό και προσθέστε το κατοικίδιό σας: είδος, φυλή, ηλικία.'],
+            ['Ζητήστε ραντεβού', 'Επιλέξτε κτηνίατρο, υπηρεσία, ημέρα και ώρα. Ο κτηνίατρος επιβεβαιώνει το αίτημα και ενημερώνεστε.'],
             ['Παρακολουθήστε', 'Μετά την επίσκεψη, η διάγνωση, η αγωγή και οι επόμενες υπενθυμίσεις μένουν στο προφίλ του κατοικιδίου.'],
           ].map(([title, text], index) => <li key={title} className="rounded-xl border border-ink-200 bg-white p-5">
             <span className="grid h-8 w-8 place-items-center rounded-full bg-clinic-600 text-sm font-semibold tabular-nums text-white">{index + 1}</span>
@@ -114,7 +104,7 @@ export default function HomePage() {
       <Section eyebrow="Γιατί Vetly" title="Όλη η φροντίδα του κατοικιδίου σας, οργανωμένη">
         <div className="grid items-center gap-10 lg:grid-cols-[1.15fr_1fr]"><div className="grid gap-x-10 gap-y-7 sm:grid-cols-2 lg:grid-cols-1">
           {[
-            ['M5 12l4 4L19 6', 'Ελεγμένοι επαγγελματίες', 'Κάθε κτηνίατρος εγκρίνεται από το Vetly πριν εμφανιστεί στον κατάλογο και δεχτεί ραντεβού.'],
+            ['M5 12l4 4L19 6', 'Ελεγμένοι επαγγελματίες', 'Κάθε κτηνίατρος εγκρίνεται από το Vetly πριν δεχτεί ραντεβού.'],
             ['M4 5h16v16H4zM8 3v4m8-4v4M4 10h16', 'Αίτημα ραντεβού όποτε θέλετε', 'Στέλνετε το αίτημα οποιαδήποτε ώρα, χωρίς τηλέφωνα και αναμονές.'],
             ['M9 3h6l5 5v13H4V3zM14 3v6h6M8 14h8M8 18h5', 'Ιστορικό υγείας', 'Εμβόλια, διαγνώσεις και φάρμακα σε ένα αρχείο ανά κατοικίδιο.'],
             ['M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4', 'Υπενθυμίσεις', 'Ειδοποιήσεις για εμβόλια, αποπαρασιτώσεις και επανελέγχους, πριν τα ξεχάσετε.'],
@@ -152,7 +142,7 @@ export default function HomePage() {
       <section className="border-t border-ink-200 bg-ink-50">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-10 sm:px-6">
           <div><h2 className="text-xl font-semibold tracking-tight text-ink-900">Ξεκινήστε με το πρώτο σας κατοικίδιο</h2><p className="mt-1 text-sm text-ink-600">Η δημιουργία λογαριασμού ιδιοκτήτη είναι δωρεάν.</p></div>
-          <div className="flex flex-wrap gap-2"><Link href="/vets" className={secondary}>Εύρεση κτηνιάτρου</Link><Link href="/register" className={primary}>Δημιουργία λογαριασμού</Link></div>
+          <div className="flex flex-wrap gap-2"><Link href="/owner/login" className={secondary}>Σύνδεση</Link><Link href="/register" className={primary}>Δημιουργία λογαριασμού</Link></div>
         </div>
       </section>
     </main>
