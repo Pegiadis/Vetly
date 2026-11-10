@@ -491,17 +491,16 @@ export default function VetAppointmentsPage() {
                 <h2 className="text-xs font-semibold text-ink-700">{new Date(items[0].scheduled_at).toLocaleDateString('el-GR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}</h2>
                 <span className="ml-3 shrink-0 text-xs text-ink-500">{items.length} στη σελίδα</span>
               </div>
-              {items.map(apt => <ClinicListRow key={apt.id} className={panel?.appointment?.id === apt.id ? 'bg-clinic-50/60! shadow-[inset_3px_0_0_var(--color-clinic-600)]' : ''}>
-                <div className={`grid grid-cols-[52px_minmax(0,1fr)] gap-x-3 gap-y-3 sm:grid-cols-[52px_minmax(0,1fr)_auto]`}>
-                  <div className="pt-0.5"><p className="text-base font-semibold tabular-nums text-ink-900">{formatTime(apt.scheduled_at)}</p><p className="mt-1 text-xs text-ink-500">{apt.duration_minutes}′</p></div>
-                  <div className="flex min-w-0 items-start gap-2"><ClinicAvatar name={apt.pet?.name || 'Ασθενής'} imageUrl={apt.pet?.image_url} /><div className="min-w-0">
-                    <button aria-label={`Λεπτομέρειες: ${apt.pet?.name || 'Ασθενής'}`} aria-pressed={panel?.appointment?.id === apt.id} onClick={() => setPanel({mode:'details', appointment:apt})} className="max-w-full break-words text-left text-sm font-semibold text-ink-900 underline-offset-4 hover:text-clinic-700 hover:underline">{apt.pet?.name || 'Ασθενής'} <span aria-hidden="true" className="ml-1 text-ink-400">↗</span></button>
-                    <p className="mt-1 break-words text-xs text-ink-500">{apt.pet_owner?.name || 'Χωρίς στοιχεία κηδεμόνα'}</p>
-                    <p className="mt-1 break-words text-sm text-ink-600">{apt.type}</p>
-                    {apt.group_id && <span className="mt-1 inline-block text-xs text-clinic-700">Ομαδική επίσκεψη</span>}
-                    <div className="mt-2"><ClinicStatusBadge status={apt.status}>{statusConfig[apt.status]?.label || apt.status}</ClinicStatusBadge></div>
-                  </div></div>
-                  <div className="col-start-2 flex items-center sm:col-start-3 sm:items-start sm:justify-end">
+              {items.map(apt => <ClinicListRow key={apt.id} className={panel?.appointment?.id === apt.id ? 'py-2! bg-clinic-50/60! shadow-[inset_3px_0_0_var(--color-clinic-600)]' : 'py-2!'}>
+                <div className="grid grid-cols-[76px_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 md:grid-cols-[76px_minmax(0,1.3fr)_minmax(0,1fr)_128px_auto]">
+                  <p className="whitespace-nowrap text-sm font-semibold tabular-nums text-ink-900">{formatTime(apt.scheduled_at)}<span className="ml-1.5 text-xs font-normal text-ink-500">{apt.duration_minutes}′</span></p>
+                  <div className="flex min-w-0 items-center gap-2.5"><ClinicAvatar name={apt.pet?.name || 'Ασθενής'} imageUrl={apt.pet?.image_url} /><div className="min-w-0">
+                    <button aria-label={`Λεπτομέρειες: ${apt.pet?.name || 'Ασθενής'}`} aria-pressed={panel?.appointment?.id === apt.id} onClick={() => setPanel({mode:'details', appointment:apt})} className="block max-w-full truncate text-left text-sm font-semibold text-ink-900 underline-offset-4 hover:text-clinic-700 hover:underline">{apt.pet?.name || 'Ασθενής'}</button>
+                    <p className="truncate text-xs text-ink-500">{apt.pet_owner?.name || 'Χωρίς στοιχεία κηδεμόνα'}</p>
+                    </div></div>
+                    <p className="col-start-2 min-w-0 truncate text-sm text-ink-600 md:col-start-auto">{apt.type}{apt.group_id && <span className="ml-2 text-xs text-clinic-700">Ομαδική επίσκεψη</span>}</p>
+                    <div className="col-start-2 md:col-start-auto"><ClinicStatusBadge status={apt.status}>{statusConfig[apt.status]?.label || apt.status}</ClinicStatusBadge></div>
+                  <div className="col-start-2 md:col-start-auto md:justify-self-end">
                     {apt.status === 'pending' ? <ClinicButton disabled={pendingAction} variant="primary" onClick={() => handleApprove(apt.id)}>{apt.group_id ? 'Έγκριση ομάδας' : 'Έγκριση'}</ClinicButton> : apt.status === 'confirmed' ? <ClinicButton onClick={() => setExamAppointment(apt)}>Εξέταση</ClinicButton> : <ClinicButton variant="ghost" onClick={() => setPanel({mode:'details', appointment:apt})}>Προβολή</ClinicButton>}
                   </div>
                 </div>
