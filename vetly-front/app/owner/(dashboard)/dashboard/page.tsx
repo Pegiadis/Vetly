@@ -4,12 +4,12 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMyPets, useUpcomingAppointments, useMyMedications, useOwnerReminders } from '@/hooks/useOwnerData';
-import { ClinicButton, ClinicPanel, ClinicPageHeader, ClinicLoading, ClinicStatusBadge } from '@/components/vet/ClinicUI';
+import { ClinicButton, ClinicPanel, ClinicLoading, ClinicStatusBadge } from '@/components/vet/ClinicUI';
 import ClinicAvatar from '@/components/vet/ClinicAvatar';
 
 const textLink = 'text-xs font-medium text-clinic-700 hover:underline underline-offset-4';
-const primary = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-clinic-700 bg-clinic-600 px-4 py-2 text-xs font-medium text-white hover:bg-clinic-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600';
-const secondary = 'inline-flex min-h-10 items-center justify-center rounded-lg border border-ink-200 bg-white px-3 py-2 text-xs font-medium text-ink-800 hover:bg-ink-50';
+const primary = 'inline-flex min-h-8 items-center justify-center rounded-[10px] bg-clinic-600 px-3 py-1 text-[13px] font-medium text-white hover:bg-clinic-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600';
+const secondary = 'inline-flex min-h-8 items-center justify-center rounded-[10px] bg-black/[0.06] px-3 py-1 text-[13px] font-medium text-ink-900 hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600';
 const species: Record<string,string> = { Dog: 'Σκύλος', Cat: 'Γάτα', Other: 'Άλλο' };
 // Appointment values are Athens wall-clock timestamps, without an offset.
 const dateLabel = (value: string) => new Intl.DateTimeFormat('el-GR', { day:'numeric', month:'long' }).format(new Date(`${value.slice(0,10)}T12:00:00`));
@@ -32,10 +32,14 @@ export default function OwnerDashboardPage() {
   const upcoming = visits.appointments.filter(a => a.scheduled_at >= athensNow).sort((a,b) => a.scheduled_at.localeCompare(b.scheduled_at));
   const next = upcoming.find(a => a.status === 'confirmed');
   const pending = upcoming.filter(a => a.status === 'pending');
+  const hour = Number(athensNow.slice(11, 13));
+  const greeting = hour < 12 ? 'Καλημέρα' : hour < 18 ? 'Καλησπέρα' : 'Καλό βράδυ';
+  const firstName = (user?.name || '').trim().split(/\s+/)[0] || '';
+  const today = new Intl.DateTimeFormat('el-GR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${athensNow.slice(0, 10)}T12:00:00`));
   const count = (query: { loading: boolean; error: string | null }, value: number) => query.loading || query.error ? '—' : value;
 
-  return <div className="mx-auto max-w-[1280px] space-y-5 text-ink-800">
-    <ClinicPageHeader title="Αρχική" description={`Καλώς ήρθες${user?.name ? `, ${user.name}` : ''}. Η φροντίδα τους, συγκεντρωμένη εδώ.`} actions={<Link href="/owner/book" className={primary}>+ Κλείσε ραντεβού</Link>} />
+  return <div className="space-y-4 text-ink-800">
+    <header><p className="text-xs text-ink-500">{today}</p><h1 className="mt-0.5 text-2xl font-semibold tracking-tight text-ink-900">{greeting}{firstName ? `, ${firstName}` : ''}</h1><p className="mt-1 text-sm text-ink-600">{visits.loading || visits.error ? 'Η φροντίδα τους, συγκεντρωμένη εδώ.' : next ? `Το επόμενο ραντεβού είναι ${next.scheduled_at.slice(0, 10) === athensNow.slice(0, 10) ? 'σήμερα' : `στις ${dateLabel(next.scheduled_at)}`}, ${next.scheduled_at.slice(11, 16)}.` : 'Δεν έχεις επιβεβαιωμένο ραντεβού αυτή τη στιγμή.'}</p></header>
     <ClinicPanel className="grid grid-cols-2 overflow-hidden lg:grid-cols-4">
       {[
         { label:'Τα κατοικίδιά μου', value:count(pets,pets.total), href:'/owner/pets' },
