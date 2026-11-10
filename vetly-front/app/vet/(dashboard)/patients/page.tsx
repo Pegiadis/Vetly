@@ -5,6 +5,7 @@ import ClinicAvatar from '@/components/vet/ClinicAvatar';
 import { useEffect, useRef, useState } from 'react';
 import { ClinicButton, ClinicEmptyState, ClinicInput, ClinicListRow, ClinicLoading, ClinicPageHeader, ClinicPagination, ClinicPanel } from '@/components/vet/ClinicUI';
 import { api } from '@/lib/api';
+import { downloadMedicalRecord, downloadVaccinationCertificate } from '@/hooks/useVetData';
 import type { MedicalEvent, Patient, PatientWithOwner } from '@/hooks/useVetData';
 
 const species: Record<string, string> = { Dog: 'Σκύλος', Cat: 'Γάτα', Other: 'Άλλο' };
@@ -28,6 +29,31 @@ function LoadError({ message, onRetry }: { message: string; onRetry: () => void 
   return <div role="alert" className="space-y-3 p-5"><p className="break-words text-sm text-red-700">{message}</p><ClinicButton onClick={onRetry}>Δοκιμή ξανά</ClinicButton></div>;
 }
 
+// PDF downloads for one patient; only one runs at a time and a failure is shown next to the buttons.
+function PatientDocuments({ patientId }: { patientId: string }) {
+  const [busy, setBusy] = useState<'record' | 'vaccination' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const run = async (kind: 'record' | 'vaccination') => {
+    if (busy) return;
+    setBusy(kind);
+    setError(null);
+    try {
+      await (kind === 'record' ? downloadMedicalRecord(patientId) : downloadVaccinationCertificate(patientId));
+    } catch {
+      setError('Δεν ήταν δυνατή η λήψη του εγγράφου. Δοκιμάστε ξανά.');
+    } finally {
+      setBusy(null);
+    }
+  };
+  return <section><h4 className="text-xs font-semibold text-ink-500">Έγγραφα</h4>
+    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+      <ClinicButton disabled={busy !== null} onClick={() => run('record')}>{busy === 'record' ? 'Λήψη…' : 'Ιατρικός φάκελος (PDF)'}</ClinicButton>
+      <ClinicButton disabled={busy !== null} onClick={() => run('vaccination')}>{busy === 'vaccination' ? 'Λήψη…' : 'Πιστοποιητικό εμβολιασμού (PDF)'}</ClinicButton>
+    </div>
+    {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+  </section>;
+}
+
 function PatientPanel({ patientId, onClose }: { patientId: string; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<'details' | 'history'>('details');
@@ -44,6 +70,7 @@ function PatientPanel({ patientId, onClose }: { patientId: string; onClose: () =
             ['Είδος', species[patient.type] || patient.type || '—'], ['Φυλή', patient.breed || '—'], ['Ηλικία', patient.age != null ? `${patient.age} ετών` : '—'], ['Βάρος', patient.weight != null ? `${patient.weight} kg` : '—'], ['Φύλο', genders[patient.gender || ''] || patient.gender || '—'], ['Microchip', patient.chip_number || 'Δεν έχει καταχωρηθεί'],
           ].map(([label,value]) => <div key={label} className="grid grid-cols-[85px_minmax(0,1fr)] gap-3 py-2.5"><dt className="text-ink-500">{label}</dt><dd className="break-words text-ink-800">{value}</dd></div>)}</dl></section>
           <section className="rounded-lg border border-clinic-100 bg-clinic-50/50 p-4"><h4 className="text-xs font-semibold text-clinic-800">Κηδεμόνας</h4>{patient.owner ? <><p className="mt-2 break-words text-sm font-semibold">{patient.owner.name}</p>{patient.owner.phone && <a className="mt-2 block break-words text-sm text-clinic-700 underline underline-offset-4" href={`tel:${patient.owner.phone}`}>{patient.owner.phone}</a>}{patient.owner.email && <a className="mt-2 block break-all text-sm text-clinic-700 underline underline-offset-4" href={`mailto:${patient.owner.email}`}>{patient.owner.email}</a>}</> : <p className="mt-2 text-sm text-ink-500">Δεν υπάρχουν διαθέσιμα στοιχεία κηδεμόνα.</p>}</section>
+          <PatientDocuments patientId={patientId} />
           <ClinicButton className="w-full" onClick={() => setTab('history')}>Προβολή ιατρικού ιστορικού</ClinicButton>
         </div> : <PatientHistory key={patientId} patientId={patientId} />}
       </>}
