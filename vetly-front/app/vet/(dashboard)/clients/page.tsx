@@ -797,7 +797,7 @@ export default function VetClientsPage() {
           <svg aria-hidden="true" className="h-5 w-5 text-ink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2m20 0v-2a4 4 0 00-3-3.87M9 11a4 4 0 100-8 4 4 0 000 8zm8-7.87a4 4 0 010 7.75" /></svg>
           Κηδεμόνες
         </h1>
-        <ClinicButton variant="primary" className="bg-ink-900! border-ink-900! hover:bg-ink-700!" onClick={() => { setSelectedClientId(null); setShowAddClient(true); }}>Προσθήκη Κηδεμόνα</ClinicButton>
+        <ClinicButton variant="primary" onClick={() => { setSelectedClientId(null); setShowAddClient(true); }}>Προσθήκη Κηδεμόνα</ClinicButton>
       </header>
 
       <div className={`grid items-start gap-4 ${panelOpen ? 'xl:grid-cols-[minmax(0,1fr)_400px]' : ''}`}><div className="min-w-0 space-y-4">
