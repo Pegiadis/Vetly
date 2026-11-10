@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '@/lib/api';
+import { getStoredToken } from '@/contexts/AuthContext';
 
 export interface AppointmentPet {
   id: string;
@@ -1126,7 +1127,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 
 function getStoredTokenForDownload(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('token') || sessionStorage.getItem('token') || null;
+  return getStoredToken();
 }
 
 async function downloadBlob(url: string, filename: string): Promise<void> {
