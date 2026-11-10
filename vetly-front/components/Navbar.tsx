@@ -1,149 +1,48 @@
-'use client'
+'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { MenuIcon, XIcon, StethoscopeIcon } from './Icons';
+import { useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 
-const Navbar: React.FC = () => {
-    const router = useRouter();
-    const [isVisible, setIsVisible] = useState(true);
-    const [lastScrollY, setLastScrollY] = useState(0);
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+const links = [
+  ['/', 'Αρχική'],
+  ['/vets', 'Κτηνίατροι'],
+] as const;
 
-    useEffect(() => {
-        const controlNavbar = () => {
-            if (typeof window !== 'undefined') {
-                if (window.scrollY > lastScrollY && window.scrollY > 100) {
-                    setIsVisible(false);
-                } else {
-                    setIsVisible(true);
-                }
-                setLastScrollY(window.scrollY);
-            }
-        };
+const secondary = 'inline-flex h-9 items-center justify-center rounded-[10px] px-3.5 text-sm font-medium text-ink-900 hover:bg-black/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600';
+const primary = 'inline-flex h-9 items-center justify-center rounded-[10px] bg-clinic-600 px-3.5 text-sm font-medium text-white hover:bg-clinic-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600';
 
-        window.addEventListener('scroll', controlNavbar);
-        
-        return () => {
-            window.removeEventListener('scroll', controlNavbar);
-        };
-    }, [lastScrollY]);
+/** Public site header. Fixed, 64px tall; pages below it add their own top padding. */
+export default function Navbar() {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const isCurrent = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
-    const navClasses = `fixed top-0 w-full z-50 transition-transform duration-300 ${
-        isVisible ? 'translate-y-0' : '-translate-y-full'
-    } bg-white/80 backdrop-blur-md border-b border-slate-200 shadow-sm`;
-
-    return (
-        <nav className={navClasses}>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center h-16">
-                    {/* Logo */}
-                    <div
-                        className="flex items-center cursor-pointer group"
-                        onClick={() => router.push('/')}
-                    >
-                        <img
-                            src="/images/1-tight.jpg"
-                            alt="Vetly"
-                            className="h-9 w-auto object-contain group-hover:scale-105 transition-transform"
-                        />
-                    </div>
-
-                    {/* Desktop Navigation */}
-                    <div className="hidden md:flex items-center space-x-8">
-                        <button 
-                            onClick={() => router.push('/')}
-                            className="text-sm font-medium hover:text-teal-600 transition-colors text-teal-600 font-bold"
-                        >
-                            Αρχική
-                        </button>
-                        <button
-                            onClick={() => router.push('/vets')}
-                            className="text-sm font-medium hover:text-teal-600 transition-colors text-slate-600"
-                        >
-                            Κτηνίατροι
-                        </button>
-                    </div>
-
-                    {/* Right Side Buttons */}
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => router.push('/owner/login')}
-                            className="hidden md:block text-slate-600 hover:text-teal-600 text-sm font-bold px-4 py-2 transition-colors rounded-lg hover:bg-slate-50"
-                        >
-                            Σύνδεση
-                        </button>
-                        <button
-                            onClick={() => router.push('/vet/login')}
-                            className="hidden md:flex bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-5 py-2.5 rounded-full transition-all shadow-md items-center gap-2"
-                        >
-                            <StethoscopeIcon className="w-4 h-4" />
-                            Είσοδος Ιατρού
-                        </button>
-
-                        {/* Mobile Menu Button */}
-                        <button
-                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                            className="md:hidden p-2 text-slate-600 hover:text-teal-600 transition-colors"
-                        >
-                            {mobileMenuOpen ? (
-                                <XIcon className="w-6 h-6" />
-                            ) : (
-                                <MenuIcon className="w-6 h-6" />
-                            )}
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Mobile Menu */}
-            {mobileMenuOpen && (
-                <div className="md:hidden bg-white border-t border-slate-200 shadow-lg">
-                    <div className="px-4 pt-2 pb-4 space-y-2">
-                        <button 
-                            onClick={() => {
-                                router.push('/');
-                                setMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left px-4 py-3 text-sm font-medium text-teal-600 bg-teal-50 rounded-lg"
-                        >
-                            Αρχική
-                        </button>
-                        <button
-                            onClick={() => {
-                                router.push('/vets');
-                                setMobileMenuOpen(false);
-                            }}
-                            className="block w-full text-left px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
-                        >
-                            Κτηνίατροι
-                        </button>
-                        <div className="pt-3 border-t border-slate-200 space-y-2">
-                            <button
-                                onClick={() => {
-                                    router.push('/owner/login');
-                                    setMobileMenuOpen(false);
-                                }}
-                                className="block w-full text-center px-4 py-3 text-sm font-bold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-                            >
-                                Σύνδεση
-                            </button>
-                            <button
-                                onClick={() => {
-                                    router.push('/vet/login');
-                                    setMobileMenuOpen(false);
-                                }}
-                                className="block w-full text-center px-4 py-3 text-sm font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <StethoscopeIcon className="w-4 h-4" />
-                                Είσοδος Ιατρού
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </nav>
-    );
-};
-
-export default Navbar;
+  return <nav aria-label="Κύρια πλοήγηση" className="fixed top-0 z-50 w-full border-b border-ink-200 bg-white/90 text-ink-800 backdrop-blur-md">
+    <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+      <Link href="/" className="shrink-0" aria-label="Vetly — Αρχική">
+        <Image src="/branding/vetly-logo-transparent.png" alt="Vetly" width={2109} height={746} sizes="104px" preload className="h-auto w-[104px]" />
+      </Link>
+      <div className="hidden items-center gap-1 md:flex">
+        {links.map(([href, label]) => <Link key={href} href={href} aria-current={isCurrent(href) ? 'page' : undefined} className={`rounded-[10px] px-3 py-1.5 text-sm font-medium ${isCurrent(href) ? 'bg-black/[0.06] text-ink-900' : 'text-ink-600 hover:bg-black/[0.04]'}`}>{label}</Link>)}
+      </div>
+      <div className="ml-auto hidden items-center gap-2 md:flex">
+        <Link href="/vet/login" className={secondary}>Για κτηνιάτρους</Link>
+        <Link href="/owner/login" className={primary}>Σύνδεση</Link>
+      </div>
+      <button type="button" aria-label={open ? 'Κλείσιμο μενού' : 'Άνοιγμα μενού'} aria-expanded={open} aria-controls="public-menu" onClick={() => setOpen(!open)} className="ml-auto grid h-9 w-9 place-items-center rounded-[10px] hover:bg-black/[0.06] md:hidden">
+        <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d={open ? 'M6 6l12 12M18 6 6 18' : 'M4 7h16M4 12h16M4 17h16'} /></svg>
+      </button>
+    </div>
+    {open && <div id="public-menu" className="border-t border-ink-200 bg-white px-4 py-3 md:hidden">
+      <div className="space-y-1">
+        {links.map(([href, label]) => <Link key={href} href={href} onClick={() => setOpen(false)} aria-current={isCurrent(href) ? 'page' : undefined} className={`block rounded-[10px] px-3 py-2.5 text-sm font-medium ${isCurrent(href) ? 'bg-black/[0.06] text-ink-900' : 'text-ink-700'}`}>{label}</Link>)}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 border-t border-ink-100 pt-3">
+        <Link href="/vet/login" onClick={() => setOpen(false)} className={`${secondary} bg-black/[0.06]`}>Για κτηνιάτρους</Link>
+        <Link href="/owner/login" onClick={() => setOpen(false)} className={primary}>Σύνδεση</Link>
+      </div>
+    </div>}
+  </nav>;
+}

@@ -1,73 +1,33 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
-const Footer = () => {
-    return (
-        <footer className="bg-slate-900 text-slate-300">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* Brand */}
-                    <div>
-                        <div className="flex items-center gap-2 mb-3">
-                            <svg className="h-7 w-7 text-teal-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M10 5.172C10 3.782 8.423 2.679 6.5 3c-2.823.47-4.113 6.006-4 7 .08.703 1.725 1.722 3.656 1 1.261-.472 1.96-1.45 2.344-2.5M14 5.172C14 3.782 15.577 2.679 17.5 3c2.823.47 4.113 6.006 4 7-.08.703-1.725 1.722-3.656 1-1.261-.472-1.96-1.45-2.344-2.5" />
-                                <path d="M8 14v.5M16 14v.5" />
-                                <path d="M11.25 16.25h1.5L12 17l-.75-.75z" />
-                                <path d="M4.42 11.247A13.152 13.152 0 004 14.556C4 18.728 7.582 21 12 21s8-2.272 8-6.444a13.152 13.152 0 00-.42-3.31" />
-                            </svg>
-                            <span className="text-xl font-bold text-white">Vetly</span>
-                        </div>
-                        <p className="text-sm text-slate-400">
-                            Η πλατφόρμα κτηνιατρικής φροντίδας
-                        </p>
-                    </div>
+const columns = [
+  { title: 'Για ιδιοκτήτες', links: [['/vets', 'Εύρεση κτηνιάτρου'], ['/register', 'Δημιουργία λογαριασμού'], ['/owner/login', 'Σύνδεση']] },
+  { title: 'Για κτηνιάτρους', links: [['/vet/register', 'Εγγραφή ιατρείου'], ['/vet/login', 'Είσοδος κτηνιατρείου']] },
+] as const;
 
-                    {/* Quick Links */}
-                    <div>
-                        <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Σύνδεσμοι</h4>
-                        <ul className="space-y-2 text-sm">
-                            <li>
-                                <Link href="/" className="hover:text-teal-400 transition-colors">
-                                    Αρχική
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/vets" className="hover:text-teal-400 transition-colors">
-                                    Κτηνίατροι
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/owner/login" className="hover:text-teal-400 transition-colors">
-                                    Σύνδεση
-                                </Link>
-                            </li>
-                            <li>
-                                <Link href="/vet/register" className="hover:text-teal-400 transition-colors">
-                                    Εγγραφή Ιατρού
-                                </Link>
-                            </li>
-                        </ul>
-                    </div>
-
-                    {/* Contact */}
-                    <div>
-                        <h4 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Επικοινωνία</h4>
-                        <ul className="space-y-2 text-sm">
-                            <li>
-                                <a href="mailto:info@vetly.gr" className="hover:text-teal-400 transition-colors">
-                                    info@vetly.gr
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                {/* Bottom bar */}
-                <div className="border-t border-slate-800 mt-10 pt-6 text-center text-xs text-slate-500">
-                    &copy; 2026 Vetly. Με αγάπη για τα κατοικίδια.
-                </div>
-            </div>
-        </footer>
-    );
-};
-
-export default Footer;
+export default function Footer() {
+  return <footer className="border-t border-ink-200 bg-ink-50 text-ink-700">
+    <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+      <div>
+        <Image src="/branding/vetly-logo-transparent.png" alt="Vetly" width={2109} height={746} sizes="104px" className="h-auto w-[104px]" />
+        <p className="mt-3 max-w-xs text-sm leading-6 text-ink-500">Η φροντίδα του κατοικιδίου σας, οργανωμένη: κτηνίατρος, ραντεβού και ιστορικό σε ένα μέρος.</p>
+      </div>
+      {columns.map(column => <div key={column.title}>
+        <h2 className="text-xs font-semibold text-ink-900">{column.title}</h2>
+        <ul className="mt-3 space-y-2 text-sm">
+          {column.links.map(([href, label]) => <li key={href}><Link href={href} className="text-ink-600 underline-offset-4 hover:text-clinic-700 hover:underline">{label}</Link></li>)}
+        </ul>
+      </div>)}
+      <div>
+        <h2 className="text-xs font-semibold text-ink-900">Επικοινωνία</h2>
+        <ul className="mt-3 space-y-2 text-sm">
+          <li><a href="mailto:info@vetly.gr" className="text-ink-600 underline-offset-4 hover:text-clinic-700 hover:underline">info@vetly.gr</a></li>
+        </ul>
+      </div>
+    </div>
+    <div className="border-t border-ink-200">
+      <p className="mx-auto max-w-6xl px-4 py-4 text-xs text-ink-500 sm:px-6">© {new Date().getFullYear()} Vetly</p>
+    </div>
+  </footer>;
+}
