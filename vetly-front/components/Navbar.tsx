@@ -17,7 +17,7 @@ export default function Navbar() {
         <Image src="/branding/vetly-logo-transparent.png" alt="Vetly" width={2109} height={746} sizes="104px" preload className="h-auto w-[104px]" />
       </Link>
       <div className="ml-auto hidden items-center gap-2 md:flex">
-        <Link href="/vet/login" className={secondary}>Για κτηνιάτρους</Link>
+        <Link href="/for-vets" className={secondary}>Για κτηνιάτρους</Link>
         <Link href="/owner/login" className={secondary}>Σύνδεση</Link>
         <Link href="/register" className={primary}>Δημιουργία λογαριασμού</Link>
       </div>
@@ -28,7 +28,7 @@ export default function Navbar() {
     {open && <div id="public-menu" className="grid gap-2 border-t border-ink-200 bg-white px-4 py-3 md:hidden">
       <Link href="/register" onClick={() => setOpen(false)} className={primary}>Δημιουργία λογαριασμού</Link>
       <Link href="/owner/login" onClick={() => setOpen(false)} className={`${secondary} bg-black/[0.06]`}>Σύνδεση</Link>
-      <Link href="/vet/login" onClick={() => setOpen(false)} className={secondary}>Για κτηνιάτρους</Link>
+      <Link href="/for-vets" onClick={() => setOpen(false)} className={secondary}>Για κτηνιάτρους</Link>
     </div>}
   </nav>;
 }
