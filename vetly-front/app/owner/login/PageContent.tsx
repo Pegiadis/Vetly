@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { api, ApiError } from '@/lib/api';
 
@@ -53,130 +54,59 @@ export default function OwnerLoginPageContent() {
     }
   };
 
+  const field = 'block h-10 w-full rounded-[10px] border bg-white px-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-clinic-600 focus:outline-2 focus:outline-offset-1 focus:outline-clinic-200 border-ink-300';
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-teal-50 py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] bg-teal-600/10 rounded-full filter blur-[80px]" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-indigo-600/5 rounded-full filter blur-[80px]" />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-ink-50 px-4 py-10 text-ink-800">
+      <div className="w-full max-w-sm">
+        <Image src="/branding/vetly-logo-transparent.png" alt="Vetly" width={2109} height={746} sizes="120px" preload className="mx-auto h-auto w-[120px]" />
 
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-3xl shadow-xl relative z-10 border border-slate-100">
-        {/* Header */}
-        <div className="text-center">
-          <img
-            src="/images/1-tight.jpg"
-            alt="Vetly"
-            className="mx-auto h-16 w-auto object-contain mb-2"
-          />
-          <p className="mt-2 text-sm text-slate-600">
-            Διαχειριστείτε τα κατοικίδιά σας με ευκολία.
-          </p>
-        </div>
+        <div className="mt-6 rounded-xl border border-ink-200 bg-white p-6">
+          <h1 className="text-xl font-semibold tracking-tight text-ink-900">Καλώς ήρθατε</h1>
+          <p className="mt-1 text-sm text-ink-500">Συνδεθείτε για τα κατοικίδιά σας και τα ραντεβού τους.</p>
 
-        {/* Session Expired */}
-        {sessionExpired && !error && (
-          <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm">
-            Η συνεδρία σας έληξε. Παρακαλώ συνδεθείτε ξανά.
-          </div>
-        )}
+          {sessionExpired && !error && (
+            <div role="status" className="mt-4 rounded-[10px] bg-[#fff1e4] px-3 py-2.5 text-sm text-[#8a3f0c]">
+              Η συνεδρία σας έληξε. Συνδεθείτε ξανά.
+            </div>
+          )}
+          {error && (
+            <div role="alert" className="mt-4 rounded-[10px] bg-red-50 px-3 py-2.5 text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Login Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
+          <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
             <div>
-              <label htmlFor="email" className="sr-only">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-teal-500 focus:border-teal-500"
-                placeholder="Email"
-              />
+              <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-ink-700">Email</label>
+              <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} className={field} placeholder="onoma@email.gr" />
             </div>
             <div>
-              <label htmlFor="password" className="sr-only">Κωδικός</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="appearance-none rounded-xl relative block w-full px-4 py-3 border border-slate-300 placeholder-slate-500 text-slate-900 focus:outline-none focus:ring-2 focus:z-10 sm:text-sm transition-colors focus:ring-teal-500 focus:border-teal-500"
-                placeholder="Κωδικός Πρόσβασης"
-              />
+              <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                <label htmlFor="password" className="block text-xs font-medium text-ink-700">Κωδικός</label>
+                <Link href="/forgot-password?userType=pet_owner" className="text-xs font-medium text-clinic-700 underline-offset-4 hover:underline">Ξεχάσατε τον κωδικό;</Link>
+              </div>
+              <input id="password" name="password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} className={field} />
             </div>
-          </div>
-
-          <div className="flex items-center justify-end">
-            <Link
-              href="/forgot-password?userType=pet_owner"
-              className="text-sm font-medium text-teal-600 hover:text-teal-500"
-            >
-              Ξεχάσατε τον κωδικό;
-            </Link>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all disabled:opacity-70 bg-teal-600 hover:bg-teal-700"
-            >
+            <button type="submit" disabled={loading} className="flex h-10 w-full items-center justify-center rounded-[10px] bg-clinic-600 text-sm font-medium text-white transition-colors hover:bg-clinic-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600 disabled:opacity-70">
               {loading ? (
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <svg className="h-5 w-5 animate-spin text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-label="Παρακαλώ περιμένετε">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-              ) : (
-                'Είσοδος'
-              )}
+              ) : 'Είσοδος'}
             </button>
-          </div>
-        </form>
-
-        {/* Registration Link */}
-        <div className="text-center mt-4">
-          <div className="bg-teal-50 p-6 rounded-2xl border border-teal-100">
-            <h3 className="text-lg font-bold text-slate-800 mb-2">Νέος Χρήστης;</h3>
-            <p className="text-sm text-slate-600 mb-4">
-              Δημιουργήστε λογαριασμό για να διαχειριστείτε τα κατοικίδιά σας.
-            </p>
-            <Link
-              href="/register"
-              className="w-full inline-flex items-center justify-center gap-2 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold shadow-lg shadow-teal-200 transition-all"
-            >
-              Εγγραφή
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
-
-          {/* Vet Login Link */}
-          <div className="border-t border-slate-100 pt-4 mt-6">
-            <Link
-              href="/vet/login"
-              className="text-xs font-medium text-slate-400 hover:text-indigo-600 flex items-center justify-center gap-1 mx-auto transition-colors"
-            >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              Είστε Κτηνίατρος; Είσοδος Επαγγελματία
-            </Link>
-          </div>
+          </form>
         </div>
+
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
+          <p className="text-sm text-ink-600">Πρώτη φορά στο Vetly;</p>
+          <Link href="/register" className="inline-flex h-8 shrink-0 items-center rounded-[10px] bg-black/[0.06] px-3 text-[13px] font-medium text-ink-900 hover:bg-black/10">Δημιουργία λογαριασμού</Link>
+        </div>
+
+        <p className="mt-5 text-center text-xs text-ink-500">
+          Είστε κτηνίατρος; <Link href="/vet/login" className="font-medium text-clinic-700 underline-offset-4 hover:underline">Είσοδος κτηνιατρείου</Link>
+        </p>
       </div>
     </div>
   );
