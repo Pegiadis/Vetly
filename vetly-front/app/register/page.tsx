@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -28,20 +28,6 @@ export default function OwnerRegisterPage() {
   const [error, setError] = useState('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [emailTaken, setEmailTaken] = useState(false);
-  const [checkingEmail, setCheckingEmail] = useState(false);
-
-  const checkEmailAvailability = useCallback(async (email: string) => {
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
-    setCheckingEmail(true);
-    try {
-      const result = await api.get<{ available: boolean }>(`/auth/check-email?email=${encodeURIComponent(email)}&user_type=pet_owner`);
-      setEmailTaken(!result.available);
-    } catch {
-      // Silently fail — server-side validation is the fallback
-    } finally {
-      setCheckingEmail(false);
-    }
-  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -52,7 +38,6 @@ export default function OwnerRegisterPage() {
 
   const handleBlur = (field: string) => {
     setTouched(prev => ({ ...prev, [field]: true }));
-    if (field === 'email') checkEmailAvailability(formData.email);
   };
 
   const fieldErrors: Record<string, string> = {};
@@ -94,7 +79,9 @@ export default function OwnerRegisterPage() {
 
       router.push(`/verify-email/pending?email=${encodeURIComponent(formData.email)}&userType=pet_owner`);
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (err instanceof ApiError && err.message === 'Email already registered') {
+        setEmailTaken(true);
+      } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
         setError('Παρουσιάστηκε σφάλμα. Δοκιμάστε ξανά.');
@@ -127,7 +114,6 @@ export default function OwnerRegisterPage() {
             <div>
               <label htmlFor="email" className="mb-1.5 block text-xs font-medium text-ink-700">Email</label>
               <input id="email" name="email" type="email" autoComplete="email" required value={formData.email} onChange={handleChange} onBlur={() => handleBlur('email')} className={`${inputBase} ${inputErr('email')}`} />
-              {checkingEmail && <p className="mt-1 text-xs text-ink-500">Έλεγχος email…</p>}
               {touched.email && fieldErrors.email && <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>}
             </div>
             <div>
