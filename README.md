@@ -76,7 +76,7 @@
 - **Migrations**: Alembic
 - **Cache**: Redis
 - **Task Queue**: Celery
-- **AI**: Google Gemini API
+- **AI**: Anthropic Claude API
 
 ### DevOps
 - **Hosting**: Hetzner VPS
@@ -232,7 +232,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440
 ALLOWED_ORIGINS=["http://localhost:3000"]
 
 # AI (optional)
-GEMINI_API_KEY=your-gemini-api-key-here
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
 
 # Email (optional)
 SMTP_HOST=smtp.gmail.com
@@ -562,7 +562,7 @@ We welcome contributions! Please follow these steps:
 | `REDIS_URL` | Redis connection string | ✅ | - |
 | `SECRET_KEY` | JWT secret key | ✅ | - |
 | `ALLOWED_ORIGINS` | CORS allowed origins | ✅ | `[]` |
-| `GEMINI_API_KEY` | Google Gemini API key | ❌ | - |
+| `ANTHROPIC_API_KEY` | Anthropic Claude API key (AI assistant) | ❌ | - |
 | `SMTP_HOST` | Email SMTP host | ❌ | - |
 | `SMTP_USER` | Email SMTP username | ❌ | - |
 | `SMTP_PASSWORD` | Email SMTP password | ❌ | - |
@@ -647,7 +647,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - Built with [Next.js](https://nextjs.org/)
 - Powered by [FastAPI](https://fastapi.tiangolo.com/)
-- AI capabilities by [Google Gemini](https://ai.google.dev/)
+- AI capabilities by [Anthropic Claude](https://www.anthropic.com/)
 - Deployed with [Coolify](https://coolify.io/)
 - Hosted on [Hetzner](https://www.hetzner.com/)
 

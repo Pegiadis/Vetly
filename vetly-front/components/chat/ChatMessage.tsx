@@ -19,7 +19,7 @@ const colorMap: Record<string, { bubble: string; avatarBg: string; avatarIcon: s
   },
 };
 
-// Tailwind-styled renderers for the markdown elements Gemini emits.
+// Tailwind-styled renderers for the markdown elements the assistant emits.
 // Kept as a factory so we can close over the link color per theme.
 function makeMarkdownComponents(linkClass: string): Components {
   return {
@@ -48,7 +48,7 @@ function makeMarkdownComponents(linkClass: string): Components {
         {children}
       </blockquote>
     ),
-    // Headers (Gemini rarely uses them but handle all six)
+    // Headers (rare in replies, but handle all six)
     h1: ({ children }) => <h1 className="text-base font-bold mb-2">{children}</h1>,
     h2: ({ children }) => <h2 className="text-base font-bold mb-2">{children}</h2>,
     h3: ({ children }) => <h3 className="text-sm font-bold mb-2">{children}</h3>,
@@ -151,7 +151,7 @@ export default function ChatMessage({
         ) : (
           // Assistant messages: render markdown (bold, lists, links, etc.)
           // via react-markdown. react-markdown is safe-by-default — it
-          // does NOT render raw HTML, so there's no XSS risk from Gemini.
+          // does NOT render raw HTML, so there's no XSS risk from the model output.
           <div className="text-sm leading-relaxed">
             {content && (
               <ReactMarkdown

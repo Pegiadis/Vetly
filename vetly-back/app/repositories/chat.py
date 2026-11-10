@@ -114,7 +114,7 @@ class ChatRepository:
     ) -> list[ChatMessage]:
         """Return the most recent N messages in chronological order.
 
-        Used when building Gemini conversation history — capping prevents
+        Used when building Claude conversation history — capping prevents
         unbounded token growth as conversations get long.
         """
         query = (

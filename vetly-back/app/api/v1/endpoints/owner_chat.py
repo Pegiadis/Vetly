@@ -84,7 +84,7 @@ def owner_send_message(
             detail="Conversation not found",
         )
     if assistant_msg is None:
-        # Gemini generation failed. The user message was persisted so they
+        # Claude generation failed. The user message was persisted so they
         # can retry without re-typing, but there's no assistant reply.
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -113,7 +113,7 @@ def owner_send_message_stream(
 
     Stays sync (per CLAUDE.md) — FastAPI's ``StreamingResponse`` iterates
     sync generators on the threadpool worker that's already handling the
-    request, and the Gemini SDK's ``send_message_stream`` has a sync
+    request, and the Anthropic SDK's ``messages.stream`` has a sync
     variant that we use directly.
     """
     service = ChatService(db)

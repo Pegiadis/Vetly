@@ -1,12 +1,13 @@
 """
-Chat service - handles AI chat logic with Google Gemini
-Uses the new google-genai SDK (replaces deprecated google-generativeai)
+Chat service - handles AI chat logic with Anthropic Claude
 """
 
 import logging
+import os
 from datetime import date
 from uuid import UUID
 
+import anthropic
 from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
@@ -16,9 +17,77 @@ from app.repositories.chat import ChatRepository
 
 logger = logging.getLogger(__name__)
 
-# Maximum number of past messages sent to Gemini on each turn. Prevents
+# Maximum number of past messages sent to Claude on each turn. Prevents
 # unbounded token growth and keeps latency stable as conversations age.
 MAX_HISTORY_MESSAGES = 20
+
+# Upper bound for one reply. Streaming keeps a large ceiling safe from timeouts.
+MAX_REPLY_TOKENS = 16000
+
+# Models that can hand a declined request to another model inside the same call.
+FALLBACK_BETA = "server-side-fallback-2026-07-01"
+MODELS_WITH_FALLBACK = {
+    "claude-fable-5-2",
+    "claude-fable-5-1",
+    "claude-opus-5-5",
+    "claude-opus-5",
+    "claude-sonnet-5-5",
+}
+
+
+def _claude_configured() -> bool:
+    return bool(settings.ANTHROPIC_API_KEY or os.environ.get("ANTHROPIC_API_KEY"))
+
+
+def _claude_client() -> anthropic.Anthropic:
+    # With no key in settings the SDK reads ANTHROPIC_API_KEY from the environment.
+    return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY or None)
+
+
+def _claude_stream(existing_messages: list, new_message: str, system_prompt: str):
+    """Open a streaming reply for the stored history plus the new user message."""
+    messages = [
+        {"role": "user" if msg.role == "user" else "assistant", "content": msg.content}
+        for msg in existing_messages
+        if msg.content
+    ]
+    # The history window is cut by count, so it can open on a reply; the API
+    # needs the first turn to be the user's.
+    while messages and messages[0]["role"] != "user":
+        messages.pop(0)
+    messages.append({"role": "user", "content": new_message})
+
+    client = _claude_client()
+    request = {
+        "model": settings.ANTHROPIC_MODEL,
+        "max_tokens": MAX_REPLY_TOKENS,
+        "system": system_prompt,
+        "messages": messages,
+        # Short conversational answers: keep latency and spend low.
+        "output_config": {"effort": "low"},
+    }
+    if settings.ANTHROPIC_MODEL in MODELS_WITH_FALLBACK:
+        return client.beta.messages.stream(
+            betas=[FALLBACK_BETA], fallbacks="default", **request
+        )
+    return client.messages.stream(**request)
+
+
+def _log_claude_failure(error: Exception) -> None:
+    if isinstance(error, anthropic.AuthenticationError):
+        logger.error("Claude rejected the API key; check ANTHROPIC_API_KEY")
+    elif isinstance(error, anthropic.PermissionDeniedError):
+        logger.error("Claude API key lacks access to %s", settings.ANTHROPIC_MODEL)
+    elif isinstance(error, anthropic.NotFoundError):
+        logger.error("Claude model not found: %s", settings.ANTHROPIC_MODEL)
+    elif isinstance(error, anthropic.RateLimitError):
+        logger.warning("Claude rate limit reached")
+    elif isinstance(error, anthropic.APIStatusError):
+        logger.error("Claude API error %s: %s", error.status_code, error.message)
+    elif isinstance(error, anthropic.APIConnectionError):
+        logger.error("Could not reach the Claude API")
+    else:
+        logger.exception("Chat generation failed", exc_info=error)
 
 BASE_SYSTEM_PROMPT = (
     "ΚΡΙΣΙΜΟ: Απαντάς ΠΑΝΤΑ στα ελληνικά, ΑΝΕΞΑΙΡΕΤΩΣ. "
@@ -80,7 +149,7 @@ class ChatService:
         """Send a user message and get an AI response.
 
         Returns (conversation, user_msg, assistant_msg). If the conversation
-        can't be found, returns (None, None, None). If Gemini fails to
+        can't be found, returns (None, None, None). If Claude fails to
         generate a response, returns (conversation, user_msg, None) — the
         caller is expected to raise an HTTP 502. On failure the user message
         IS still persisted so the user can retry without re-typing, but no
@@ -128,7 +197,7 @@ class ChatService:
         )
 
         if ai_response is None:
-            # Gemini failed. Leave the user message in place so the user
+            # Claude failed. Leave the user message in place so the user
             # can retry, but don't persist a garbage assistant row.
             return conversation, user_msg, None
 
@@ -150,9 +219,9 @@ class ChatService:
 
         Yields (event_type, payload) tuples where event_type is one of:
           - 'start': conversation created/loaded, user message persisted
-          - 'chunk': a single text fragment from Gemini (append to UI)
+          - 'chunk': a single text fragment from Claude (append to UI)
           - 'done': full response persisted, provides the real assistant row
-          - 'error': Gemini generation failed, payload has 'code'
+          - 'error': generation failed, payload has 'code'
 
         On client disconnect (GeneratorExit), stops cleanly and does NOT
         persist a partial assistant row — a truncated reply is worse than
@@ -210,45 +279,21 @@ class ChatService:
             pet_owner_id=pet_owner_id, vet_id=vet_id
         )
 
-        # Stream from Gemini
-        if not settings.GEMINI_API_KEY:
-            logger.error("Chat stream requested but GEMINI_API_KEY is not configured")
+        # Stream from Claude
+        if not _claude_configured():
+            logger.error("Chat stream requested but ANTHROPIC_API_KEY is not configured")
             yield ("error", {"code": "not_configured"})
             return
 
         accumulated = ""
+        stop_reason = None
         try:
-            from google import genai
-            from google.genai import types
-
-            client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
-            history = []
-            for msg in existing_messages:
-                role = "user" if msg.role == "user" else "model"
-                history.append(
-                    types.Content(
-                        role=role,
-                        parts=[types.Part.from_text(text=msg.content)],
-                    )
-                )
-
-            chat = client.chats.create(
-                model="gemini-2.0-flash",
-                history=history,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                ),
-            )
-
-            # SYNC streaming — the google-genai SDK exposes this alongside
-            # the async variant, so no async endpoint is needed.
-            for chunk in chat.send_message_stream(user_message):
-                # Metadata-only chunks (finish_reason, usage_metadata) have
-                # text=None; skip them.
-                if chunk.text:
-                    accumulated += chunk.text
-                    yield ("chunk", {"text": chunk.text})
+            # SYNC streaming, so no async endpoint is needed.
+            with _claude_stream(existing_messages, user_message, system_prompt) as stream:
+                for text in stream.text_stream:
+                    accumulated += text
+                    yield ("chunk", {"text": text})
+                stop_reason = stream.get_final_message().stop_reason
         except GeneratorExit:
             # Client disconnected mid-stream. Stop cleanly without persisting
             # the partial assistant response. FastAPI re-raises after cleanup.
@@ -258,13 +303,20 @@ class ChatService:
                 conversation.id,
             )
             raise
-        except Exception:
-            logger.exception("Chat stream generation failed")
+        except Exception as error:
+            _log_claude_failure(error)
             yield ("error", {"code": "generation_failed"})
             return
 
+        if stop_reason == "refusal":
+            # Declined by every model in the chain. Whatever text arrived
+            # before the decline is not a usable answer.
+            logger.warning("Chat stream ended with a refusal (conv=%s)", conversation.id)
+            yield ("error", {"code": "refused"})
+            return
+
         if not accumulated:
-            # Gemini returned zero text — treat as a generation failure so
+            # Claude returned zero text: treat as a generation failure so
             # the user can retry. No assistant row persisted.
             logger.warning("Chat stream completed with empty response")
             yield ("error", {"code": "empty_response"})
@@ -533,43 +585,25 @@ class ChatService:
     def _generate_response(
         self, existing_messages: list, new_message: str, system_prompt: str
     ) -> str | None:
-        """Generate an AI response using Google Gemini (google-genai SDK).
+        """Generate an AI response using Anthropic Claude.
 
         Returns the full response text on success, or None on failure.
         Callers should treat None as "AI unavailable" and surface an
-        appropriate HTTP error — never persist None as a chat message.
+        appropriate HTTP error: never persist None as a chat message.
         """
-        if not settings.GEMINI_API_KEY:
-            logger.error("Chat requested but GEMINI_API_KEY is not configured")
+        if not _claude_configured():
+            logger.error("Chat requested but ANTHROPIC_API_KEY is not configured")
             return None
 
         try:
-            from google import genai
-            from google.genai import types
-
-            client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
-            # Build history from existing messages
-            history = []
-            for msg in existing_messages:
-                role = "user" if msg.role == "user" else "model"
-                history.append(
-                    types.Content(
-                        role=role,
-                        parts=[types.Part.from_text(text=msg.content)],
-                    )
-                )
-
-            chat = client.chats.create(
-                model="gemini-2.0-flash",
-                history=history,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                ),
-            )
-
-            response = chat.send_message(new_message)
-            return response.text
-        except Exception:
-            logger.exception("Chat generation failed")
+            with _claude_stream(existing_messages, new_message, system_prompt) as stream:
+                message = stream.get_final_message()
+        except Exception as error:
+            _log_claude_failure(error)
             return None
+
+        if message.stop_reason == "refusal":
+            logger.warning("Chat generation ended with a refusal")
+            return None
+        text = "".join(block.text for block in message.content if block.type == "text")
+        return text or None

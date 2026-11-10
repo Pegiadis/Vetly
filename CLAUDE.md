@@ -112,7 +112,7 @@ All routes under `/api/v1/`. Router assembly in `app/api/v1/router.py`. Main gro
 
 ## Environment
 
-- Backend `.env`: `DATABASE_URL`, `SECRET_KEY`, `ALLOWED_ORIGINS`, `GEMINI_API_KEY` (optional)
+- Backend `.env`: `DATABASE_URL`, `SECRET_KEY`, `ALLOWED_ORIGINS`, `ANTHROPIC_API_KEY` (optional, AI assistant)
 - Frontend `.env.local`: `NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1`
 - Docker exposes: PostgreSQL :5432, Backend :8000, Frontend :3000 (all bound to `127.0.0.1` in production)
 - Full list of prod env vars: see `.env.example`

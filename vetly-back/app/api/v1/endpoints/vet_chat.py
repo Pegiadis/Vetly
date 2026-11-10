@@ -104,7 +104,7 @@ def vet_send_message(
             detail="Conversation not found",
         )
     if assistant_msg is None:
-        # Gemini generation failed. The user message was persisted so they
+        # Claude generation failed. The user message was persisted so they
         # can retry without re-typing, but there's no assistant reply.
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

@@ -26,7 +26,8 @@ services:
     environment: &backend-environment
       DATABASE_URL: postgresql://vetly:${DB_PASSWORD}@postgres:5432/vetly
       SECRET_KEY: ${SECRET_KEY}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-opus-5-5}
       ENVIRONMENT: production
       PILOT_MODE: ${PILOT_MODE:-false}
       PILOT_ALLOWED_EMAILS: ${PILOT_ALLOWED_EMAILS:-[]}
