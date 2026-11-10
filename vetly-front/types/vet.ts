@@ -71,7 +71,6 @@ export interface PublicVet {
 }
 
 export interface PublicVetDetail extends PublicVet {
-  license_number: string | null;
   coordinates_lat: number | null;
   coordinates_lng: number | null;
   description: string | null;
@@ -114,6 +113,7 @@ export interface Reminder {
   is_sent: boolean;
   is_dismissed: boolean;
   created_at: string;
+}
 
 // --- Admin: professional verification of vets ---
 
@@ -128,5 +128,4 @@ export interface AdminVet {
   email_verified: boolean;
   is_verified: boolean;
   created_at: string;
-}
 }

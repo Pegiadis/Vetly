@@ -37,7 +37,7 @@ function getTokenKey(type: UserType): string {
 function detectUserTypeFromPath(): UserType {
   if (typeof window === 'undefined') return null;
   const path = window.location.pathname;
-  if (path.startsWith('/vet')) return 'vet';
+  if (path === '/vet' || path.startsWith('/vet/')) return 'vet';
   if (path.startsWith('/owner')) return 'pet_owner';
   return null;
 }

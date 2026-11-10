@@ -25,7 +25,6 @@ class PublicVetResponse(BaseModel):
 
 
 class PublicVetDetailResponse(PublicVetResponse):
-    license_number: str | None
     coordinates_lat: float | None
     coordinates_lng: float | None
     description: str | None

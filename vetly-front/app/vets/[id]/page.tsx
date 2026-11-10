@@ -3,8 +3,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { PublicVetDetail, PublicReviewListResponse } from '@/types/vet';
+import { DayHours, PublicVetDetail, PublicReviewListResponse } from '@/types/vet';
 import { getImageUrl } from '@/lib/api';
+import BookCta from './BookCta';
 
 const API_URL =
   process.env.API_URL ||
@@ -98,24 +99,27 @@ const DAY_LABELS: Record<string, string> = {
   sunday: 'Κυριακή',
 };
 
-function StarRating({
-  rating,
-  max = 5,
-  size = 'md',
-}: {
-  rating: number;
-  max?: number;
-  size?: 'sm' | 'md' | 'lg';
-}) {
-  const sizeClass = size === 'lg' ? 'text-2xl' : size === 'sm' ? 'text-sm' : 'text-lg';
+function Stars({ rating }: { rating: number }) {
   return (
-    <div className={`flex items-center gap-0.5 ${sizeClass}`}>
-      {Array.from({ length: max }).map((_, i) => (
-        <span key={i} className={i < Math.round(rating) ? 'text-yellow-400' : 'text-gray-300'}>
+    <span className="inline-flex text-sm leading-none" aria-label={`${rating} από 5`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <span key={i} aria-hidden="true" className={i < Math.round(rating) ? 'text-amber-500' : 'text-ink-300'}>
           ★
         </span>
       ))}
-    </div>
+    </span>
+  );
+}
+
+function Section({ title, count, children }: { title: string; count?: number; children: React.ReactNode }) {
+  return (
+    <section className="rounded-xl border border-ink-200 bg-white">
+      <h2 className="border-b border-ink-200 px-4 py-3 text-sm font-semibold tracking-tight text-ink-900 sm:px-5">
+        {title}
+        {count ? <span className="ml-2 font-normal text-ink-500">({count})</span> : null}
+      </h2>
+      <div className="px-4 py-4 sm:px-5">{children}</div>
+    </section>
   );
 }
 
@@ -127,10 +131,19 @@ function formatDate(iso: string) {
   });
 }
 
+function formatHours(hours: DayHours | undefined) {
+  if (!hours) return '-';
+  if (hours.closed) return 'Κλειστά';
+  const parts: string[] = [];
+  if (hours.morning?.open && hours.morning?.close) parts.push(`${hours.morning.open} - ${hours.morning.close}`);
+  if (hours.afternoon?.open && hours.afternoon?.close) parts.push(`${hours.afternoon.open} - ${hours.afternoon.close}`);
+  return parts.length > 0 ? parts.join(', ') : '-';
+}
+
 export default async function VetDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params;
   const { review_page } = await searchParams;
-  const reviewPage = review_page ? parseInt(review_page, 10) : 1;
+  const reviewPage = review_page ? parseInt(review_page, 10) || 1 : 1;
 
   const [vet, reviewsData, servicesData] = await Promise.all([
     getPublicVet(id),
@@ -144,6 +157,9 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
 
   const imageUrl = getImageUrl(vet.image_url);
   const totalReviewPages = Math.ceil(reviewsData.total / reviewsData.page_size);
+  const todayKey = new Date()
+    .toLocaleDateString('en-US', { weekday: 'long', timeZone: 'Europe/Athens' })
+    .toLowerCase();
 
   // JSON-LD structured data
   const jsonLd = {
@@ -174,260 +190,198 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
     return `/vets/${id}?review_page=${page}`;
   }
 
+  const pageLink =
+    'rounded-[10px] bg-black/[0.06] px-3 py-1.5 text-[13px] font-medium text-ink-900 hover:bg-black/10';
+
   return (
     <>
-      {/* JSON-LD */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
       <Navbar />
-      <main className="min-h-screen bg-gray-50 pt-16">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          {/* Back link */}
-          <Link
-            href="/"
-            className="inline-flex items-center text-teal-600 hover:text-teal-700 mb-6 text-sm font-medium"
-          >
-            ← Αρχική
-          </Link>
+      <main className="min-h-screen bg-ink-50 pt-16">
+        <div className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-6">
+          {/* Header */}
+          <header className="rounded-xl border border-ink-200 bg-white p-4 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+              {imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={imageUrl}
+                  alt={vet.name}
+                  className="h-20 w-20 shrink-0 rounded-full border border-ink-200 object-cover sm:h-24 sm:w-24"
+                />
+              ) : (
+                <div
+                  aria-hidden="true"
+                  className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-clinic-100 text-3xl font-semibold text-clinic-800 sm:h-24 sm:w-24"
+                >
+                  {vet.name.charAt(0)}
+                </div>
+              )}
 
-          {/* Hero card */}
-          <div className="bg-white rounded-2xl shadow-md p-6 md:p-8 mb-6">
-            <div className="flex flex-col sm:flex-row gap-6">
-              {/* Avatar */}
-              <div className="flex-shrink-0">
-                {imageUrl ? (
-                  <img
-                    src={imageUrl}
-                    alt={vet.name}
-                    className="w-28 h-28 rounded-full object-cover ring-4 ring-teal-100"
-                  />
-                ) : (
-                  <div className="w-28 h-28 rounded-full bg-teal-100 flex items-center justify-center ring-4 ring-teal-50">
-                    <span className="text-teal-600 text-4xl font-semibold">
-                      {vet.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Basic info */}
-              <div className="flex-1">
-                <div className="flex flex-wrap items-start gap-2 mb-1">
-                  <h1 className="text-2xl font-bold text-gray-900">{vet.name}</h1>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="break-words text-2xl font-semibold tracking-tight text-ink-900">{vet.name}</h1>
                   {vet.is_on_call && (
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
-                      Σε Εφημερία
+                    <span className="inline-flex h-5 items-center rounded-full bg-clinic-100 px-2 text-xs font-medium text-clinic-800">
+                      Σε εφημερία
                     </span>
                   )}
                 </div>
-
-                {vet.specialty && (
-                  <p className="text-lg text-teal-600 font-medium">{vet.specialty}</p>
-                )}
-                {vet.city && (
-                  <p className="text-gray-500 mt-0.5">
-                    <span className="mr-1">📍</span>
-                    {vet.city}
-                  </p>
-                )}
-
-                {/* Rating */}
-                <div className="flex items-center gap-2 mt-3">
-                  <StarRating rating={vet.rating_average} size="lg" />
-                  <span className="font-semibold text-gray-800">
-                    {Number(vet.rating_average).toFixed(1)}
-                  </span>
-                  <span className="text-gray-500 text-sm">
-                    ({vet.reviews_count} κριτικές)
-                  </span>
+                {vet.specialty && <p className="mt-1 text-sm font-medium text-clinic-700">{vet.specialty}</p>}
+                {vet.city && <p className="mt-0.5 text-sm text-ink-500">{vet.city}</p>}
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                  {vet.reviews_count > 0 ? (
+                    <>
+                      <Stars rating={vet.rating_average} />
+                      <span className="font-semibold text-ink-900">{Number(vet.rating_average).toFixed(1)}</span>
+                      <span className="text-ink-500">({vet.reviews_count} κριτικές)</span>
+                    </>
+                  ) : (
+                    <span className="text-ink-500">Δεν υπάρχουν κριτικές ακόμα</span>
+                  )}
                 </div>
               </div>
 
-              {/* CTA */}
-              <div className="sm:self-start">
-                <Link
-                  href={`/owner/book?vet=${vet.id}`}
-                  className="inline-block bg-teal-600 hover:bg-teal-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors whitespace-nowrap"
-                >
-                  Κλείσε Ραντεβού
-                </Link>
+              <div className="hidden shrink-0 sm:block">
+                <BookCta vetId={vet.id} />
               </div>
             </div>
-          </div>
+          </header>
 
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            {/* Description */}
-            {vet.description && (
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Σχετικά</h2>
-                <p className="text-gray-600 leading-relaxed">{vet.description}</p>
-              </div>
-            )}
-
-            {/* Contact */}
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Επικοινωνία</h2>
-              <div className="space-y-3 text-gray-600">
-                {vet.phone && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-teal-500">📞</span>
-                    <a
-                      href={`tel:${vet.phone}`}
-                      className="hover:text-teal-600 transition-colors"
-                    >
-                      {vet.phone}
-                    </a>
-                  </div>
-                )}
-                {vet.address && (
-                  <div className="flex items-start gap-2">
-                    <span className="text-teal-500 mt-0.5">📍</span>
-                    <span>{vet.address}{vet.city ? `, ${vet.city}` : ''}</span>
-                  </div>
-                )}
-                {vet.coordinates_lat && vet.coordinates_lng && (
-                  <a
-                    href={`https://www.google.com/maps?q=${vet.coordinates_lat},${vet.coordinates_lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-teal-600 hover:text-teal-700 text-sm font-medium"
-                  >
-                    <span>🗺️</span> Δείτε στον χάρτη
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Services & Pricing */}
-          {servicesData.items.length > 0 && (
-            <div className="bg-white rounded-2xl shadow-md p-6 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Υπηρεσίες & Τιμές</h2>
-              <div className="divide-y divide-gray-100">
-                {servicesData.items.map((service) => (
-                  <div key={service.id} className="flex items-center justify-between py-3">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900">{service.name}</p>
-                      {service.description && (
-                        <p className="text-sm text-gray-500 mt-0.5">{service.description}</p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-0.5">{service.duration_minutes} λεπτά</p>
-                    </div>
-                    <div className="ml-4 text-right flex-shrink-0">
-                      <span className="text-lg font-semibold text-teal-600">{service.price}€</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+          {vet.description && (
+            <Section title="Σχετικά">
+              <p className="whitespace-pre-line break-words text-sm leading-6 text-ink-700">{vet.description}</p>
+            </Section>
           )}
 
-          {/* Working hours */}
-          {vet.working_hours && (
-            <div className="bg-white rounded-2xl shadow-md p-6 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Ωράριο Λειτουργίας</h2>
-              <div className="divide-y divide-gray-100">
-                {DAYS.map((day) => {
-                  const hours = vet.working_hours?.[day];
-                  const isToday =
-                    new Date().toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase() ===
-                    day;
-                  return (
+          {servicesData.items.length > 0 && (
+            <Section title="Υπηρεσίες και τιμές">
+              <ul className="-my-4 divide-y divide-ink-200">
+                {servicesData.items.map((service) => (
+                  <li key={service.id} className="flex items-start justify-between gap-4 py-3">
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-medium text-ink-900">{service.name}</p>
+                      {service.description && (
+                        <p className="mt-0.5 break-words text-xs leading-5 text-ink-500">{service.description}</p>
+                      )}
+                      <p className="mt-0.5 text-xs text-ink-500">{service.duration_minutes} λεπτά</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold text-clinic-800">
+                      {Number(service.price).toFixed(2)} €
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {vet.working_hours && (
+              <Section title="Ωράριο λειτουργίας">
+                <dl className="-my-2 divide-y divide-ink-100">
+                  {DAYS.map((day) => (
                     <div
                       key={day}
-                      className={`flex justify-between py-2.5 text-sm ${
-                        isToday ? 'font-semibold text-teal-700' : 'text-gray-700'
+                      className={`flex justify-between gap-3 py-2 text-sm ${
+                        todayKey === day ? 'font-semibold text-clinic-800' : 'text-ink-700'
                       }`}
                     >
-                      <span>{DAY_LABELS[day]}</span>
-                      <span
-                        className={
-                          hours?.closed
-                            ? 'text-gray-400'
-                            : 'text-gray-800'
-                        }
-                      >
-                        {hours?.closed
-                          ? 'Κλειστά'
-                          : (() => {
-                              const parts: string[] = [];
-                              if (hours?.morning?.open && hours?.morning?.close) parts.push(`${hours.morning.open} - ${hours.morning.close}`);
-                              if (hours?.afternoon?.open && hours?.afternoon?.close) parts.push(`${hours.afternoon.open} - ${hours.afternoon.close}`);
-                              return parts.length > 0 ? parts.join(', ') : '-';
-                            })()}
-                      </span>
+                      <dt>{DAY_LABELS[day]}</dt>
+                      <dd className={vet.working_hours?.[day]?.closed ? 'text-ink-400' : ''}>
+                        {formatHours(vet.working_hours?.[day])}
+                      </dd>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Reviews */}
-          <div className="bg-white rounded-2xl shadow-md p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
-              Κριτικές
-              {reviewsData.total > 0 && (
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({reviewsData.total})
-                </span>
-              )}
-            </h2>
-
-            {reviewsData.items.length === 0 ? (
-              <p className="text-gray-500 text-sm py-4 text-center">
-                Δεν υπάρχουν κριτικές ακόμα
-              </p>
-            ) : (
-              <div className="space-y-5">
-                {reviewsData.items.map((review) => (
-                  <div key={review.id} className="border-b border-gray-100 last:border-0 pb-5 last:pb-0">
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{review.owner_name}</p>
-                        <p className="text-xs text-gray-400">{formatDate(review.created_at)}</p>
-                      </div>
-                      <StarRating rating={review.rating} size="sm" />
-                    </div>
-                    {review.comment && (
-                      <p className="text-gray-600 text-sm leading-relaxed">{review.comment}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </dl>
+              </Section>
             )}
 
-            {/* Review pagination */}
+            <Section title="Διεύθυνση και επικοινωνία">
+              <div className="space-y-3 text-sm text-ink-700">
+                {vet.address && (
+                  <p className="break-words">
+                    {vet.address}
+                    {vet.city ? `, ${vet.city}` : ''}
+                  </p>
+                )}
+                {vet.phone && (
+                  <p>
+                    <a href={`tel:${vet.phone}`} className="font-medium text-clinic-700 underline-offset-4 hover:underline">
+                      {vet.phone}
+                    </a>
+                  </p>
+                )}
+                {vet.coordinates_lat != null && vet.coordinates_lng != null && (
+                  <p>
+                    <a
+                      href={`https://www.google.com/maps?q=${vet.coordinates_lat},${vet.coordinates_lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-clinic-700 underline-offset-4 hover:underline"
+                    >
+                      Δείτε στον χάρτη
+                    </a>
+                  </p>
+                )}
+                {!vet.address && !vet.phone && <p className="text-ink-500">Δεν υπάρχουν στοιχεία επικοινωνίας.</p>}
+              </div>
+            </Section>
+          </div>
+
+          <Section title="Κριτικές" count={reviewsData.total}>
+            {reviewsData.items.length === 0 ? (
+              <p className="py-2 text-center text-sm text-ink-500">Δεν υπάρχουν κριτικές ακόμα</p>
+            ) : (
+              <ul className="-my-4 divide-y divide-ink-200">
+                {reviewsData.items.map((review) => (
+                  <li key={review.id} className="py-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="break-words text-sm font-medium text-ink-900">{review.owner_name}</p>
+                        <p className="text-xs text-ink-500">{formatDate(review.created_at)}</p>
+                      </div>
+                      <Stars rating={review.rating} />
+                    </div>
+                    {review.comment && (
+                      <p className="mt-2 break-words text-sm leading-6 text-ink-700">{review.comment}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
             {totalReviewPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-6">
+              <nav aria-label="Σελίδες κριτικών" className="mt-5 flex flex-wrap items-center justify-center gap-2">
                 {reviewPage > 1 && (
-                  <Link
-                    href={buildReviewPageUrl(reviewPage - 1)}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    ← Προηγούμενες
+                  <Link href={buildReviewPageUrl(reviewPage - 1)} className={pageLink}>
+                    Προηγούμενες
                   </Link>
                 )}
-                <span className="text-sm text-gray-500">
+                <span className="text-xs text-ink-500">
                   Σελίδα {reviewPage} από {totalReviewPages}
                 </span>
                 {reviewPage < totalReviewPages && (
-                  <Link
-                    href={buildReviewPageUrl(reviewPage + 1)}
-                    className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    Επόμενες →
+                  <Link href={buildReviewPageUrl(reviewPage + 1)} className={pageLink}>
+                    Επόμενες
                   </Link>
                 )}
-              </div>
+              </nav>
             )}
-          </div>
+          </Section>
         </div>
       </main>
+
+      {/* Sticky booking bar on phones */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-ink-200 bg-white px-4 py-3 sm:hidden">
+        <BookCta vetId={vet.id} />
+      </div>
+
       <Footer />
+      <div aria-hidden="true" className="h-16 bg-ink-50 sm:hidden" />
     </>
   );
 }

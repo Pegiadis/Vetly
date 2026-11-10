@@ -47,7 +47,6 @@ def _vet_to_public_detail(vet: Vet) -> dict:
     """Map Vet ORM object to public detail response dict."""
     data = _vet_to_public_response(vet)
     data.update({
-        "license_number": vet.license_number,
         "coordinates_lat": float(vet.coordinates_lat) if vet.coordinates_lat is not None else None,
         "coordinates_lng": float(vet.coordinates_lng) if vet.coordinates_lng is not None else None,
         "description": vet.description,
