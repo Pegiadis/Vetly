@@ -24,7 +24,7 @@ class TokenResponse(BaseModel):
 class VetRegisterRequest(BaseModel):
     """Vet registration request schema"""
     email: EmailStr
-    password: str = Field(..., min_length=6, max_length=128)
+    password: str = Field(..., min_length=8, max_length=128)
     name: str = Field(..., min_length=2, max_length=255)
     specialty: str = Field(..., min_length=2, max_length=255)
     license_number: str = Field(..., min_length=2, max_length=100)
@@ -42,7 +42,7 @@ class VetRegisterRequest(BaseModel):
 class PetOwnerRegisterRequest(BaseModel):
     """Pet owner registration request schema"""
     email: EmailStr
-    password: str = Field(..., min_length=6, max_length=128)
+    password: str = Field(..., min_length=8, max_length=128)
     name: str = Field(..., min_length=2, max_length=255)
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)
@@ -93,7 +93,7 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     """Reset password with token"""
     token: str
-    new_password: str = Field(..., min_length=6, max_length=128)
+    new_password: str = Field(..., min_length=8, max_length=128)
     user_type: Literal['vet', 'pet_owner'] | None = None
 
     @field_validator('new_password')

@@ -38,8 +38,9 @@ class TestOwnerRegistration:
             "name": "Duplicate Owner",
         }
         resp = client.post(self.ENDPOINT, json=payload)
-        assert resp.status_code == 400
-        assert "already registered" in resp.json()["detail"].lower()
+        # Same response as a new registration: the form does not reveal existing accounts.
+        assert resp.status_code == 201
+        assert "message" in resp.json()
 
 
 class TestVetRegistration:
@@ -71,8 +72,8 @@ class TestVetRegistration:
     def test_register_vet_duplicate_email(self, client, registered_vet):
         payload = self._vet_payload(email=registered_vet.email)
         resp = client.post(self.ENDPOINT, json=payload)
-        assert resp.status_code == 400
-        assert "email already registered" in resp.json()["detail"].lower()
+        assert resp.status_code == 201
+        assert "message" in resp.json()
 
     def test_register_vet_duplicate_license(self, client, registered_vet):
         payload = self._vet_payload(

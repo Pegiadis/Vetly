@@ -4,7 +4,7 @@
 import ClinicDrawer from '@/components/vet/ClinicDrawer';
 import { ClinicButton, ClinicInput, ClinicPanel, ClinicSelect, ClinicPageHeader } from '@/components/vet/ClinicUI';
 import { useState, useEffect, useRef, type ReactNode } from 'react';
-import { useVetProfile, updateVetProfile, updateVetHours, uploadVetPhoto, DayHours } from '@/hooks/useVetData';
+import { useVetProfile, updateVetProfile, updateVetHours, uploadVetPhoto, changeVetPassword, logoutVetEverywhere, DayHours } from '@/hooks/useVetData';
 import { useAuth } from '@/contexts/AuthContext';
 import { getImageUrl } from '@/lib/api';
 import { VetMapPicker } from '@/components/MapView';
@@ -14,6 +14,87 @@ function ProfileSection({ id, title, description, children }: { id: string; titl
     <div><h2 id={`${id}-title`} className="text-sm font-semibold text-ink-900">{title}</h2><p className="mt-2 max-w-sm text-xs leading-5 text-ink-500">{description}</p></div>
     <ClinicPanel className="min-w-0 overflow-hidden p-4 sm:p-5">{children}</ClinicPanel>
   </section>;
+}
+
+function SecuritySection() {
+  const { login } = useAuth();
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [busy, setBusy] = useState<'password' | 'logout' | null>(null);
+  const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  const mismatch = confirmPassword !== '' && confirmPassword !== newPassword;
+  const tooShort = newPassword !== '' && newPassword.length < 8;
+
+  // The response carries a fresh token so this device stays signed in while the others are revoked.
+  const run = async (kind: 'password' | 'logout', action: () => Promise<{ access_token: string }>, success: string) => {
+    setBusy(kind);
+    setMessage(null);
+    try {
+      const response = await action();
+      await login(response.access_token, 'vet');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setMessage({ kind: 'success', text: success });
+    } catch (err) {
+      setMessage({ kind: 'error', text: err instanceof Error && err.message ? err.message : 'Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleChangePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (tooShort || mismatch || !currentPassword || !newPassword) return;
+    run('password', () => changeVetPassword(currentPassword, newPassword), 'Ο κωδικός άλλαξε. Οι υπόλοιπες συσκευές αποσυνδέθηκαν.');
+  };
+
+  const handleLogoutAll = () => {
+    if (!currentPassword) {
+      setMessage({ kind: 'error', text: 'Εισάγετε τον τρέχοντα κωδικό σας για να συνεχίσετε.' });
+      return;
+    }
+    run('logout', () => logoutVetEverywhere(currentPassword), 'Αποσυνδεθήκατε από όλες τις άλλες συσκευές.');
+  };
+
+  return (
+    <ProfileSection id="account-security" title="Ασφάλεια" description="Αλλάξτε τον κωδικό πρόσβασης ή αποσυνδεθείτε από όλες τις συσκευές. Αυτή η συσκευή παραμένει συνδεδεμένη.">
+      <form onSubmit={handleChangePassword} className="space-y-4">
+        <div>
+          <label htmlFor="security-current" className="block text-xs font-medium text-ink-700 mb-1.5">Τρέχων κωδικός</label>
+          <ClinicInput id="security-current" type="password" autoComplete="current-password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label htmlFor="security-new" className="block text-xs font-medium text-ink-700 mb-1.5">Νέος κωδικός</label>
+            <ClinicInput id="security-new" type="password" autoComplete="new-password" minLength={8} maxLength={72} value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+            {tooShort && <p className="text-xs text-red-600 mt-1">Ο κωδικός πρέπει να έχει τουλάχιστον 8 χαρακτήρες.</p>}
+          </div>
+          <div>
+            <label htmlFor="security-confirm" className="block text-xs font-medium text-ink-700 mb-1.5">Επιβεβαίωση νέου κωδικού</label>
+            <ClinicInput id="security-confirm" type="password" autoComplete="new-password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+            {mismatch && <p className="text-xs text-red-600 mt-1">Οι κωδικοί δεν ταυτίζονται.</p>}
+          </div>
+        </div>
+        {message && (
+          <div role={message.kind === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-3 text-sm ${message.kind === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>
+            {message.text}
+          </div>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <ClinicButton variant="primary" type="submit" disabled={busy !== null || !currentPassword || !newPassword || !confirmPassword || tooShort || mismatch} className="disabled:opacity-50">
+            {busy === 'password' ? 'Αποθήκευση...' : 'Αλλαγή κωδικού'}
+          </ClinicButton>
+          <ClinicButton variant="danger" type="button" onClick={handleLogoutAll} disabled={busy !== null} className="disabled:opacity-50">
+            {busy === 'logout' ? 'Αποσύνδεση...' : 'Αποσύνδεση από όλες τις συσκευές'}
+          </ClinicButton>
+        </div>
+        <p className="text-xs text-ink-500">Η αποσύνδεση από όλες τις συσκευές χρησιμοποιεί τον τρέχοντα κωδικό που έχετε εισάγει παραπάνω.</p>
+      </form>
+    </ProfileSection>
+  );
 }
 
 const TIME_OPTIONS: string[] = [];
@@ -318,7 +399,7 @@ export default function VetSettingsPage() {
       {/* Header */}
       <ClinicPageHeader title="Προφίλ κτηνιατρείου" description="Η επαγγελματική σας παρουσία και οι ώρες που δέχεστε ραντεβού." />
       <nav aria-label="Ενότητες προφίλ" className="mb-6 flex flex-wrap gap-1 rounded-xl border border-ink-200 bg-white p-2">
-        {[['profile-photo', 'Εικόνα'], ['profile-details', 'Στοιχεία'], ['clinic-location', 'Τοποθεσία'], ['working-hours', 'Ωράριο']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 text-xs font-medium text-ink-700 hover:bg-clinic-50 focus-visible:outline-2 focus-visible:outline-clinic-600">{label}</a>)}
+        {[['profile-photo', 'Εικόνα'], ['profile-details', 'Στοιχεία'], ['clinic-location', 'Τοποθεσία'], ['working-hours', 'Ωράριο'], ['account-security', 'Ασφάλεια']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 text-xs font-medium text-ink-700 hover:bg-clinic-50 focus-visible:outline-2 focus-visible:outline-clinic-600">{label}</a>)}
       </nav>
 
       <div className="space-y-6">
@@ -595,6 +676,8 @@ export default function VetSettingsPage() {
             })}
           </div>
         </ProfileSection>
+
+        <SecuritySection />
 
         {/* Save Feedback */}
         {saveError && (

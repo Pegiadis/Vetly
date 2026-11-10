@@ -75,7 +75,7 @@ def get_current_vet(
     query = select(Vet).where(Vet.id == vet_id)
     vet = db.scalar(query)
 
-    if vet is None:
+    if vet is None or token_data.version != vet.auth_version:
         raise credentials_exception
 
     require_pilot_access(vet.email)

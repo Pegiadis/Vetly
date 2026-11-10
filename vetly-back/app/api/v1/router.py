@@ -68,3 +68,5 @@ from app.api.v1.endpoints import owner_settings
 api_router.include_router(owner_settings.router, prefix="/owner/settings", tags=["Owner Settings"])
 from app.api.v1.endpoints import owner_push
 api_router.include_router(owner_push.router, prefix="/owner/push-devices", tags=["Owner Push"])
+from app.api.v1.endpoints import vet_account
+api_router.include_router(vet_account.router, prefix="/vet/settings", tags=["Vet Account"])

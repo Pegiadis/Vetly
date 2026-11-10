@@ -134,7 +134,7 @@ class InviteInfoResponse(BaseModel):
 class InviteRegisterRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=255)
     email: EmailStr
-    password: str = Field(..., min_length=6, max_length=128)
+    password: str = Field(..., min_length=8, max_length=128)
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)
 

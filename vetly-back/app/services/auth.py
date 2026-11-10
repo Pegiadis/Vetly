@@ -5,6 +5,7 @@ Authentication service - business logic for auth operations
 from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import select, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.base import Vet, PetOwner
@@ -17,6 +18,8 @@ from app.core.security import (
     verify_password,
     get_password_hash,
 )
+from app.core import email as email_module
+from app.core.config import settings
 from app.core.email import send_verification_email, send_password_reset_email
 from app.schemas.auth import (
     LoginRequest, TokenResponse, VetRegisterRequest, PetOwnerRegisterRequest,
@@ -27,6 +30,31 @@ from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
 from app.utils.slug import generate_unique_slug
 from app.core.pilot import require_pilot_access
+
+
+REGISTER_MESSAGE = "Ελέγξτε το email σας για επιβεβαίωση."
+
+
+def _send_already_registered_email(to_email: str, user_type: str) -> None:
+    """Tell the owner of an existing account that someone tried to register its address."""
+    color = "#0d9488" if user_type == "pet_owner" else "#4f46e5"
+    app_name = "Vetly" if user_type == "pet_owner" else "Vetly Pro"
+    login_url = f"{settings.FRONTEND_URL.rstrip('/')}/{'owner' if user_type == 'pet_owner' else 'vet'}/login"
+    html = (
+        '<!DOCTYPE html><html><head><meta charset="utf-8"></head>'
+        '<body style="margin:0;padding:0;font-family:Arial,sans-serif;background-color:#f8fafc;">'
+        '<div style="max-width:480px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;">'
+        f'<div style="background:{color};padding:32px;text-align:center;"><h1 style="color:white;margin:0;font-size:24px;">{app_name}</h1></div>'
+        '<div style="padding:32px;">'
+        '<h2 style="color:#1e293b;margin:0 0 16px;">Έχετε ήδη λογαριασμό</h2>'
+        '<p style="color:#475569;line-height:1.6;margin:0 0 24px;">'
+        'Κάποιος προσπάθησε να δημιουργήσει νέο λογαριασμό με αυτό το email, αλλά υπάρχει ήδη λογαριασμός. '
+        'Συνδεθείτε με τον κωδικό σας ή χρησιμοποιήστε την επιλογή «Ξεχάσατε τον κωδικό;» αν δεν τον θυμάστε.</p>'
+        f'<p style="margin:0 0 24px;"><a href="{login_url}" style="color:{color};font-weight:bold;">Σύνδεση</a></p>'
+        '<p style="color:#94a3b8;font-size:13px;line-height:1.5;margin:0;">Αν δεν ήσασταν εσείς, αγνοήστε αυτό το email. Ο λογαριασμός σας δεν έχει αλλάξει.</p>'
+        '</div></div></body></html>'
+    )
+    email_module.send_email(to_email, f"Έχετε ήδη λογαριασμό - {app_name}", html)
 
 
 class AuthService:
@@ -69,57 +97,72 @@ class AuthService:
         require_pilot_access(vet.email)
         if not vet.is_verified:
             raise HTTPException(403, "Εκκρεμεί η επαγγελματική επαλήθευση του λογαριασμού σας.")
-        access_token = create_access_token(subject=str(vet.id), token_type="vet")
+        access_token = create_access_token(subject=str(vet.id), token_type="vet", version=vet.auth_version)
         return TokenResponse(access_token=access_token)
 
     def register_vet(self, data: VetRegisterRequest) -> RegisterResponse:
         require_pilot_access(data.email)
-        existing_email = self.db.scalar(select(Vet).where(Vet.email == data.email))
-        if existing_email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered",
-            )
+        response = RegisterResponse(message=REGISTER_MESSAGE, email=data.email)
+        existing = self.db.scalar(select(Vet).where(Vet.email == data.email).with_for_update())
 
-        existing_license = self.db.scalar(
-            select(Vet).where(Vet.license_number == data.license_number)
-        )
-        if existing_license:
+        if existing and (existing.email_verified or not existing.password_hash):
+            # Same answer as a new registration, so the form cannot be used to
+            # discover which emails have accounts. The account is left untouched.
+            if existing.email_verified:
+                _send_already_registered_email(data.email, "vet")
+            return response
+
+        # A licence number is public professional data, so rejecting a duplicate is acceptable.
+        license_owner = self.db.scalar(select(Vet).where(Vet.license_number == data.license_number))
+        if license_owner and (existing is None or license_owner.id != existing.id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="License number already registered",
             )
 
-        slug = generate_unique_slug(self.db, data.name)
-
-        vet = Vet(
-            email=data.email,
-            password_hash=get_password_hash(data.password),
-            name=data.name,
-            slug=slug,
-            specialty=data.specialty,
-            license_number=data.license_number,
-            phone=data.phone,
-            address=data.address,
-            city=data.city,
-            description=data.description,
-            image_url=data.image_url,
-            is_verified=False,
-            is_on_call=False,
-            email_verified=False,
-        )
-
-        self.db.add(vet)
-        self.db.commit()
+        if existing:
+            # An unverified registration never proved access to the address, so a
+            # new submission replaces it and the real owner is not locked out.
+            existing.password_hash = get_password_hash(data.password)
+            existing.auth_version += 1
+            existing.name = data.name
+            existing.specialty = data.specialty
+            existing.license_number = data.license_number
+            existing.phone = data.phone
+            existing.address = data.address
+            existing.city = data.city
+            existing.description = data.description
+            existing.image_url = data.image_url
+            vet = existing
+        else:
+            vet = Vet(
+                email=data.email,
+                password_hash=get_password_hash(data.password),
+                name=data.name,
+                slug=generate_unique_slug(self.db, data.name),
+                specialty=data.specialty,
+                license_number=data.license_number,
+                phone=data.phone,
+                address=data.address,
+                city=data.city,
+                description=data.description,
+                image_url=data.image_url,
+                is_verified=False,
+                is_on_call=False,
+                email_verified=False,
+            )
+            self.db.add(vet)
+        try:
+            self.db.commit()
+        except IntegrityError:
+            # A concurrent registration won the race for the same email or licence.
+            self.db.rollback()
+            return response
         self.db.refresh(vet)
 
         token = create_email_verification_token(str(vet.id), "vet")
         send_verification_email(data.email, token, "vet")
-
-        return RegisterResponse(
-            message="Ελέγξτε το email σας για επιβεβαίωση.",
-            email=data.email,
-        )
+        return response
 
     def get_vet_by_id(self, vet_id: UUID) -> Vet | None:
         query = select(Vet).where(Vet.id == vet_id)
@@ -162,33 +205,48 @@ class AuthService:
 
     def register_pet_owner(self, data: PetOwnerRegisterRequest) -> RegisterResponse:
         require_pilot_access(data.email)
-        existing_email = self.db.scalar(select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()))
-        if existing_email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered",
-            )
-
-        pet_owner = PetOwner(
-            email=data.email,
-            password_hash=get_password_hash(data.password),
-            name=data.name,
-            phone=data.phone,
-            address=data.address,
-            email_verified=False,
+        response = RegisterResponse(message=REGISTER_MESSAGE, email=data.email)
+        existing = self.db.scalar(
+            select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()).with_for_update()
         )
 
-        self.db.add(pet_owner)
-        self.db.commit()
+        if existing and (existing.email_verified or not existing.password_hash):
+            # Same answer as a new registration; the account is left untouched.
+            # A row with an email but no password is not claimed through this form.
+            if existing.email_verified:
+                _send_already_registered_email(data.email, "pet_owner")
+            return response
+
+        if existing:
+            # Unverified self-registration (or a pending invite registration): the new
+            # submission replaces it so a squatter cannot hold someone else's address.
+            # A clinic invitation pointing at this row still claims once it is verified.
+            existing.password_hash = get_password_hash(data.password)
+            existing.auth_version += 1
+            existing.name = data.name
+            existing.phone = data.phone
+            existing.address = data.address
+            pet_owner = existing
+        else:
+            pet_owner = PetOwner(
+                email=data.email,
+                password_hash=get_password_hash(data.password),
+                name=data.name,
+                phone=data.phone,
+                address=data.address,
+                email_verified=False,
+            )
+            self.db.add(pet_owner)
+        try:
+            self.db.commit()
+        except IntegrityError:
+            self.db.rollback()
+            return response
         self.db.refresh(pet_owner)
 
         token = create_email_verification_token(str(pet_owner.id), "pet_owner")
         send_verification_email(data.email, token, "pet_owner", data.client)
-
-        return RegisterResponse(
-            message="Ελέγξτε το email σας για επιβεβαίωση.",
-            email=data.email,
-        )
+        return response
 
     def verify_email(self, data: VerifyEmailRequest) -> VerifyEmailResponse:
         token_data = decode_email_verification_token(data.token)
@@ -224,7 +282,7 @@ class AuthService:
             claim_verified_invitations(self.db, user)
         self.db.commit()
 
-        access_token = create_access_token(subject=str(user.id), token_type=user_type, version=user.auth_version if user_type == "pet_owner" else 0)
+        access_token = create_access_token(subject=str(user.id), token_type=user_type, version=user.auth_version)
         return VerifyEmailResponse(
             access_token=access_token,
             message="Email verified successfully",
@@ -251,7 +309,7 @@ class AuthService:
             user = self.db.scalar(select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()))
 
         if user and user.email_verified:
-            token = create_password_reset_token(str(user.id), data.user_type, version=user.auth_version if data.user_type == 'pet_owner' else 0)
+            token = create_password_reset_token(str(user.id), data.user_type, version=user.auth_version)
             send_password_reset_email(data.email, token, data.user_type, data.client)
 
         return {"message": "Αν το email υπάρχει στο σύστημα, θα λάβετε email για επαναφορά κωδικού."}
@@ -271,7 +329,7 @@ class AuthService:
             raise HTTPException(400, 'Ο σύνδεσμος δεν αφορά λογαριασμό κηδεμόνα.')
 
         if user_type == "vet":
-            user = self.db.scalar(select(Vet).where(Vet.id == user_id))
+            user = self.db.scalar(select(Vet).where(Vet.id == user_id).with_for_update())
         else:
             user = self.db.scalar(select(PetOwner).where(PetOwner.id == user_id).with_for_update())
 
@@ -281,14 +339,14 @@ class AuthService:
                 detail="Ο χρήστης δεν βρέθηκε.",
             )
 
-        if user_type == "pet_owner":
-            if token_data.version != user.auth_version:
-                raise HTTPException(400, 'Ο σύνδεσμος έχει ήδη χρησιμοποιηθεί ή ακυρωθεί. Ζητήστε νέο email.')
-            user.auth_version += 1
+        # Reset links are single-use: the token carries the account's session version.
+        if token_data.version != user.auth_version:
+            raise HTTPException(400, 'Ο σύνδεσμος έχει ήδη χρησιμοποιηθεί ή ακυρωθεί. Ζητήστε νέο email.')
+        user.auth_version += 1
         user.password_hash = get_password_hash(data.new_password)
         self.db.commit()
 
-        access_token = create_access_token(subject=str(user.id), token_type=user_type, version=user.auth_version if user_type == "pet_owner" else 0)
+        access_token = create_access_token(subject=str(user.id), token_type=user_type, version=user.auth_version)
         return VerifyEmailResponse(
             access_token=access_token,
             message="Ο κωδικός ενημερώθηκε επιτυχώς.",
