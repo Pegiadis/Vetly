@@ -39,6 +39,15 @@ function ServicePanel({
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const handleBlur = (field: string) => setTouched(prev => ({ ...prev, [field]: true }));
+  const handleDurationChange = (value: string) => {
+    if (!value) {
+      setForm(f => ({ ...f, duration_minutes: '' }));
+      return;
+    }
+
+    const normalized = value.replace(/^0+/, '');
+    setForm(f => ({ ...f, duration_minutes: normalized }));
+  };
 
   const fieldErrors: Record<string, string> = {};
   if (form.name.length > 0 && form.name.trim().length < 2) fieldErrors.name = 'Τουλάχιστον 2 χαρακτήρες.';
@@ -167,7 +176,7 @@ function ServicePanel({
                 min={5}
                 max={480}
                 value={form.duration_minutes}
-                onChange={e => { setForm(f => ({ ...f, duration_minutes: e.target.value })); setTouched(t => ({ ...t, duration_minutes: true })); }}
+                onChange={e => { handleDurationChange(e.target.value); setTouched(t => ({ ...t, duration_minutes: true })); }}
                 onBlur={() => handleBlur('duration_minutes')}
                 className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-clinic-500 ${inputErr('duration_minutes')}`}
                 placeholder="π.χ. 30"
