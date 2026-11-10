@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
+import { ClinicButton, ClinicInput } from '@/components/vet/ClinicUI';
 
 export default function AcceptClientInvite({ token, email }: { token: string; email: string }) {
   const { login } = useAuth();
@@ -25,10 +26,10 @@ export default function AcceptClientInvite({ token, email }: { token: string; em
       setBusy(false);
     }
   }}>
-    <p className="text-sm text-slate-600">Συνδεθείτε ως <strong>{email}</strong> για να προστεθούν τα κατοικίδια και το ιστορικό τους στον υπάρχοντα λογαριασμό σας.</p>
-    <label className="block text-sm">Κωδικός λογαριασμού<input required autoComplete="current-password" type="password" value={password} disabled={busy} onChange={e => setPassword(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-300 p-3" /></label>
-    {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-    <button disabled={busy} className="w-full rounded-xl bg-teal-600 p-3 font-bold text-white disabled:opacity-60">{busy ? 'Σύνδεση…' : 'Σύνδεση και αποδοχή πρόσκλησης'}</button>
-    <a href="/forgot-password?userType=pet_owner" className="block text-sm text-teal-700">Ξέχασα τον κωδικό μου</a>
+    <p className="text-sm text-ink-600">Συνδέσου ως <strong>{email}</strong> για να προστεθούν τα κατοικίδια και το ιστορικό τους στον υπάρχοντα λογαριασμό σου.</p>
+    <label className="block text-sm font-medium text-ink-700">Κωδικός λογαριασμού<ClinicInput required autoComplete="current-password" type="password" value={password} disabled={busy} onChange={e => setPassword(e.target.value)} className="mt-1.5 block h-10 w-full" /></label>
+    {error && <p role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+    <ClinicButton type="submit" variant="primary" disabled={busy} className="min-h-10 w-full">{busy ? 'Σύνδεση…' : 'Σύνδεση και αποδοχή πρόσκλησης'}</ClinicButton>
+    <a href="/forgot-password?userType=pet_owner" className="block py-1 text-sm font-medium text-clinic-700 underline-offset-4 hover:underline">Ξέχασα τον κωδικό μου</a>
   </form>;
 }

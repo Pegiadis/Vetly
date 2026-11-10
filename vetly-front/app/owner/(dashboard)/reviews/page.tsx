@@ -1,7 +1,5 @@
 'use client';
 
-import { ClinicButton, ClinicInput } from '@/components/vet/ClinicUI';
-import ClinicDrawer from '@/components/vet/ClinicDrawer';
 import { useState } from 'react';
 import {
   useMyReviews,
@@ -12,8 +10,16 @@ import {
   OwnerReview,
 } from '@/hooks/useOwnerData';
 import { getImageUrl } from '@/lib/api';
-import { ClinicPagination as Pagination } from '@/components/vet/ClinicUI';
+import { ClinicButton, ClinicInput, ClinicSelect, ClinicTextarea, ClinicPanel, ClinicPageHeader, ClinicLoading, ClinicEmptyState, ClinicStatusBadge, ClinicPagination as Pagination } from '@/components/vet/ClinicUI';
+import ClinicDrawer from '@/components/vet/ClinicDrawer';
 import { useToast } from '@/components/Toast';
+import { ErrorBlock, InlineAlert, DrawerHeader, Field } from '@/components/owner/OwnerUI';
+
+const rowGrid = 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,2fr)_140px_100px]';
+
+function VetThumb({ name, imageUrl }: { name?: string; imageUrl?: string | null }) {
+  return <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-clinic-100 text-sm font-medium text-clinic-700">{imageUrl ? <img src={getImageUrl(imageUrl)} alt="" className="h-full w-full object-cover" /> : name?.charAt(0) || '?'}</span>;
+}
 
 export default function ReviewsPage() {
   const [page, setPage] = useState(1);
@@ -34,13 +40,14 @@ export default function ReviewsPage() {
   const [editingReview, setEditingReview] = useState<OwnerReview | null>(null);
 
   // Delete state
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<OwnerReview | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const toast = useToast();
 
   const renderStars = (rating: number, interactive = false, onSelect?: (r: number) => void) => {
     return (
-      <div className="flex gap-1">
+      <div className="flex gap-0.5" role={interactive ? 'group' : 'img'} aria-label={interactive ? 'Βαθμολογία' : `${rating} από 5 αστέρια`}>
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
@@ -49,18 +56,24 @@ export default function ReviewsPage() {
             aria-pressed={interactive ? rating === star : undefined}
             type="button"
             onClick={() => interactive && onSelect && onSelect(star)}
-            className={`${interactive ? 'cursor-pointer hover:scale-110 transition-transform' : 'cursor-default'}`}
+            className={`grid place-items-center rounded-[10px] focus-visible:outline-2 focus-visible:outline-clinic-600 ${interactive ? 'h-10 w-10 cursor-pointer hover:bg-black/[0.06]' : 'h-6 w-6 cursor-default'}`}
           >
-            <svg
-              className={`w-5 h-5 ${star <= rating ? 'text-amber-400 fill-current' : 'text-ink-300'}`}
-              viewBox="0 0 20 20"
-            >
+            <svg className={`h-5 w-5 ${star <= rating ? 'fill-current text-amber-400' : 'text-ink-300'}`} viewBox="0 0 20 20" aria-hidden="true">
               <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
             </svg>
           </button>
         ))}
       </div>
     );
+  };
+
+  const openCreate = () => {
+    setEditingReview(null);
+    setFormVetId('');
+    setFormRating(0);
+    setFormComment('');
+    setFormError('');
+    setShowForm(true);
   };
 
   const handleCreate = async () => {
@@ -80,7 +93,7 @@ export default function ReviewsPage() {
       refetch();
       toast.success('Η αξιολόγηση υποβλήθηκε επιτυχώς!');
     } catch {
-      setFormError('Η αξιολόγηση δεν αποθηκεύτηκε. Δοκιμάστε ξανά.');
+      setFormError('Η αξιολόγηση δεν αποθηκεύτηκε. Δοκίμασε ξανά.');
     } finally {
       setFormSubmitting(false);
     }
@@ -108,242 +121,119 @@ export default function ReviewsPage() {
       refetch();
       toast.success('Η αξιολόγηση ενημερώθηκε επιτυχώς!');
     } catch {
-      setFormError('Η αξιολόγηση δεν αποθηκεύτηκε. Δοκιμάστε ξανά.');
+      setFormError('Η αξιολόγηση δεν αποθηκεύτηκε. Δοκίμασε ξανά.');
     } finally {
       setFormSubmitting(false);
     }
   };
 
-  const handleDelete = async (reviewId: string) => {
-    if (!window.confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την αξιολόγηση;')) return;
-    setDeletingId(reviewId);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await deleteReview(reviewId);
+      await deleteReview(deleteTarget.id);
+      setDeleteTarget(null);
       refetch();
       toast.success('Η αξιολόγηση διαγράφηκε.');
     } catch {
-      toast.error('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+      toast.error('Κάτι πήγε στραβά. Δοκίμασε ξανά.');
     } finally {
-      setDeletingId(null);
+      setDeleting(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-clinic-600" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="max-w-[1280px] mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-          <p className="text-red-700 font-medium">{error}</p>
-        </div>
-      </div>
-    );
-  }
+  const matches = reviews.filter(r => `${r.vet?.name || ''} ${r.comment}`.toLocaleLowerCase('el').includes(query.toLocaleLowerCase('el')));
 
   return (
-    <div className="max-w-[1280px] mx-auto">
-      {/* Header */}
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-medium text-ink-900">Οι Αξιολογήσεις Μου</h1>
-          <p className="text-ink-500 mt-1">Δείτε και διαχειριστείτε τις αξιολογήσεις που έχετε αφήσει.</p>
+    <div className="space-y-4 text-ink-800">
+      <ClinicPageHeader
+        title="Οι αξιολογήσεις μου"
+        description="Μπορείς να αξιολογήσεις κτηνιάτρους με τους οποίους έχεις ολοκληρωμένο ραντεβού."
+        actions={<ClinicButton variant="primary" className="min-h-10" onClick={openCreate} disabled={vetsLoading || vets.length === 0} title={!vetsLoading && vets.length === 0 ? 'Χρειάζεσαι ολοκληρωμένο ραντεβού για να αφήσεις αξιολόγηση' : undefined}>+ Νέα αξιολόγηση</ClinicButton>}
+      />
+      {!vetsLoading && <p className="text-xs text-ink-500">{vets.length ? `${vets.length} ${vets.length === 1 ? 'κτηνίατρος διαθέσιμος' : 'κτηνίατροι διαθέσιμοι'} για αξιολόγηση.` : 'Δεν υπάρχει διαθέσιμη επίσκεψη για νέα αξιολόγηση.'}</p>}
+      <ClinicPanel className="overflow-hidden" aria-label="Οι αξιολογήσεις σου">
+        <div className="border-b border-ink-200 p-4">
+          <ClinicInput aria-label="Αναζήτηση αξιολογήσεων" type="search" placeholder="Αναζήτηση στη σελίδα…" value={query} onChange={e => setQuery(e.target.value)} className="h-10 w-full sm:w-72" />
         </div>
-        <button
-          onClick={() => {
-            setEditingReview(null);
-            setFormVetId('');
-            setFormRating(0);
-            setFormComment('');
-            setFormError('');
-            setShowForm(true);
-          }}
-          disabled={vetsLoading || vets.length === 0}
-          title={!vetsLoading && vets.length === 0 ? 'Χρειάζεστε ολοκληρωμένο ραντεβού για να αφήσετε αξιολόγηση' : undefined}
-          className="px-5 py-2.5 bg-clinic-600 text-white rounded-xl font-medium text-sm hover:bg-clinic-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Νέα Αξιολόγηση
-        </button>
-      </div>
+        {loading ? <ClinicLoading /> : error ? <ErrorBlock onRetry={refetch} /> : <>
+          <div className={`hidden gap-4 border-b border-ink-200 bg-ink-50 px-5 py-2 text-xs font-medium text-ink-500 lg:grid ${rowGrid}`}><span>Κτηνίατρος</span><span>Η εμπειρία σου</span><span>Απάντηση</span><span>Ημερομηνία</span></div>
+          {matches.map(review => <button key={review.id} onClick={() => setViewing(review)} className={`grid w-full gap-2 border-b border-ink-100 px-4 py-3.5 text-left hover:bg-ink-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-clinic-600 sm:px-5 lg:items-center lg:gap-4 ${rowGrid}`}>
+            <span className="flex min-w-0 items-center gap-3"><VetThumb name={review.vet?.name} imageUrl={review.vet?.image_url} /><span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink-900">{review.vet?.name || 'Κτηνίατρος'}</span><span className="block truncate text-xs text-ink-500">{review.vet?.specialty}</span></span></span>
+            <span className="min-w-0"><span className="text-xs font-semibold text-clinic-700">★ {review.rating}/5</span><span className="mt-0.5 line-clamp-2 block break-words text-sm text-ink-600">{review.comment}</span></span>
+            <span><ClinicStatusBadge status={review.reply ? 'completed' : 'neutral'}>{review.reply ? 'Με απάντηση' : 'Χωρίς απάντηση'}</ClinicStatusBadge></span>
+            <time className="text-xs text-ink-500">{new Date(review.created_at).toLocaleDateString('el-GR')}</time>
+          </button>)}
+          {!reviews.length && <ClinicEmptyState title="Δεν έχεις αξιολογήσεις ακόμη" description="Μετά από ολοκληρωμένο ραντεβού, επίλεξε «Νέα αξιολόγηση»." />}
+          {!!reviews.length && !matches.length && <p className="p-5 text-sm text-ink-500">Δεν βρέθηκαν αξιολογήσεις σε αυτή τη σελίδα.</p>}
+        </>}
+        <div className="px-4"><Pagination page={page} totalPages={totalPages} onPageChange={p => { setPage(p); setQuery(''); }} /></div>
+      </ClinicPanel>
 
-      <div className="mb-5 grid gap-4 lg:grid-cols-[1fr_300px]">
-        <div className="rounded-xl border border-ink-200 bg-white p-5">
-          <p className="text-xs font-medium text-clinic-700">Η ΕΜΠΕΙΡΙΑ ΣΑΣ ΜΕΤΡΑΕΙ</p>
-          <h2 className="mt-2 text-lg font-semibold text-ink-900">Πώς πήγε η επίσκεψη;</h2>
-          <p className="mt-2 max-w-xl text-sm leading-6 text-ink-500">Μοιραστείτε όσα σας βοήθησαν και όσα θα μπορούσαν να γίνουν καλύτερα. Οι εμπειρίες σας βοηθούν άλλους κηδεμόνες να επιλέξουν κτηνίατρο.</p>
-        </div>
-        <aside className="rounded-xl border border-ink-200 bg-ink-50 p-5">
-          <h2 className="text-sm font-semibold text-ink-800">Μετά την επίσκεψη</h2>
-          <p className="mt-2 text-sm leading-6 text-ink-500">Μπορείτε να αξιολογήσετε κτηνιάτρους με τους οποίους έχετε ολοκληρωμένο ραντεβού.</p>
-          {!vetsLoading && <p className="mt-3 text-xs font-medium text-clinic-700">{vets.length ? `${vets.length} διαθέσιμοι για αξιολόγηση` : 'Δεν υπάρχει διαθέσιμη επίσκεψη για νέα αξιολόγηση.'}</p>}
-        </aside>
-      </div>
-      <section aria-label="Οι αξιολογήσεις σας" className="overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-ink-900">Δημοσιευμένες αξιολογήσεις</h2>
-          <ClinicInput aria-label="Αναζήτηση αξιολογήσεων" placeholder="Αναζήτηση στη σελίδα…" value={query} onChange={e => setQuery(e.target.value)} className="w-full sm:w-64" />
-        </div>
-        <div className="hidden grid-cols-[1.1fr_2fr_140px_100px] gap-4 border-b border-ink-200 bg-ink-50 px-5 py-2 text-xs font-medium text-ink-500 lg:grid"><span>Κτηνίατρος</span><span>Η εμπειρία σας</span><span>Απάντηση</span><span>Ημερομηνία</span></div>
-        {reviews.filter(r => `${r.vet?.name || ''} ${r.comment}`.toLocaleLowerCase('el').includes(query.toLocaleLowerCase('el'))).map(review => <button key={review.id} onClick={() => setViewing(review)} className="grid w-full gap-3 border-b border-ink-100 px-4 py-4 text-left transition-colors last:border-0 hover:bg-ink-50 focus-visible:outline-clinic-600 sm:px-5 lg:grid-cols-[1.1fr_2fr_140px_100px] lg:items-center lg:gap-4">
-          <span className="flex min-w-0 items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-clinic-100 text-clinic-700">{review.vet?.image_url ? <img src={getImageUrl(review.vet.image_url)} alt="" className="h-full w-full object-cover" /> : review.vet?.name?.charAt(0) || '?'}</span><span className="min-w-0"><span className="block truncate text-sm font-medium text-ink-900">{review.vet?.name || 'Κτηνίατρος'}</span><span className="block truncate text-xs text-ink-500">{review.vet?.specialty}</span></span></span>
-          <span className="min-w-0"><span className="text-xs font-semibold text-clinic-700">★ {review.rating}/5</span><span className="mt-1 block line-clamp-2 break-words text-sm text-ink-600">{review.comment}</span></span>
-          <span className={`w-fit rounded-md px-2 py-1 text-xs ${review.reply ? 'bg-clinic-100 text-clinic-800' : 'bg-ink-100 text-ink-500'}`}>{review.reply ? 'Με απάντηση' : 'Χωρίς απάντηση'}</span>
-          <span className="text-xs text-ink-500">{new Date(review.created_at).toLocaleDateString('el-GR')}</span>
-        </button>)}
-        {!reviews.length && <div className="px-6 py-12 text-center"><h3 className="text-sm font-semibold text-ink-900">Η πρώτη σας αξιολόγηση θα εμφανιστεί εδώ</h3><p className="mt-2 text-sm text-ink-500">Μετά από ολοκληρωμένο ραντεβού, επιλέξτε «Νέα Αξιολόγηση».</p></div>}
-        {!!reviews.length && !reviews.some(r => `${r.vet?.name || ''} ${r.comment}`.toLocaleLowerCase('el').includes(query.toLocaleLowerCase('el'))) && <p className="p-6 text-sm text-ink-500">Δεν βρέθηκαν αξιολογήσεις σε αυτή τη σελίδα.</p>}
-        <div className="px-4"><Pagination page={page} totalPages={totalPages} onPageChange={p => {setPage(p); setQuery('');}} /></div>
-      </section>
       {viewing && <ClinicDrawer label="Λεπτομέρειες αξιολόγησης" onClose={() => setViewing(null)}>
-        <div className="space-y-5 p-5"><div className="flex justify-end"><ClinicButton onClick={() => setViewing(null)}>Κλείσιμο ×</ClinicButton></div>
-          <div><p className="text-xs text-ink-500">Η αξιολόγησή σας</p><h2 className="mt-1 text-lg font-semibold text-ink-900">{viewing.vet?.name || 'Κτηνίατρος'}</h2><p className="mt-1 text-xs text-ink-500">{new Date(viewing.created_at).toLocaleDateString('el-GR')}</p></div>
+        <div className="space-y-5 p-5">
+          <DrawerHeader title={viewing.vet?.name || 'Κτηνίατρος'} subtitle={`Η αξιολόγησή σου · ${new Date(viewing.created_at).toLocaleDateString('el-GR')}`} onClose={() => setViewing(null)} />
           <div className="rounded-xl border border-ink-200 p-4">{renderStars(viewing.rating)}<p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{viewing.comment}</p></div>
-          <div className="rounded-xl bg-ink-50 p-4"><h3 className="text-sm font-medium text-ink-900">Απάντηση κτηνιάτρου</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-600">{viewing.reply || 'Δεν έχει δοθεί απάντηση ακόμα.'}</p></div>
-          <div className="flex flex-wrap gap-2 border-t border-ink-200 pt-4"><ClinicButton onClick={() => {handleEdit(viewing); setViewing(null);}}>Επεξεργασία</ClinicButton><ClinicButton variant="danger" onClick={() => {const id = viewing.id; setViewing(null); void handleDelete(id);}}>Διαγραφή</ClinicButton></div>
+          <div className="rounded-xl bg-ink-50 p-4"><h3 className="text-sm font-semibold text-ink-900">Απάντηση κτηνιάτρου</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-600">{viewing.reply || 'Δεν έχει δοθεί απάντηση ακόμα.'}</p></div>
+          <div className="grid grid-cols-2 gap-2 border-t border-ink-200 pt-4"><ClinicButton className="min-h-10" onClick={() => { handleEdit(viewing); setViewing(null); }}>Επεξεργασία</ClinicButton><ClinicButton variant="danger" className="min-h-10" onClick={() => { setDeleteTarget(viewing); setViewing(null); }}>Διαγραφή</ClinicButton></div>
         </div>
       </ClinicDrawer>}
 
-      {/* Create Review Modal */}
-      {showForm && (
-        <ClinicDrawer label="Νέα αξιολόγηση" busy={formSubmitting} onClose={() => setShowForm(false)}>
-          <div className="bg-white p-5 w-full">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-medium text-ink-900">Νέα Αξιολόγηση</h2>
-              <button
-                aria-label="Κλείσιμο φόρμας" disabled={formSubmitting} onClick={() => setShowForm(false)}
-                className="p-2 text-ink-400 hover:text-ink-600 rounded-xl hover:bg-ink-100 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">Κτηνίατρος</label>
-                <select
-                  aria-label="Κτηνίατρος" disabled={formSubmitting} value={formVetId}
-                  onChange={(e) => setFormVetId(e.target.value)}
-                  className="w-full px-3 py-2 border border-ink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-clinic-500 bg-white"
-                >
-                  <option value="">Επιλέξτε κτηνίατρο...</option>
-                  {vets.map((vet) => (
-                    <option key={vet.id} value={vet.id}>
-                      {vet.name} — {vet.specialty}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">Βαθμολογία</label>
-                {renderStars(formRating, true, setFormRating)}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">Σχόλιο</label>
-                <textarea
-                  aria-label="Σχόλιο" disabled={formSubmitting} value={formComment}
-                  onChange={(e) => setFormComment(e.target.value)}
-                  placeholder="Περιγράψτε την εμπειρία σας..."
-                  rows={4}
-                  className="w-full px-3 py-2 border border-ink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-clinic-500 resize-none"
-                />
-              </div>
-            </div>
-
-            {formError && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
-            <div className="flex gap-3 mt-6">
-              <button
-                disabled={formSubmitting} onClick={() => setShowForm(false)}
-                className="flex-1 py-3 border border-ink-200 text-ink-600 rounded-xl font-medium hover:bg-ink-50 transition-colors"
-              >
-                Ακύρωση
-              </button>
-              <button
-                onClick={handleCreate}
-                disabled={formSubmitting || !formVetId || formRating === 0 || !formComment.trim()}
-                className="flex-1 py-3 bg-clinic-600 text-white rounded-xl font-medium hover:bg-clinic-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {formSubmitting ? 'Υποβολή...' : 'Υποβολή'}
-              </button>
+      {/* Delete confirmation */}
+      {deleteTarget && (
+        <ClinicDrawer label="Διαγραφή αξιολόγησης" busy={deleting} onClose={() => setDeleteTarget(null)}>
+          <div className="w-full space-y-4 bg-white p-5">
+            <DrawerHeader title="Διαγραφή αξιολόγησης" disabled={deleting} onClose={() => setDeleteTarget(null)} />
+            <p className="text-sm text-ink-600">Είσαι σίγουρος ότι θέλεις να διαγράψεις την αξιολόγησή σου για τον κτηνίατρο {deleteTarget.vet?.name || ''};</p>
+            <div className="grid grid-cols-2 gap-2">
+              <ClinicButton className="min-h-10" disabled={deleting} onClick={() => setDeleteTarget(null)}>Πίσω</ClinicButton>
+              <ClinicButton variant="danger" className="min-h-10" disabled={deleting} onClick={() => void handleDelete()}>{deleting ? 'Διαγραφή…' : 'Διαγραφή'}</ClinicButton>
             </div>
           </div>
         </ClinicDrawer>
       )}
 
-      {/* Edit Review Modal */}
+      {/* Create review */}
+      {showForm && (
+        <ClinicDrawer label="Νέα αξιολόγηση" busy={formSubmitting} onClose={() => setShowForm(false)}>
+          <div className="w-full space-y-4 bg-white p-5">
+            <DrawerHeader title="Νέα αξιολόγηση" disabled={formSubmitting} onClose={() => setShowForm(false)} />
+            <Field label="Κτηνίατρος">
+              <ClinicSelect aria-label="Κτηνίατρος" disabled={formSubmitting} value={formVetId} onChange={(e) => setFormVetId(e.target.value)} className="h-10 w-full">
+                <option value="">Επίλεξε κτηνίατρο…</option>
+                {vets.map((vet) => <option key={vet.id} value={vet.id}>{vet.name} — {vet.specialty}</option>)}
+              </ClinicSelect>
+            </Field>
+            <div><p className="mb-1 text-sm font-medium text-ink-700">Βαθμολογία</p>{renderStars(formRating, true, setFormRating)}</div>
+            <Field label="Σχόλιο">
+              <ClinicTextarea aria-label="Σχόλιο" disabled={formSubmitting} value={formComment} onChange={(e) => setFormComment(e.target.value)} placeholder="Περιέγραψε την εμπειρία σου…" rows={4} className="w-full" />
+            </Field>
+            {formError && <InlineAlert>{formError}</InlineAlert>}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <ClinicButton className="min-h-10" disabled={formSubmitting} onClick={() => setShowForm(false)}>Ακύρωση</ClinicButton>
+              <ClinicButton variant="primary" className="min-h-10" onClick={handleCreate} disabled={formSubmitting || !formVetId || formRating === 0 || !formComment.trim()}>{formSubmitting ? 'Υποβολή…' : 'Υποβολή'}</ClinicButton>
+            </div>
+          </div>
+        </ClinicDrawer>
+      )}
+
+      {/* Edit review */}
       {editingReview && (
         <ClinicDrawer label="Επεξεργασία αξιολόγησης" busy={formSubmitting} onClose={() => setEditingReview(null)}>
-          <div className="bg-white p-5 w-full">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-medium text-ink-900">Επεξεργασία Αξιολόγησης</h2>
-              <button
-                aria-label="Κλείσιμο φόρμας" disabled={formSubmitting} onClick={() => setEditingReview(null)}
-                className="p-2 text-ink-400 hover:text-ink-600 rounded-xl hover:bg-ink-100 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+          <div className="w-full space-y-4 bg-white p-5">
+            <DrawerHeader title="Επεξεργασία αξιολόγησης" disabled={formSubmitting} onClose={() => setEditingReview(null)} />
+            <div className="flex items-center gap-3 rounded-xl bg-ink-50 p-3">
+              <VetThumb name={editingReview.vet?.name} imageUrl={editingReview.vet?.image_url} />
+              <div className="min-w-0"><p className="truncate text-sm font-semibold text-ink-900">{editingReview.vet?.name || 'Άγνωστος'}</p><p className="truncate text-xs text-ink-500">{editingReview.vet?.specialty || ''}</p></div>
             </div>
-
-            <div className="mb-4 flex items-center gap-3 p-3 bg-ink-50 rounded-xl">
-              <div className="w-10 h-10 rounded-lg overflow-hidden bg-clinic-100 flex items-center justify-center flex-shrink-0">
-                {editingReview.vet?.image_url ? (
-                  <img src={getImageUrl(editingReview.vet.image_url)} alt={editingReview.vet.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-clinic-700 font-medium">{editingReview.vet?.name?.charAt(0) || '?'}</span>
-                )}
-              </div>
-              <div>
-                <p className="font-medium text-ink-900 text-sm">{editingReview.vet?.name || 'Άγνωστος'}</p>
-                <p className="text-xs text-ink-500">{editingReview.vet?.specialty || ''}</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">Βαθμολογία</label>
-                {renderStars(formRating, true, setFormRating)}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-ink-700 mb-2">Σχόλιο</label>
-                <textarea
-                  aria-label="Σχόλιο" disabled={formSubmitting} value={formComment}
-                  onChange={(e) => setFormComment(e.target.value)}
-                  placeholder="Περιγράψτε την εμπειρία σας..."
-                  rows={4}
-                  className="w-full px-3 py-2 border border-ink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-clinic-500 resize-none"
-                />
-              </div>
-            </div>
-
-            {formError && <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
-            <div className="flex gap-3 mt-6">
-              <button
-                disabled={formSubmitting} onClick={() => setEditingReview(null)}
-                className="flex-1 py-3 border border-ink-200 text-ink-600 rounded-xl font-medium hover:bg-ink-50 transition-colors"
-              >
-                Ακύρωση
-              </button>
-              <button
-                onClick={handleUpdate}
-                disabled={formSubmitting || formRating === 0 || !formComment.trim()}
-                className="flex-1 py-3 bg-clinic-600 text-white rounded-xl font-medium hover:bg-clinic-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {formSubmitting ? 'Αποθήκευση...' : 'Αποθήκευση'}
-              </button>
+            <div><p className="mb-1 text-sm font-medium text-ink-700">Βαθμολογία</p>{renderStars(formRating, true, setFormRating)}</div>
+            <Field label="Σχόλιο">
+              <ClinicTextarea aria-label="Σχόλιο" disabled={formSubmitting} value={formComment} onChange={(e) => setFormComment(e.target.value)} placeholder="Περιέγραψε την εμπειρία σου…" rows={4} className="w-full" />
+            </Field>
+            {formError && <InlineAlert>{formError}</InlineAlert>}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <ClinicButton className="min-h-10" disabled={formSubmitting} onClick={() => setEditingReview(null)}>Ακύρωση</ClinicButton>
+              <ClinicButton variant="primary" className="min-h-10" onClick={handleUpdate} disabled={formSubmitting || formRating === 0 || !formComment.trim()}>{formSubmitting ? 'Αποθήκευση…' : 'Αποθήκευση'}</ClinicButton>
             </div>
           </div>
         </ClinicDrawer>
