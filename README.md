@@ -560,12 +560,16 @@ We welcome contributions! Please follow these steps:
 |----------|-------------|----------|---------|
 | `DATABASE_URL` | PostgreSQL connection string | ✅ | - |
 | `REDIS_URL` | Redis connection string | ✅ | - |
-| `SECRET_KEY` | JWT secret key | ✅ | - |
+| `SECRET_KEY` | JWT secret key (production: 32+ characters, not the example value) | ✅ | - |
 | `ALLOWED_ORIGINS` | CORS allowed origins | ✅ | `[]` |
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key (AI assistant) | ❌ | - |
-| `SMTP_HOST` | Email SMTP host | ❌ | - |
-| `SMTP_USER` | Email SMTP username | ❌ | - |
-| `SMTP_PASSWORD` | Email SMTP password | ❌ | - |
+| `EMAIL_PROVIDER` | `smtp`, `resend` or `console`; unset = Resend if `RESEND_API_KEY` is set, else console | ❌ | - |
+| `SMTP_HOST` | Our SMTP server (required for `smtp` in production) | ❌ | - |
+| `SMTP_PORT` | SMTP port | ❌ | `587` |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | SMTP credentials (set both) | ❌ | - |
+| `SMTP_SECURITY` | `starttls`, `ssl` or `none` | ❌ | `starttls` |
+| `SMTP_TIMEOUT_SECONDS` | SMTP connection timeout | ❌ | `10` |
+| `SENTRY_DSN` | Enables Sentry error reporting | ❌ | - |
 
 ### Frontend (.env.local)
 

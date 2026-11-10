@@ -27,7 +27,7 @@ def main():
                 "HTTPS frontend": settings.FRONTEND_URL.startswith("https://"),
                 "HTTPS CORS allowlist": bool(settings.ALLOWED_ORIGINS) and all(x.startswith("https://") for x in settings.ALLOWED_ORIGINS),
                 "signing secret at least 32 characters": len(settings.SECRET_KEY) >= 32,
-                "email provider configured": bool(settings.RESEND_API_KEY),
+                "email provider configured": settings.effective_email_provider != "console",
                 "notification emails enabled": settings.EMAIL_NOTIFICATIONS_ENABLED,
             }
             for name, ok in checks.items():

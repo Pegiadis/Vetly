@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: vetly
       POSTGRES_USER: vetly
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: Europe/Athens
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
@@ -31,11 +32,21 @@ services:
       ENVIRONMENT: production
       PILOT_MODE: ${PILOT_MODE:-false}
       PILOT_ALLOWED_EMAILS: ${PILOT_ALLOWED_EMAILS:-[]}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       ALLOWED_ORIGINS: '["https://vetly.gr"]'
       EMAIL_NOTIFICATIONS_ENABLED: ${EMAIL_NOTIFICATIONS_ENABLED:-false}
       PUSH_NOTIFICATIONS_ENABLED: ${PUSH_NOTIFICATIONS_ENABLED:-false}
       EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_SECURITY: ${SMTP_SECURITY:-starttls}
+      SMTP_TIMEOUT_SECONDS: ${SMTP_TIMEOUT_SECONDS:-10}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      TZ: Europe/Athens
       EMAIL_FROM: ${EMAIL_FROM:-Vetly <noreply@vetly.gr>}
       FRONTEND_URL: ${FRONTEND_URL:-https://vetly.gr}
     ports:

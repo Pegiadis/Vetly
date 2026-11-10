@@ -3,6 +3,9 @@ Vetly Backend API - Main Application Entry Point
 FastAPI application configuration and startup
 """
 
+import logging
+import sys
+
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -16,20 +19,46 @@ from app.core.config import settings
 from app.api.v1.router import api_router
 from app.utils.upload import UPLOAD_DIR, ensure_upload_dir
 
+# Uvicorn only configures its own loggers; without a root handler, application
+# loggers (logging.getLogger(__name__)) drop everything below WARNING.
+logging.basicConfig(
+    level=settings.LOG_LEVEL.upper(),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    stream=sys.stdout,
+)
+logger = logging.getLogger(__name__)
+
+if settings.SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        environment=settings.ENVIRONMENT,
+        send_default_pii=False,
+        include_local_variables=False,
+        max_request_body_size="never",
+        traces_sample_rate=settings.SENTRY_TRACES_SAMPLE_RATE,
+        integrations=[StarletteIntegration(), FastApiIntegration()],
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events"""
     # Startup
-    print("Starting Vetly API...")
-    print(f"Environment: {settings.ENVIRONMENT}")
-    print(f"Database: {settings.DATABASE_URL.split('@')[-1]}")
+    logger.info("Starting Vetly API")
+    logger.info("Environment: %s", settings.ENVIRONMENT)
+    logger.info("Database: %s", settings.DATABASE_URL.split("@")[-1])
+    logger.info("Email provider: %s", settings.effective_email_provider)
+    logger.info("Error monitoring: %s", "sentry" if settings.SENTRY_DSN else "off")
     ensure_upload_dir()
 
     yield
 
     # Shutdown
-    print("Shutting down Vetly API...")
+    logger.info("Shutting down Vetly API")
 
 
 _is_production = settings.ENVIRONMENT == "production"
