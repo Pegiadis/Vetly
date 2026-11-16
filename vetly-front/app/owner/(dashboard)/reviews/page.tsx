@@ -1,4 +1,5 @@
 'use client';
+import { serverTime } from '@/lib/dates';
 
 import { useState } from 'react';
 import {
@@ -162,7 +163,7 @@ export default function ReviewsPage() {
             <span className="flex min-w-0 items-center gap-3"><VetThumb name={review.vet?.name} imageUrl={review.vet?.image_url} /><span className="min-w-0"><span className="block truncate text-sm font-semibold text-ink-900">{review.vet?.name || 'Κτηνίατρος'}</span><span className="block truncate text-xs text-ink-500">{review.vet?.specialty}</span></span></span>
             <span className="min-w-0"><span className="text-xs font-semibold text-clinic-700">★ {review.rating}/5</span><span className="mt-0.5 line-clamp-2 block break-words text-sm text-ink-600">{review.comment}</span></span>
             <span><ClinicStatusBadge status={review.reply ? 'completed' : 'neutral'}>{review.reply ? 'Με απάντηση' : 'Χωρίς απάντηση'}</ClinicStatusBadge></span>
-            <time className="text-xs text-ink-500">{new Date(review.created_at).toLocaleDateString('el-GR')}</time>
+            <time className="text-xs text-ink-500">{serverTime(review.created_at).toLocaleDateString('el-GR')}</time>
           </button>)}
           {!reviews.length && <ClinicEmptyState title="Δεν έχεις αξιολογήσεις ακόμη" description="Μετά από ολοκληρωμένο ραντεβού, επίλεξε «Νέα αξιολόγηση»." />}
           {!!reviews.length && !matches.length && <p className="p-5 text-sm text-ink-500">Δεν βρέθηκαν αξιολογήσεις σε αυτή τη σελίδα.</p>}
@@ -172,7 +173,7 @@ export default function ReviewsPage() {
 
       {viewing && <ClinicDrawer label="Λεπτομέρειες αξιολόγησης" onClose={() => setViewing(null)}>
         <div className="space-y-5 p-5">
-          <DrawerHeader title={viewing.vet?.name || 'Κτηνίατρος'} subtitle={`Η αξιολόγησή σου · ${new Date(viewing.created_at).toLocaleDateString('el-GR')}`} onClose={() => setViewing(null)} />
+          <DrawerHeader title={viewing.vet?.name || 'Κτηνίατρος'} subtitle={`Η αξιολόγησή σου · ${serverTime(viewing.created_at).toLocaleDateString('el-GR')}`} onClose={() => setViewing(null)} />
           <div className="rounded-xl border border-ink-200 p-4">{renderStars(viewing.rating)}<p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{viewing.comment}</p></div>
           <div className="rounded-xl bg-ink-50 p-4"><h3 className="text-sm font-semibold text-ink-900">Απάντηση κτηνιάτρου</h3><p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-ink-600">{viewing.reply || 'Δεν έχει δοθεί απάντηση ακόμα.'}</p></div>
           <div className="grid grid-cols-2 gap-2 border-t border-ink-200 pt-4"><ClinicButton className="min-h-10" onClick={() => { handleEdit(viewing); setViewing(null); }}>Επεξεργασία</ClinicButton><ClinicButton variant="danger" className="min-h-10" onClick={() => { setDeleteTarget(viewing); setViewing(null); }}>Διαγραφή</ClinicButton></div>

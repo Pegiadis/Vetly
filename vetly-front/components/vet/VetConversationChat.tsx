@@ -1,4 +1,5 @@
 'use client';
+import { serverTime } from '@/lib/dates';
 
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
@@ -125,7 +126,7 @@ export default function VetConversationChat({ role = 'vet' }: { role?: 'vet' | '
           {loading && <p role="status" className="p-3 text-xs text-ink-500">Φόρτωση…</p>}
           {listError && <div role="alert" className="p-2 text-xs text-red-700">Δεν φορτώθηκε το ιστορικό.<ClinicButton className="mt-2" onClick={refetch}>Επανάληψη</ClinicButton></div>}
           {!loading && !listError && !conversations.length && <p className="px-2 py-4 text-xs leading-5 text-ink-500">Οι συνομιλίες σας θα εμφανίζονται εδώ.</p>}
-          {!loading && conversations.filter(c => c.title.toLocaleLowerCase('el').includes(search.toLocaleLowerCase('el'))).map(c => <div key={c.id} className={`mb-1 flex items-center rounded-lg ${c.id === active ? 'bg-clinic-100' : 'hover:bg-ink-100'}`}><button disabled={busy || !!deleting} aria-current={c.id === active ? 'true' : undefined} className="min-w-0 flex-1 px-3 py-3 text-left disabled:opacity-50" onClick={() => choose(c.id)}><span className="block truncate text-xs font-medium text-ink-800">{c.title}</span><time className="mt-1 block text-[11px] text-ink-500">{new Date(c.updated_at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</time></button><button aria-label={`Διαγραφή: ${c.title}`} disabled={busy || !!deleting} onClick={() => remove(c.id)} className="mr-1 rounded-md p-2 text-ink-400 hover:bg-white hover:text-red-700 disabled:opacity-50">×</button></div>)}
+          {!loading && conversations.filter(c => c.title.toLocaleLowerCase('el').includes(search.toLocaleLowerCase('el'))).map(c => <div key={c.id} className={`mb-1 flex items-center rounded-lg ${c.id === active ? 'bg-clinic-100' : 'hover:bg-ink-100'}`}><button disabled={busy || !!deleting} aria-current={c.id === active ? 'true' : undefined} className="min-w-0 flex-1 px-3 py-3 text-left disabled:opacity-50" onClick={() => choose(c.id)}><span className="block truncate text-xs font-medium text-ink-800">{c.title}</span><time className="mt-1 block text-[11px] text-ink-500">{serverTime(c.updated_at).toLocaleDateString('el-GR', { day: 'numeric', month: 'short' })}</time></button><button aria-label={`Διαγραφή: ${c.title}`} disabled={busy || !!deleting} onClick={() => remove(c.id)} className="mr-1 rounded-md p-2 text-ink-400 hover:bg-white hover:text-red-700 disabled:opacity-50">×</button></div>)}
           {!loading && search && !conversations.some(c => c.title.toLocaleLowerCase('el').includes(search.toLocaleLowerCase('el'))) && <p className="p-2 text-xs text-ink-500">Δεν βρέθηκαν συνομιλίες σε αυτή τη σελίδα.</p>}
         </div>
         <div className="px-2 pb-2"><ClinicPagination page={page} totalPages={totalPages} onPageChange={setPage} /></div>

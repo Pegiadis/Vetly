@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { serverTime } from '@/lib/dates';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -118,7 +119,7 @@ export default function ChatMessage({
   const isUser = role === 'user';
   const colors = colorMap[accentColor] || colorMap.teal;
 
-  const time = new Date(createdAt).toLocaleTimeString('el-GR', {
+  const time = serverTime(createdAt).toLocaleTimeString('el-GR', {
     hour: '2-digit',
     minute: '2-digit',
   });

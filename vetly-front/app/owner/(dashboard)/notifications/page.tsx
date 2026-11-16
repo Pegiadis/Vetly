@@ -1,4 +1,5 @@
 'use client';
+import { serverTime } from '@/lib/dates';
 
 import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -120,7 +121,7 @@ export default function NotificationsPage() {
       {!loading && !error && total > 0 && <p className="px-4 pb-3 pt-1 text-xs text-ink-500">{total} ενημερώσεις συνολικά</p>}
     </ClinicPanel>
     {selected && <ClinicDrawer label="Λεπτομέρειες ειδοποίησης" busy={busy} onClose={() => setSelected(null)}><div className="space-y-5 p-5">
-      <DrawerHeader title={selected.title} subtitle={new Date(selected.created_at).toLocaleString('el-GR')} disabled={busy} onClose={() => setSelected(null)} />
+      <DrawerHeader title={selected.title} subtitle={serverTime(selected.created_at).toLocaleString('el-GR')} disabled={busy} onClose={() => setSelected(null)} />
       <p className="whitespace-pre-wrap break-words border-t border-ink-200 pt-4 text-sm leading-6 text-ink-700">{selected.message}</p>
       {actionError && <div role="alert" className="rounded-[10px] bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}<ClinicButton className="mt-2 block" disabled={busy} onClick={() => markRead(selected)}>Επανάληψη</ClinicButton></div>}
       {link && <div className="border-t border-ink-200 pt-4"><ClinicButton variant="primary" className="min-h-10 w-full sm:w-auto" disabled={busy} onClick={() => router.push(link.href)}>{link.label} →</ClinicButton></div>}
