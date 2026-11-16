@@ -4,9 +4,12 @@ FastAPI application configuration and startup
 """
 
 import logging
+import re
 import sys
+import uuid
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -17,6 +20,7 @@ from contextlib import asynccontextmanager
 
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.core.uploads import MAX_UPLOAD_BYTES, declared_length_too_large, too_large_message
 from app.utils.upload import UPLOAD_DIR, ensure_upload_dir
 
 # Uvicorn only configures its own loggers; without a root handler, application
@@ -72,6 +76,56 @@ app = FastAPI(
     redoc_url=None if _is_production else f"{settings.API_V1_STR}/redoc",
     lifespan=lifespan,
 )
+
+# Request id, early upload size rejection, generic 500 and security headers.
+# Registered before CORS so CORS wraps it and error responses keep their CORS
+# headers (otherwise the browser reports a 500 as a network error).
+_UPLOAD_PATH_RE = re.compile(r"^/api/v1/uploads/")
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    request_id = uuid.uuid4().hex[:12]
+    request.state.request_id = request_id
+
+    if request.method == "POST" and _UPLOAD_PATH_RE.match(request.url.path):
+        if declared_length_too_large(request.headers.get("content-length")):
+            response = JSONResponse(
+                status_code=413,
+                content={"detail": too_large_message(MAX_UPLOAD_BYTES)},
+            )
+            response.headers["X-Request-ID"] = request_id
+            return response
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        logger.exception(
+            "Unhandled error [request_id=%s] %s %s", request_id, request.method, request.url.path
+        )
+        if settings.SENTRY_DSN:
+            import sentry_sdk
+
+            sentry_sdk.capture_exception(exc)
+        response = JSONResponse(
+            status_code=500,
+            content={
+                "detail": f"Παρουσιάστηκε μη αναμενόμενο σφάλμα. Δοκιμάστε ξανά. (κωδικός: {request_id})",
+                "request_id": request_id,
+            },
+        )
+
+    response.headers["X-Request-ID"] = request_id
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if (
+        request.url.path.startswith(settings.API_V1_STR)
+        and request.headers.get("authorization")
+        and "cache-control" not in response.headers
+    ):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 # CORS middleware
 app.add_middleware(

@@ -4,7 +4,7 @@ Chat service - handles AI chat logic with Anthropic Claude
 
 import logging
 import os
-from datetime import date
+from datetime import date, datetime
 from uuid import UUID
 
 import anthropic
@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.base import Pet, PetOwner, Vet, Appointment, MedicalEvent, Medication, Reminder
 from app.repositories.chat import ChatRepository
+from app.services.scheduling import ATHENS
 
 logger = logging.getLogger(__name__)
 
@@ -427,7 +428,7 @@ class ChatService:
 
         # Upcoming appointments (next 5)
         from datetime import datetime
-        now = datetime.now()
+        now = datetime.now(ATHENS).replace(tzinfo=None)
         appts = list(self.db.scalars(
             select(Appointment).where(
                 Appointment.pet_owner_id == owner_id,
@@ -452,7 +453,7 @@ class ChatService:
                 Reminder.pet_owner_id == owner_id,
                 Reminder.is_dismissed == False,
                 Reminder.is_sent == False,
-                Reminder.due_date >= date.today(),
+                Reminder.due_date >= datetime.now(ATHENS).date(),
             )
             .order_by(Reminder.due_date.asc())
             .limit(10)
@@ -480,7 +481,7 @@ class ChatService:
         ]
 
         from datetime import datetime
-        today = date.today()
+        today = datetime.now(ATHENS).date()
         today_start = datetime.combine(today, datetime.min.time())
         today_end = datetime.combine(today, datetime.max.time())
 

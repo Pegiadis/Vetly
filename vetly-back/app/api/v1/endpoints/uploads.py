@@ -26,11 +26,12 @@ async def upload_vet_photo(
     current_vet: Vet = Depends(get_current_vet),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
-    """Upload a profile photo for the authenticated vet. Max 5MB, JPG/PNG."""
-    delete_upload(current_vet.image_url)
-    url = await save_upload(file, prefix="vet", max_size_bytes=5 * 1024 * 1024)
+    """Upload a profile photo for the authenticated vet. Max 5MB, JPG/PNG/WebP."""
+    previous_url = current_vet.image_url
+    url = await save_upload(file, prefix="vet")
     current_vet.image_url = url
     db.commit()
+    delete_upload(previous_url)
     return UploadResponse(url=url)
 
 
@@ -40,11 +41,12 @@ async def upload_owner_photo(
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
-    """Upload a profile photo for the authenticated pet owner. Max 5MB, JPG/PNG."""
-    delete_upload(current_owner.image_url)
-    url = await save_upload(file, prefix="owner", max_size_bytes=5 * 1024 * 1024)
+    """Upload a profile photo for the authenticated pet owner. Max 5MB, JPG/PNG/WebP."""
+    previous_url = current_owner.image_url
+    url = await save_upload(file, prefix="owner")
     current_owner.image_url = url
     db.commit()
+    delete_upload(previous_url)
     return UploadResponse(url=url)
 
 
@@ -55,7 +57,7 @@ async def upload_pet_photo(
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
-    """Upload a photo for a pet. Max 5MB, JPG/PNG. Pet must belong to the owner."""
+    """Upload a photo for a pet. Max 5MB, JPG/PNG/WebP. Pet must belong to the owner."""
     pet = db.scalar(
         select(Pet).where(Pet.id == pet_id, Pet.pet_owner_id == current_owner.id)
     )
@@ -65,7 +67,7 @@ async def upload_pet_photo(
             detail="Pet not found",
         )
     previous_url = pet.image_url
-    url = await save_upload(file, prefix="pet", max_size_bytes=5 * 1024 * 1024)
+    url = await save_upload(file, prefix="pet")
     pet.image_url = url
     db.commit()
     delete_upload(previous_url)
@@ -79,7 +81,7 @@ async def upload_pet_cover(
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> UploadResponse:
-    """Upload a cover photo for a pet. Max 5MB, JPG/PNG. Pet must belong to the owner."""
+    """Upload a cover photo for a pet. Max 5MB, JPG/PNG/WebP. Pet must belong to the owner."""
     pet = db.scalar(
         select(Pet).where(Pet.id == pet_id, Pet.pet_owner_id == current_owner.id)
     )
@@ -88,8 +90,9 @@ async def upload_pet_cover(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Pet not found",
         )
-    delete_upload(pet.cover_image_url)
-    url = await save_upload(file, prefix="pet_cover", max_size_bytes=5 * 1024 * 1024)
+    previous_url = pet.cover_image_url
+    url = await save_upload(file, prefix="pet_cover")
     pet.cover_image_url = url
     db.commit()
+    delete_upload(previous_url)
     return UploadResponse(url=url)

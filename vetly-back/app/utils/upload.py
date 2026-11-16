@@ -5,14 +5,14 @@ File upload utilities for local photo storage
 import uuid
 from pathlib import Path
 
-from fastapi import UploadFile, HTTPException, status
+from fastapi import UploadFile
 
-ALLOWED_CONTENT_TYPES = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-}
+from app.core.uploads import MAX_UPLOAD_BYTES, read_limited, sanitize_image
 
 UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
+
+# Subdirectories uploads may be written to; the prefix is never client-controlled.
+ALLOWED_PREFIXES = {"vet", "owner", "pet", "pet_cover"}
 
 
 def ensure_upload_dir() -> None:
@@ -20,28 +20,19 @@ def ensure_upload_dir() -> None:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
-async def save_upload(file: UploadFile, prefix: str, max_size_bytes: int) -> str:
+async def save_upload(file: UploadFile, prefix: str, max_size_bytes: int = MAX_UPLOAD_BYTES) -> str:
     """
-    Validate and save an uploaded file.
+    Validate, sanitise and save an uploaded image.
 
-    Returns the relative URL path (e.g. '/uploads/vet_abc123.jpg').
+    The size is capped while reading, the type comes from the file's magic
+    bytes, and the stored name is server-generated (uuid + detected extension).
+    Returns the relative URL path (e.g. '/uploads/vet/abc123.jpg').
     """
-    if file.content_type not in ALLOWED_CONTENT_TYPES:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Μη αποδεκτός τύπος αρχείου. Επιτρέπονται μόνο JPG και PNG.",
-        )
+    if prefix not in ALLOWED_PREFIXES:
+        raise ValueError(f"Unknown upload prefix: {prefix}")
 
-    ext = ALLOWED_CONTENT_TYPES[file.content_type]
-
-    contents = await file.read()
-    if len(contents) > max_size_bytes:
-        max_mb = max_size_bytes / (1024 * 1024)
-        actual_mb = len(contents) / (1024 * 1024)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Το αρχείο είναι πολύ μεγάλο ({actual_mb:.1f}MB). Μέγιστο μέγεθος: {max_mb:.0f}MB.",
-        )
+    raw = await read_limited(file, max_size_bytes)
+    contents, ext = sanitize_image(raw)
 
     subdir = UPLOAD_DIR / prefix
     subdir.mkdir(parents=True, exist_ok=True)

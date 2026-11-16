@@ -3,7 +3,7 @@ Document generation service - PDF prescriptions, medical records, vaccination ce
 """
 
 from io import BytesIO
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -16,6 +16,7 @@ from app.models.medication import Medication
 from app.models.pet import Pet
 from app.models.vet import Vet
 from app.models.weight_history import WeightHistory
+from app.services.scheduling import ATHENS
 
 
 # ── ReportLab imports ─────────────────────────────────────────────────────────
@@ -490,7 +491,7 @@ class DocumentService:
             )
 
         owner = pet.owner
-        today = date.today()
+        today = datetime.now(ATHENS).date()
 
         # ── Build PDF ────────────────────────────────────────────────────────
         buffer = BytesIO()
@@ -655,7 +656,7 @@ class DocumentService:
         vaccinations = sorted(vaccinations, key=lambda e: e.date)
 
         owner = pet.owner
-        today = date.today()
+        today = datetime.now(ATHENS).date()
 
         # ── Build PDF ────────────────────────────────────────────────────────
         buffer = BytesIO()
