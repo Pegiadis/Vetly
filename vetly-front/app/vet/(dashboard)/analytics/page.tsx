@@ -2,7 +2,14 @@
 
 
 import { ClinicCollectionHeader, ClinicPanel, ClinicPageHeader } from '@/components/vet/ClinicUI';
-import { useFullAnalytics } from '@/hooks/useVetData';
+import { formatEuro, useFullAnalytics } from '@/hooks/useVetData';
+
+const monthNames = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μάι', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ'];
+
+function monthLabel(month: string): string {
+  const [year, m] = month.split('-');
+  return `${monthNames[Number(m) - 1] ?? m} ${year.slice(2)}`;
+}
 
 const petTypeLabels: Record<string, string> = {
   Dog: 'Σκύλοι',
@@ -40,6 +47,8 @@ export default function VetAnalyticsPage() {
 
   const { dashboard, appointment_trends, service_breakdown, peak_hours, patient_types } = analytics;
   const maxTrendCount = Math.max(...appointment_trends.items.map(d => d.count), 1);
+  const revenue = analytics.revenue;
+  const maxMonthRevenue = Math.max(...(revenue?.by_month ?? []).map(m => m.revenue), 1);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -54,6 +63,57 @@ export default function VetAnalyticsPage() {
           ['Μέση βαθμολογία / 5', Number(dashboard.average_rating).toFixed(1)],
         ].map(([label, value]) => <div key={label} className="border-b border-r border-ink-100 px-4 py-4"><p className="text-xs text-ink-500">{label}</p><p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{value}</p></div>)}
       </ClinicPanel>
+
+      {revenue && (
+        <div className="mb-5">
+          <ClinicPanel className="mb-4 grid grid-cols-2 overflow-hidden md:grid-cols-4">
+            {[
+              ['Έσοδα 30 ημερών', formatEuro(revenue.last_30_days_revenue)],
+              ['Έσοδα μήνα', formatEuro(revenue.this_month_revenue)],
+              ['Έσοδα συνολικά', formatEuro(revenue.total_revenue)],
+              ['Μέσο ανά επίσκεψη', revenue.priced_count > 0 ? formatEuro(revenue.average_per_visit) : '—'],
+            ].map(([label, value]) => <div key={label} className="border-b border-r border-ink-100 px-4 py-4"><p className="text-xs text-ink-500">{label}</p><p className="mt-2 text-2xl font-semibold tabular-nums text-ink-900">{value}</p></div>)}
+          </ClinicPanel>
+          {revenue.unpriced_count > 0 && (
+            <p className="mb-4 rounded-[10px] bg-[#ffe0c7] px-3 py-2 text-xs text-[#622700]">
+              {revenue.unpriced_count} ολοκληρωμένες επισκέψεις δεν έχουν ποσό και δεν προσμετρώνται στα έσοδα.
+            </p>
+          )}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <ClinicPanel className="lg:col-span-2 overflow-hidden">
+              <ClinicCollectionHeader title="Έσοδα ανά μήνα" description="Ολοκληρωμένες επισκέψεις των τελευταίων 12 μηνών." />
+              <div className="h-56 flex items-end gap-1.5 p-4">
+                {revenue.by_month.map(item => (
+                  <div key={item.month} className="h-full min-w-0 flex-1 flex flex-col justify-end items-center gap-1">
+                    <div
+                      className="w-full bg-clinic-600 rounded-t-sm min-h-[2px] hover:bg-clinic-700"
+                      style={{ height: `${(item.revenue / maxMonthRevenue) * 85}%` }}
+                      role="img" aria-label={`${monthLabel(item.month)}: ${formatEuro(item.revenue)}, ${item.count} επισκέψεις`}
+                      title={`${monthLabel(item.month)}: ${formatEuro(item.revenue)}`}
+                    />
+                    <span className="text-[10px] text-ink-500">{monthLabel(item.month).split(' ')[0]}</span>
+                  </div>
+                ))}
+              </div>
+            </ClinicPanel>
+            <ClinicPanel className="p-4">
+              <h2 className="text-sm font-semibold text-ink-800 mb-4">Έσοδα ανά υπηρεσία</h2>
+              {revenue.by_service.length > 0 ? (
+                <div className="divide-y divide-ink-100">
+                  {revenue.by_service.map(item => (
+                    <div key={item.service_type} className="flex items-center justify-between gap-4 py-3">
+                      <span className="min-w-0 text-sm text-ink-700"><span className="block truncate">{item.service_type}</span><span className="text-xs text-ink-500">{item.count} επισκέψεις</span></span>
+                      <span className="text-sm font-semibold tabular-nums text-ink-900">{formatEuro(item.revenue)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-ink-400 py-4">Δεν υπάρχουν έσοδα ακόμη.</p>
+              )}
+            </ClinicPanel>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Appointment Trends Chart */}

@@ -2,12 +2,13 @@
 Appointment repository - data access layer
 """
 
+from decimal import Decimal
 from uuid import UUID
 from datetime import date, datetime, timedelta
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import Session, joinedload
 
-from app.db.base import Appointment, MedicalEvent, Medication, Pet, PetOwner
+from app.db.base import Appointment, MedicalEvent, Medication, Pet, PetOwner, ServiceType
 from app.models.appointment import AppointmentStatus
 from app.models.medication import MedicationFrequency
 
@@ -100,7 +101,8 @@ class AppointmentRepository:
         self, vet_id: UUID, skip: int = 0, limit: int = 50
     ) -> tuple[list[Appointment], int]:
         """Get today's appointments for a vet"""
-        today = date.today()
+        from app.services.scheduling import ATHENS
+        today = datetime.now(ATHENS).date()
         tomorrow = today + timedelta(days=1)
 
         filters = [
@@ -165,8 +167,16 @@ class AppointmentRepository:
         status: AppointmentStatus = AppointmentStatus.CONFIRMED,
         service_type_id: UUID | None = None,
         price: object = None,
+        commit: bool = True,
     ) -> Appointment:
-        """Create a new appointment"""
+        """Create a new appointment.
+
+        When a service is chosen and no price is given, the service's current
+        price is copied onto the appointment so later price edits do not
+        change it. commit=False only flushes, for callers that commit once.
+        """
+        if price is None and service_type_id is not None:
+            price = self.get_service_price(service_type_id, vet_id)
         appointment = Appointment(
             vet_id=vet_id,
             pet_owner_id=pet_owner_id,
@@ -180,9 +190,20 @@ class AppointmentRepository:
             price=price,
         )
         self.db.add(appointment)
-        self.db.commit()
-        self.db.refresh(appointment)
+        if commit:
+            self.db.commit()
+            self.db.refresh(appointment)
+        else:
+            self.db.flush()
         return appointment
+
+    def get_service_price(self, service_type_id: UUID, vet_id: UUID) -> Decimal | None:
+        """Current price of one of the vet's services, or None if it is not theirs."""
+        return self.db.scalar(
+            select(ServiceType.price).where(
+                ServiceType.id == service_type_id, ServiceType.vet_id == vet_id
+            )
+        )
 
     def get_group_appointments(self, group_id: UUID, vet_id: UUID) -> list[Appointment]:
         """Get all appointments in a group for a vet"""
@@ -197,14 +218,21 @@ class AppointmentRepository:
         return list(self.db.scalars(query).unique().all())
 
     def update_status(
-        self, appointment: Appointment, status: AppointmentStatus, notes: str | None = None
+        self,
+        appointment: Appointment,
+        status: AppointmentStatus,
+        notes: str | None = None,
+        commit: bool = True,
     ) -> Appointment:
-        """Update an appointment's status"""
+        """Update an appointment's status (commit=False leaves the commit to the caller)"""
         appointment.status = status
         if notes is not None:
             appointment.notes = notes
-        self.db.commit()
-        self.db.refresh(appointment)
+        if commit:
+            self.db.commit()
+            self.db.refresh(appointment)
+        else:
+            self.db.flush()
         return appointment
 
     def create_medical_event(

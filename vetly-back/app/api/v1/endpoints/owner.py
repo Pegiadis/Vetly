@@ -4,7 +4,7 @@ Pet owner API endpoints
 
 from uuid import UUID
 from datetime import date
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_db, get_current_pet_owner
@@ -94,33 +94,36 @@ def get_appointment_detail(
 @router.post("/appointments/batch", response_model=list[AppointmentResponse], status_code=201)
 def create_batch_appointments(
     data: AppointmentBatchCreateRequest,
+    background_tasks: BackgroundTasks,
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> list[AppointmentResponse]:
     """Create grouped appointments for multiple pets in one booking"""
-    service = OwnerService(db)
+    service = OwnerService(db, background_tasks)
     return service.create_batch_appointments(current_owner.id, data)
 
 
 @router.post("/appointments", response_model=AppointmentResponse, status_code=201)
 def create_appointment(
     data: AppointmentCreateRequest,
+    background_tasks: BackgroundTasks,
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> AppointmentResponse:
     """Create a new appointment for a pet"""
-    service = OwnerService(db)
+    service = OwnerService(db, background_tasks)
     return service.create_appointment(current_owner.id, data)
 
 
 @router.post("/appointments/{appointment_id}/cancel", response_model=AppointmentResponse)
 def cancel_appointment(
     appointment_id: UUID,
+    background_tasks: BackgroundTasks,
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> AppointmentResponse:
     """Cancel an appointment"""
-    service = OwnerService(db)
+    service = OwnerService(db, background_tasks)
     return service.cancel_appointment(current_owner.id, appointment_id)
 
 
@@ -128,11 +131,12 @@ def cancel_appointment(
 def reschedule_appointment(
     appointment_id: UUID,
     data: AppointmentRescheduleRequest,
+    background_tasks: BackgroundTasks,
     current_owner: PetOwner = Depends(get_current_pet_owner),
     db: Session = Depends(get_db),
 ) -> AppointmentResponse:
     """Reschedule an appointment to a new date/time"""
-    service = OwnerService(db)
+    service = OwnerService(db, background_tasks)
     return service.reschedule_appointment(current_owner.id, appointment_id, data)
 
 

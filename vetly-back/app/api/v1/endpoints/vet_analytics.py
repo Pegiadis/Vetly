@@ -16,6 +16,7 @@ from app.schemas.analytics import (
     ServiceBreakdownResponse,
     PeakHoursResponse,
     PatientTypeResponse,
+    RevenueResponse,
 )
 
 router = APIRouter()
@@ -64,6 +65,16 @@ def get_service_breakdown(
     """Get service type breakdown"""
     service = AnalyticsService(db)
     return service.get_service_breakdown(vet_id=current_vet.id)
+
+
+@router.get("/analytics/revenue", response_model=RevenueResponse)
+def get_revenue(
+    current_vet: Vet = Depends(get_current_vet),
+    db: Session = Depends(get_db),
+) -> RevenueResponse:
+    """Revenue from completed visits: totals, by service, by month"""
+    service = AnalyticsService(db)
+    return service.get_revenue(vet_id=current_vet.id)
 
 
 @router.get("/analytics/peak-hours", response_model=PeakHoursResponse)

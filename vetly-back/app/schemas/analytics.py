@@ -72,6 +72,35 @@ class PatientTypeResponse(BaseModel):
     total: int
 
 
+class RevenueServiceItem(BaseModel):
+    """Revenue of completed visits for one service name"""
+    service_type: str
+    count: int
+    revenue: float
+
+
+class RevenueMonthItem(BaseModel):
+    """Revenue of completed visits in one calendar month (YYYY-MM)"""
+    month: str
+    count: int
+    revenue: float
+
+
+class RevenueResponse(BaseModel):
+    """Revenue from completed visits (cancelled and unfinished ones excluded)"""
+    total_revenue: float
+    completed_count: int
+    priced_count: int
+    unpriced_count: int
+    average_per_visit: float
+    this_month_revenue: float
+    this_month_count: int
+    last_30_days_revenue: float
+    last_30_days_count: int
+    by_service: list[RevenueServiceItem]
+    by_month: list[RevenueMonthItem]
+
+
 class FullAnalyticsResponse(BaseModel):
     """Full analytics data"""
     dashboard: DashboardStatsResponse
@@ -79,5 +108,6 @@ class FullAnalyticsResponse(BaseModel):
     service_breakdown: ServiceBreakdownResponse
     peak_hours: PeakHoursResponse
     patient_types: PatientTypeResponse
+    revenue: RevenueResponse
 
 

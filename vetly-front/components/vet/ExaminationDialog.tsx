@@ -15,6 +15,7 @@ import {
   updateCustomMedicationNames,
   VetAppointment,
   ExaminationMedication,
+  formatEuro,
 } from '@/hooks/useVetData';
 import DatePicker from '@/components/DatePicker';
 import { getImageUrl } from '@/lib/api';
@@ -54,6 +55,12 @@ export default function ExaminationDialog({
 }) {
   const [diagnosis, setDiagnosis] = useState('');
   const [examinationNotes, setExaminationNotes] = useState('');
+  // Amount charged; starts from the price stored on the appointment
+  const [price, setPrice] = useState(
+    appointment.price !== null && appointment.price !== undefined && appointment.price !== ''
+      ? String(Number(appointment.price))
+      : '',
+  );
   const [medications, setMedications] = useState<ExaminationMedication[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,6 +167,12 @@ export default function ExaminationDialog({
       return;
     }
 
+    const priceValue = price.trim() === '' ? undefined : Number(price.trim().replace(',', '.'));
+    if (priceValue !== undefined && (!Number.isFinite(priceValue) || priceValue < 0)) {
+      setError('Το ποσό πρέπει να είναι έγκυρος αριθμός');
+      return;
+    }
+
     try {
       setSubmitting(true);
       setError(null);
@@ -167,6 +180,7 @@ export default function ExaminationDialog({
         diagnosis: diagnosis.trim(),
         examination_notes: examinationNotes.trim() || undefined,
         medications,
+        price: priceValue,
       });
       if (addReminder && reminderDueDate) {
         await createReminder({
@@ -399,6 +413,26 @@ export default function ExaminationDialog({
                 rows={3}
                 className="w-full px-4 py-3 resize-none"
               />
+            </div>
+
+            <div>
+              <label htmlFor="exam-price" className="block text-sm font-semibold text-ink-700 mb-2">
+                Ποσό χρέωσης (€)
+              </label>
+              <ClinicInput
+                id="exam-price"
+                type="text"
+                inputMode="decimal"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="π.χ. 45,00"
+                className="w-40"
+              />
+              <p className="mt-1 text-xs text-ink-500">
+                {appointment.price !== null && appointment.price !== undefined && appointment.price !== ''
+                  ? `Τιμή ραντεβού: ${formatEuro(appointment.price)}. Αλλάξτε το αν η τελική χρέωση διαφέρει.`
+                  : 'Το ποσό προσμετράται στα έσοδα όταν ολοκληρωθεί η εξέταση.'}
+              </p>
             </div>
 
             <div>

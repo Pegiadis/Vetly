@@ -122,7 +122,7 @@ function RescheduleDialog({
                 value={selectedDate}
                 onChange={(d) => { setSelectedDate(d); setSelectedSlot(null); }}
                 minDate={new Date()}
-                accentColor="indigo"
+                accentColor="clinic"
               />
             </div>
 
@@ -433,7 +433,7 @@ export default function VetAppointmentsPage() {
     try {
       await downloadPrescription(appointmentId);
     } catch {
-      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+      toast.error('Η λήψη της συνταγής απέτυχε. Δοκιμάστε ξανά.');
     } finally {
       setDownloadingId(null);
     }

@@ -2,8 +2,9 @@
 Appointment service - business logic layer
 """
 
+from decimal import Decimal
 from uuid import UUID
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -12,6 +13,7 @@ from app.models.appointment import AppointmentStatus
 from app.models.medication import MedicationFrequency
 from app.services.notification import NotificationService
 from app.services.reminder import ReminderService
+from app.services.scheduling import ATHENS
 from app.schemas.appointment import (
     AppointmentDetailResponse,
     AppointmentListResponse,
@@ -27,11 +29,41 @@ from app.schemas.appointment import (
 class AppointmentService:
     """Service for Appointment business logic"""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, background=None):
+        """background: FastAPI BackgroundTasks; emails are queued on it after commit."""
         self.db = db
+        self.background = background
         self.repository = AppointmentRepository(db)
         self.notifications = NotificationService(db)
         self.reminders = ReminderService(db)
+
+    def _commit(self) -> None:
+        """Commit the whole operation at once, then release the queued emails.
+
+        On any failure everything is rolled back and no email is sent.
+        """
+        try:
+            self.db.commit()
+        except Exception:
+            self._abort()
+            raise
+        self.notifications.release_emails(self.background)
+
+    def _abort(self) -> None:
+        """Roll back the open transaction and drop emails queued for it."""
+        self.db.rollback()
+        self.notifications.discard_emails()
+
+    def _apply_price(self, appointment, price: Decimal | None) -> None:
+        """Set the charged price: the vet's explicit amount, else the service's
+        current price when the appointment has none yet. An existing price is
+        otherwise kept, so later service price edits never rewrite history."""
+        if price is not None:
+            appointment.price = price
+        elif appointment.price is None and appointment.service_type_id:
+            appointment.price = self.repository.get_service_price(
+                appointment.service_type_id, appointment.vet_id
+            )
 
     def _build_detail_response(self, appointment) -> AppointmentDetailResponse:
         """Build a detailed appointment response with pet and pet owner info"""
@@ -83,23 +115,30 @@ class AppointmentService:
             status=AppointmentStatus.CONFIRMED,
             service_type_id=getattr(data, "service_type_id", None),
             price=getattr(data, "price", None),
+            commit=False,
         )
 
-        # Re-fetch with relations loaded
-        appointment = self.repository.get_by_id(appointment.id, vet_id)
+        try:
+            # Re-fetch with relations loaded
+            appointment = self.repository.get_by_id(appointment.id, vet_id)
 
-        # Notify owner
-        date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
-        vet_name = appointment.vet.name if appointment.vet else ""
-        self.notifications.notify_owner(
-            pet.pet_owner_id,
-            type="appointment_new",
-            title="Νέο ραντεβού",
-            message=f"Ο {vet_name} προγραμμάτισε ραντεβού για {pet.name} στις {date_str}",
-            vet_id=vet_id,
-            pet_name=pet.name,
-            date_str=date_str,
-        )
+            # Notify owner
+            date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
+            vet_name = appointment.vet.name if appointment.vet else ""
+            self.notifications.notify_owner(
+                pet.pet_owner_id,
+                type="appointment_new",
+                title="Νέο ραντεβού",
+                message=f"Ο {vet_name} προγραμμάτισε ραντεβού για {pet.name} στις {date_str}",
+                vet_id=vet_id,
+                pet_name=pet.name,
+                date_str=date_str,
+                commit=False,
+            )
+        except Exception:
+            self._abort()
+            raise
+        self._commit()
 
         return self._build_detail_response(appointment)
 
@@ -209,21 +248,50 @@ class AppointmentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Μη έγκυρη αλλαγή κατάστασης.",
             )
-        updated = self.repository.update_status(appointment, new_status, data.notes)
+        try:
+            updated = self.repository.update_status(
+                appointment, new_status, data.notes, commit=False
+            )
+            if new_status == AppointmentStatus.COMPLETED:
+                self._apply_price(appointment, None)
 
-        # Cascade cancellation to group members
-        if new_status == AppointmentStatus.CANCELLED and appointment.group_id:
-            group_apts = self.repository.get_group_appointments(appointment.group_id, vet_id)
-            for apt in group_apts:
-                if apt.id != appointment.id and apt.status != AppointmentStatus.CANCELLED:
-                    self.repository.update_status(apt, AppointmentStatus.CANCELLED, data.notes)
+            # Cascade cancellation to group members
+            pet_names = [appointment.pet.name] if appointment.pet else []
+            if new_status == AppointmentStatus.CANCELLED and appointment.group_id:
+                group_apts = self.repository.get_group_appointments(appointment.group_id, vet_id)
+                for apt in group_apts:
+                    if apt.id != appointment.id and apt.status != AppointmentStatus.CANCELLED:
+                        self.repository.update_status(
+                            apt, AppointmentStatus.CANCELLED, data.notes, commit=False
+                        )
+                        if apt.pet and apt.pet.name not in pet_names:
+                            pet_names.append(apt.pet.name)
+
+            if new_status == AppointmentStatus.CANCELLED:
+                vet_name = appointment.vet.name if appointment.vet else ""
+                pet_names_str = ", ".join(pet_names)
+                date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
+                self.notifications.notify_owner(
+                    appointment.pet_owner_id,
+                    type="appointment_cancel",
+                    title="Ραντεβού ακυρώθηκε",
+                    message=f"Το ραντεβού σας για {pet_names_str} με {vet_name} ακυρώθηκε",
+                    vet_id=vet_id,
+                    pet_name=pet_names_str,
+                    date_str=date_str,
+                    commit=False,
+                )
+        except Exception:
+            self._abort()
+            raise
+        self._commit()
 
         return self._build_detail_response(updated)
 
     def approve_appointment(
-        self, appointment_id: UUID, vet_id: UUID
+        self, appointment_id: UUID, vet_id: UUID, price: Decimal | None = None
     ) -> AppointmentDetailResponse:
-        """Approve a pending appointment request"""
+        """Approve a pending appointment request, optionally setting its price"""
         appointment = self.repository.get_by_id(appointment_id, vet_id)
 
         if not appointment:
@@ -238,31 +306,46 @@ class AppointmentService:
                 detail="Can only approve pending appointments",
             )
 
-        updated = self.repository.update_status(appointment, AppointmentStatus.CONFIRMED)
+        from app.services.scheduling import check_time_off
+        check_time_off(self.db, vet_id, appointment.scheduled_at, appointment.duration_minutes or 30)
 
-        # Cascade to group members
-        pet_names = [appointment.pet.name] if appointment.pet else []
-        if appointment.group_id:
-            group_apts = self.repository.get_group_appointments(appointment.group_id, vet_id)
-            for apt in group_apts:
-                if apt.id != appointment.id and apt.status == AppointmentStatus.PENDING:
-                    self.repository.update_status(apt, AppointmentStatus.CONFIRMED)
-                    if apt.pet and apt.pet.name not in pet_names:
-                        pet_names.append(apt.pet.name)
+        try:
+            updated = self.repository.update_status(
+                appointment, AppointmentStatus.CONFIRMED, commit=False
+            )
+            self._apply_price(appointment, price)
 
-        # Notify owner
-        vet_name = appointment.vet.name if appointment.vet else ""
-        pet_names_str = ", ".join(pet_names)
-        date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
-        self.notifications.notify_owner(
-            appointment.pet_owner_id,
-            type="appointment_confirm",
-            title="Ραντεβού επιβεβαιώθηκε",
-            message=f"Το ραντεβού σας για {pet_names_str} με {vet_name} επιβεβαιώθηκε",
-            vet_id=vet_id,
-            pet_name=pet_names_str,
-            date_str=date_str,
-        )
+            # Cascade to group members
+            pet_names = [appointment.pet.name] if appointment.pet else []
+            if appointment.group_id:
+                group_apts = self.repository.get_group_appointments(appointment.group_id, vet_id)
+                for apt in group_apts:
+                    if apt.id != appointment.id and apt.status == AppointmentStatus.PENDING:
+                        self.repository.update_status(
+                            apt, AppointmentStatus.CONFIRMED, commit=False
+                        )
+                        self._apply_price(apt, None)
+                        if apt.pet and apt.pet.name not in pet_names:
+                            pet_names.append(apt.pet.name)
+
+            # Notify owner
+            vet_name = appointment.vet.name if appointment.vet else ""
+            pet_names_str = ", ".join(pet_names)
+            date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
+            self.notifications.notify_owner(
+                appointment.pet_owner_id,
+                type="appointment_confirm",
+                title="Ραντεβού επιβεβαιώθηκε",
+                message=f"Το ραντεβού σας για {pet_names_str} με {vet_name} επιβεβαιώθηκε",
+                vet_id=vet_id,
+                pet_name=pet_names_str,
+                date_str=date_str,
+                commit=False,
+            )
+        except Exception:
+            self._abort()
+            raise
+        self._commit()
 
         return self._build_detail_response(updated)
 
@@ -285,33 +368,41 @@ class AppointmentService:
             )
 
         notes = f"Rejected: {reason}" if reason else "Rejected by vet"
-        updated = self.repository.update_status(
-            appointment, AppointmentStatus.CANCELLED, notes
-        )
+        try:
+            updated = self.repository.update_status(
+                appointment, AppointmentStatus.CANCELLED, notes, commit=False
+            )
 
-        # Cascade to group members
-        pet_names = [appointment.pet.name] if appointment.pet else []
-        if appointment.group_id:
-            group_apts = self.repository.get_group_appointments(appointment.group_id, vet_id)
-            for apt in group_apts:
-                if apt.id != appointment.id and apt.status == AppointmentStatus.PENDING:
-                    self.repository.update_status(apt, AppointmentStatus.CANCELLED, notes)
-                    if apt.pet and apt.pet.name not in pet_names:
-                        pet_names.append(apt.pet.name)
+            # Cascade to group members
+            pet_names = [appointment.pet.name] if appointment.pet else []
+            if appointment.group_id:
+                group_apts = self.repository.get_group_appointments(appointment.group_id, vet_id)
+                for apt in group_apts:
+                    if apt.id != appointment.id and apt.status == AppointmentStatus.PENDING:
+                        self.repository.update_status(
+                            apt, AppointmentStatus.CANCELLED, notes, commit=False
+                        )
+                        if apt.pet and apt.pet.name not in pet_names:
+                            pet_names.append(apt.pet.name)
 
-        # Notify owner
-        vet_name = appointment.vet.name if appointment.vet else ""
-        pet_names_str = ", ".join(pet_names)
-        date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
-        self.notifications.notify_owner(
-            appointment.pet_owner_id,
-            type="appointment_reject",
-            title="Ραντεβού απορρίφθηκε",
-            message=f"Το ραντεβού σας για {pet_names_str} με {vet_name} απορρίφθηκε",
-            vet_id=vet_id,
-            pet_name=pet_names_str,
-            date_str=date_str,
-        )
+            # Notify owner
+            vet_name = appointment.vet.name if appointment.vet else ""
+            pet_names_str = ", ".join(pet_names)
+            date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
+            self.notifications.notify_owner(
+                appointment.pet_owner_id,
+                type="appointment_reject",
+                title="Ραντεβού απορρίφθηκε",
+                message=f"Το ραντεβού σας για {pet_names_str} με {vet_name} απορρίφθηκε",
+                vet_id=vet_id,
+                pet_name=pet_names_str,
+                date_str=date_str,
+                commit=False,
+            )
+        except Exception:
+            self._abort()
+            raise
+        self._commit()
 
         return self._build_detail_response(updated)
 
@@ -321,7 +412,11 @@ class AppointmentService:
         vet_id: UUID,
         data: CompleteExaminationRequest,
     ) -> AppointmentDetailResponse:
-        """Complete an examination: create medical event, medications, mark completed"""
+        """Complete an examination: create medical event, medications, mark completed.
+
+        Everything (medical event, medications, price, status, reminder and
+        notification) is written in one transaction; any failure rolls it all
+        back, and the owner email is only sent after the commit."""
         appointment = self.repository.get_by_id(appointment_id, vet_id)
 
         if not appointment:
@@ -336,61 +431,68 @@ class AppointmentService:
                 detail="Can only complete confirmed or pending appointments",
             )
 
-        today = date.today()
+        try:
+            today = datetime.now(ATHENS).date()
 
-        # Create medical event
-        self.repository.create_medical_event(
-            pet_id=appointment.pet_id,
-            vet_id=vet_id,
-            event_date=today,
-            title=data.diagnosis,
-            event_type=appointment.type,
-            notes=data.examination_notes,
-        )
-
-        # Create medications
-        for med in data.medications:
-            end_date = today + timedelta(days=med.duration_days) if med.duration_days else None
-            self.repository.create_medication(
-                pet_id=appointment.pet_id,
-                name=med.name,
-                dosage=med.dosage,
-                frequency=MedicationFrequency(med.frequency),
-                med_time=med.time,
-                start_date=today,
-                end_date=end_date,
-                notes=med.notes,
-            )
-
-        # Mark appointment as completed
-        updated = self.repository.update_status(
-            appointment, AppointmentStatus.COMPLETED, data.examination_notes
-        )
-
-        # Notify owner
-        pet_name = appointment.pet.name if appointment.pet else ""
-        date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
-        self.notifications.notify_owner(
-            appointment.pet_owner_id,
-            type="appointment_complete",
-            title="Εξέταση ολοκληρώθηκε",
-            message=f"Η εξέταση του {pet_name} ολοκληρώθηκε. Διάγνωση: {data.diagnosis}",
-            vet_id=vet_id,
-            pet_name=pet_name,
-            date_str=date_str,
-        )
-
-        # Auto-create vaccination reminder if the appointment type indicates vaccination
-        appointment_type_lower = (appointment.type or "").lower()
-        if "vaccination" in appointment_type_lower or "εμβολ" in appointment_type_lower:
-            self.reminders.auto_create_vaccination_reminder(
-                db=self.db,
+            # Create medical event
+            self.repository.create_medical_event(
                 pet_id=appointment.pet_id,
                 vet_id=vet_id,
-                vaccination_title=data.diagnosis,
+                event_date=today,
+                title=data.diagnosis,
+                event_type=appointment.type,
+                notes=data.examination_notes,
             )
 
-        self.db.commit()
+            # Create medications
+            for med in data.medications:
+                end_date = today + timedelta(days=med.duration_days) if med.duration_days else None
+                self.repository.create_medication(
+                    pet_id=appointment.pet_id,
+                    name=med.name,
+                    dosage=med.dosage,
+                    frequency=MedicationFrequency(med.frequency),
+                    med_time=med.time,
+                    start_date=today,
+                    end_date=end_date,
+                    notes=med.notes,
+                )
+
+            # Final charged amount: the vet's figure, else the booked price
+            self._apply_price(appointment, data.price)
+
+            # Mark appointment as completed
+            updated = self.repository.update_status(
+                appointment, AppointmentStatus.COMPLETED, data.examination_notes, commit=False
+            )
+
+            # Auto-create vaccination reminder if the appointment type indicates vaccination
+            appointment_type_lower = (appointment.type or "").lower()
+            if "vaccination" in appointment_type_lower or "εμβολ" in appointment_type_lower:
+                self.reminders.auto_create_vaccination_reminder(
+                    db=self.db,
+                    pet_id=appointment.pet_id,
+                    vet_id=vet_id,
+                    vaccination_title=data.diagnosis,
+                )
+
+            # Notify owner
+            pet_name = appointment.pet.name if appointment.pet else ""
+            date_str = appointment.scheduled_at.strftime("%d/%m/%Y %H:%M")
+            self.notifications.notify_owner(
+                appointment.pet_owner_id,
+                type="appointment_complete",
+                title="Εξέταση ολοκληρώθηκε",
+                message=f"Η εξέταση του {pet_name} ολοκληρώθηκε. Διάγνωση: {data.diagnosis}",
+                vet_id=vet_id,
+                pet_name=pet_name,
+                date_str=date_str,
+                commit=False,
+            )
+        except Exception:
+            self._abort()
+            raise
+        self._commit()
 
         return self._build_detail_response(updated)
 
@@ -430,23 +532,28 @@ class AppointmentService:
             )
 
         # Update scheduled_at, keep status as CONFIRMED (vet-initiated)
-        appointment.scheduled_at = data.scheduled_at
-        appointment.status = AppointmentStatus.CONFIRMED
-        self.db.commit()
-        self.db.refresh(appointment)
+        try:
+            appointment.scheduled_at = data.scheduled_at
+            appointment.status = AppointmentStatus.CONFIRMED
 
-        # Notify owner about the reschedule
-        pet_name = appointment.pet.name if appointment.pet else ""
-        vet_name = appointment.vet.name if appointment.vet else ""
-        new_date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
-        self.notifications.notify_owner(
-            appointment.pet_owner_id,
-            type="appointment_reschedule",
-            title="Αναπρογραμματισμός ραντεβού",
-            message=f"Ο {vet_name} αναπρογραμμάτισε το ραντεβού για {pet_name} στις {new_date_str}",
-            vet_id=vet_id,
-            pet_name=pet_name,
-            date_str=new_date_str,
-        )
+            # Notify owner about the reschedule
+            pet_name = appointment.pet.name if appointment.pet else ""
+            vet_name = appointment.vet.name if appointment.vet else ""
+            new_date_str = data.scheduled_at.strftime("%d/%m/%Y %H:%M")
+            self.notifications.notify_owner(
+                appointment.pet_owner_id,
+                type="appointment_reschedule",
+                title="Αναπρογραμματισμός ραντεβού",
+                message=f"Ο {vet_name} αναπρογραμμάτισε το ραντεβού για {pet_name} στις {new_date_str}",
+                vet_id=vet_id,
+                pet_name=pet_name,
+                date_str=new_date_str,
+                commit=False,
+            )
+        except Exception:
+            self._abort()
+            raise
+        self._commit()
+        self.db.refresh(appointment)
 
         return self._build_detail_response(appointment)

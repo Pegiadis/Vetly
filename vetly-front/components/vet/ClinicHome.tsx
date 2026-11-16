@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { useAllAppointments, useFullAnalytics, useVetProfile, useVetReminders, useVetReviewStats, type VetAppointment, type VetReminder } from '@/hooks/useVetData';
+import { formatEuro, useAllAppointments, useFullAnalytics, useVetProfile, useVetReminders, useVetReviewStats, type VetAppointment, type VetReminder } from '@/hooks/useVetData';
 import { ClinicButton, ClinicPanel, ClinicLoading, ClinicStatusBadge } from './ClinicUI';
 import ClinicAvatar from './ClinicAvatar';
 import CreateAppointmentDialog from './CreateAppointmentDialog';
@@ -239,6 +239,7 @@ export default function ClinicHome() {
             </div>
             <dl>
               <Fact label="Ραντεβού 30 ημερών">{analytics.appointment_trends.total}</Fact>
+              {analytics.revenue && <Fact label="Έσοδα 30 ημερών">{formatEuro(analytics.revenue.last_30_days_revenue)}</Fact>}
               <Fact label="Ολοκληρωμένα αυτόν τον μήνα">{analytics.dashboard.completed_this_month}</Fact>
               <Fact label="Ασθενείς συνολικά">{analytics.dashboard.total_patients}</Fact>
               {analytics.service_breakdown.items[0] && <Fact label="Συχνότερη υπηρεσία">{analytics.service_breakdown.items[0].service_type}</Fact>}

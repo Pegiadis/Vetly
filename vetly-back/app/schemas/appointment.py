@@ -89,6 +89,11 @@ class AppointmentStatusUpdate(BaseModel):
     notes: str | None = Field(None, max_length=2000)
 
 
+class AppointmentApproveRequest(BaseModel):
+    """Optional body for approving a request: the price to charge"""
+    price: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2)
+
+
 class AppointmentRejectRequest(BaseModel):
     """Appointment rejection request"""
     reason: str | None = Field(None, max_length=1000)
@@ -120,3 +125,5 @@ class CompleteExaminationRequest(BaseModel):
     diagnosis: str = Field(..., min_length=1, max_length=255)
     examination_notes: str | None = Field(None, max_length=2000)
     medications: list[ExaminationMedicationItem] = Field(default_factory=list)
+    # Final amount charged for the visit; when omitted the booked price is kept
+    price: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2)

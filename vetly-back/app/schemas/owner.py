@@ -113,6 +113,7 @@ class AppointmentVetInfo(BaseModel):
     address: str | None = None
     city: str | None = None
     image_url: str | None = None
+    phone: str | None = None
     coordinates_lat: float | None = None
     coordinates_lng: float | None = None
 

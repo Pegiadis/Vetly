@@ -3,13 +3,18 @@ Repository for pet owner related database operations
 """
 
 from uuid import UUID
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 
 from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.base import Pet, Appointment, Vet, PetOwner, MedicalEvent, Medication, Review, Notification
 from app.models.appointment import AppointmentStatus
+from app.services.scheduling import ATHENS
+
+# Hard caps for endpoints that return a plain list instead of a page.
+MAX_LIST_ROWS = 100
+MAX_VET_LIST_ROWS = 200
 
 
 class OwnerRepository:
@@ -85,7 +90,7 @@ class OwnerRepository:
 
     def get_upcoming_appointments(self, owner_id: UUID) -> list[Appointment]:
         """Get upcoming appointments for a pet owner with pet and vet details"""
-        now = datetime.utcnow()
+        now = datetime.now(ATHENS).replace(tzinfo=None)
         query = (
             select(Appointment)
             .options(joinedload(Appointment.pet), joinedload(Appointment.vet))
@@ -95,6 +100,7 @@ class OwnerRepository:
                 Appointment.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED])
             )
             .order_by(Appointment.scheduled_at)
+            .limit(MAX_LIST_ROWS)
         )
         return list(self.db.scalars(query).unique().all())
 
@@ -169,7 +175,15 @@ class OwnerRepository:
         group_id: UUID | None = None,
         auto_commit: bool = True,
     ) -> Appointment:
-        """Create a new appointment"""
+        """Create a new appointment, copying the chosen service's current price onto it"""
+        price = None
+        if service_type_id is not None:
+            from app.db.base import ServiceType
+            price = self.db.scalar(
+                select(ServiceType.price).where(
+                    ServiceType.id == service_type_id, ServiceType.vet_id == vet_id
+                )
+            )
         appointment = Appointment(
             pet_owner_id=pet_owner_id,
             vet_id=vet_id,
@@ -179,6 +193,7 @@ class OwnerRepository:
             duration_minutes=duration_minutes,
             notes=notes,
             service_type_id=service_type_id,
+            price=price,
             group_id=group_id,
             status=AppointmentStatus.PENDING,
         )
@@ -200,7 +215,7 @@ class OwnerRepository:
         query = select(Vet).where(Vet.is_verified.is_(True)).order_by(Vet.name)
         if verified_only:
             query = query.where(Vet.is_verified == True)
-        return list(self.db.scalars(query).all())
+        return list(self.db.scalars(query.limit(MAX_VET_LIST_ROWS)).all())
 
     def get_pet_ids_for_owner(self, owner_id: UUID) -> list[UUID]:
         """Get all non-deleted pet IDs belonging to an owner"""
@@ -248,7 +263,7 @@ class OwnerRepository:
             if is_active:
                 # D8: Also filter out medications past their end_date
                 conditions.append(
-                    or_(Medication.end_date.is_(None), Medication.end_date >= date.today())
+                    or_(Medication.end_date.is_(None), Medication.end_date >= datetime.now(ATHENS).date())
                 )
         where = and_(*conditions)
 
@@ -382,7 +397,7 @@ class OwnerRepository:
             .distinct()
             .subquery()
         )
-        query = select(Vet).where(Vet.id.in_(select(vet_ids_subq))).order_by(Vet.name)
+        query = select(Vet).where(Vet.id.in_(select(vet_ids_subq))).order_by(Vet.name).limit(MAX_VET_LIST_ROWS)
         return list(self.db.scalars(query).all())
 
     # --- Notifications ---
@@ -480,7 +495,7 @@ class OwnerRepository:
         query = select(Pet).where(
             Pet.pet_owner_id == owner_id,
             Pet.deleted_at != None,
-        ).order_by(Pet.deleted_at.desc())
+        ).order_by(Pet.deleted_at.desc()).limit(MAX_LIST_ROWS)
         return list(self.db.scalars(query).all())
 
     def get_deleted_pet_by_id(self, pet_id: UUID, owner_id: UUID) -> Pet | None:
@@ -494,7 +509,8 @@ class OwnerRepository:
 
     def delete_pet(self, pet: Pet) -> None:
         """Soft-delete a pet by setting deleted_at timestamp"""
-        pet.deleted_at = datetime.utcnow()
+        # Column is naive UTC (matches existing rows); utcnow() is deprecated.
+        pet.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
         self.db.commit()
 
     def restore_pet(self, pet: Pet) -> Pet:

@@ -4,6 +4,7 @@ After creating the in-app notification, also sends an email notification
 when EMAIL_NOTIFICATIONS_ENABLED is True.
 """
 
+import logging
 from uuid import UUID
 
 from sqlalchemy import select
@@ -28,12 +29,45 @@ from app.core.email_templates import (
 )
 
 
+logger = logging.getLogger(__name__)
+
+
 class NotificationService:
     """Lightweight helper for creating notifications"""
 
     def __init__(self, db: Session):
         self.db = db
         self.repository = NotificationRepository(db)
+        # Emails built during a deferred notify_* call, released by
+        # release_emails() once the caller's transaction has committed.
+        self.outbox: list[tuple[str, str, str]] = []
+        self._deferring = False
+
+    # ── deferred email delivery ──────────────────────────────────
+
+    def _emit(self, to_email: str, subject: str, html: str) -> None:
+        """Send an email now, or queue it in the outbox when deferring."""
+        if self._deferring:
+            self.outbox.append((to_email, subject, html))
+        else:
+            send_notification_email(to_email, subject, html)
+
+    def release_emails(self, background=None) -> None:
+        """Hand queued emails to the delivery mechanism. Call only after commit.
+
+        With a FastAPI BackgroundTasks they go out after the response is sent;
+        without one they are sent inline and a failure is logged, not raised.
+        """
+        emails, self.outbox = self.outbox, []
+        for to_email, subject, html in emails:
+            if background is not None:
+                background.add_task(_send_quietly, to_email, subject, html)
+            else:
+                _send_quietly(to_email, subject, html)
+
+    def discard_emails(self) -> None:
+        """Drop queued emails (the transaction that produced them rolled back)."""
+        self.outbox = []
 
     # ── helpers ───────────────────────────────────────────────────
 
@@ -71,15 +105,25 @@ class NotificationService:
         pet_name: str = "",
         date_str: str = "",
         service: str = "",
+        commit: bool = True,
+        defer_email: bool = False,
     ) -> None:
-        """Create a notification for a pet owner and send an email."""
+        """Create a notification for a pet owner and send an email.
+
+        commit=False leaves the commit to the caller and implies defer_email,
+        so no email can go out before the caller's transaction is saved.
+        """
         self.repository.create(
             pet_owner_id=owner_id,
             type=type,
             title=title,
             message=message,
         )
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
+        self._deferring = defer_email or not commit
 
         # Send email notification
         self._send_owner_email(
@@ -92,6 +136,7 @@ class NotificationService:
             date_str=date_str,
             service=service,
         )
+        self._deferring = False
 
     def notify_vet(
         self,
@@ -107,8 +152,13 @@ class NotificationService:
         rating: int = 0,
         comment: str = "",
         appointment_id: UUID | None = None,
+        commit: bool = True,
+        defer_email: bool = False,
     ) -> None:
-        """Create a notification for a vet and send an email."""
+        """Create a notification for a vet and send an email.
+
+        commit=False leaves the commit to the caller and implies defer_email.
+        """
         self.repository.create(
             vet_id=vet_id,
             appointment_id=appointment_id,
@@ -116,7 +166,11 @@ class NotificationService:
             title=title,
             message=message,
         )
-        self.db.commit()
+        if commit:
+            self.db.commit()
+        else:
+            self.db.flush()
+        self._deferring = defer_email or not commit
 
         # Send email notification
         self._send_vet_email(
@@ -129,6 +183,7 @@ class NotificationService:
             rating=rating,
             comment=comment,
         )
+        self._deferring = False
 
     # ── email dispatch ───────────────────────────────────────────
 
@@ -215,7 +270,7 @@ class NotificationService:
 
         if result:
             subject, html = result
-            send_notification_email(email, subject, html)
+            self._emit(email, subject, html)
 
     def _send_vet_email(
         self,
@@ -229,6 +284,15 @@ class NotificationService:
         comment: str,
     ) -> None:
         """Pick the right template and send an email to the vet."""
+        vet = self.db.get(Vet, vet_id)
+        if vet is None or vet.deactivated_at is not None:
+            return
+        if notification_type == "appointment_new" and not vet.email_new_bookings:
+            return
+        if notification_type in ("appointment_cancel", "appointment_reschedule") and not vet.email_cancellations:
+            return
+        if notification_type == "review_new" and not vet.email_reviews:
+            return
         email = self._get_vet_email(vet_id)
         if not email:
             return
@@ -270,4 +334,12 @@ class NotificationService:
 
         if result:
             subject, html = result
-            send_notification_email(email, subject, html)
+            self._emit(email, subject, html)
+
+
+def _send_quietly(to_email: str, subject: str, html: str) -> None:
+    """Send one notification email; a mail failure is logged, never raised."""
+    try:
+        send_notification_email(to_email, subject, html)
+    except Exception:
+        logger.exception("Notification email could not be sent")

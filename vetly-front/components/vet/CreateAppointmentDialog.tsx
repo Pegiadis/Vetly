@@ -416,7 +416,7 @@ export default function CreateAppointmentDialog({ open, onClose, onSuccess, embe
                 <CalendarPicker
                   value={selectedDate}
                   onChange={setSelectedDate}
-                  accentColor="indigo"
+                  accentColor="clinic"
                   minDate={new Date()}
                 />
               </div>

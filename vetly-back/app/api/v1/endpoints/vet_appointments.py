@@ -4,7 +4,7 @@ Vet Appointment Management API endpoints
 
 from uuid import UUID
 from datetime import date
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -31,6 +31,7 @@ from app.schemas.appointment import (
     AppointmentListResponse,
     AppointmentDetailResponse,
     AppointmentStatusUpdate,
+    AppointmentApproveRequest,
     AppointmentRejectRequest,
     CompleteExaminationRequest,
     VetCreateAppointmentRequest,
@@ -43,11 +44,12 @@ router = APIRouter()
 @router.post("", response_model=AppointmentDetailResponse, status_code=201)
 def create_appointment(
     data: VetCreateAppointmentRequest,
+    background_tasks: BackgroundTasks,
     current_vet: Vet = Depends(get_current_vet),
     db: Session = Depends(get_db),
 ) -> AppointmentDetailResponse:
     """Create a new appointment for a patient (vet-initiated, auto-confirmed)"""
-    service = AppointmentService(db)
+    service = AppointmentService(db, background_tasks)
     return service.create_appointment(vet_id=current_vet.id, data=data)
 
 
@@ -181,11 +183,12 @@ def get_appointment(
 def update_appointment_status(
     appointment_id: UUID,
     data: AppointmentStatusUpdate,
+    background_tasks: BackgroundTasks,
     current_vet: Vet = Depends(get_current_vet),
     db: Session = Depends(get_db),
 ) -> AppointmentDetailResponse:
     """Update an appointment's status"""
-    service = AppointmentService(db)
+    service = AppointmentService(db, background_tasks)
     return service.update_status(
         appointment_id=appointment_id,
         vet_id=current_vet.id,
@@ -196,26 +199,30 @@ def update_appointment_status(
 @router.post("/{appointment_id}/approve", response_model=AppointmentDetailResponse)
 def approve_appointment(
     appointment_id: UUID,
+    background_tasks: BackgroundTasks,
+    data: AppointmentApproveRequest | None = None,
     current_vet: Vet = Depends(get_current_vet),
     db: Session = Depends(get_db),
 ) -> AppointmentDetailResponse:
     """Approve a pending appointment request"""
-    service = AppointmentService(db)
+    service = AppointmentService(db, background_tasks)
     return service.approve_appointment(
         appointment_id=appointment_id,
         vet_id=current_vet.id,
+        price=data.price if data else None,
     )
 
 
 @router.post("/{appointment_id}/reject", response_model=AppointmentDetailResponse)
 def reject_appointment(
     appointment_id: UUID,
+    background_tasks: BackgroundTasks,
     data: AppointmentRejectRequest | None = None,
     current_vet: Vet = Depends(get_current_vet),
     db: Session = Depends(get_db),
 ) -> AppointmentDetailResponse:
     """Reject a pending appointment request"""
-    service = AppointmentService(db)
+    service = AppointmentService(db, background_tasks)
     reason = data.reason if data else None
     return service.reject_appointment(
         appointment_id=appointment_id,
@@ -228,11 +235,12 @@ def reject_appointment(
 def reschedule_appointment(
     appointment_id: UUID,
     data: VetRescheduleRequest,
+    background_tasks: BackgroundTasks,
     current_vet: Vet = Depends(get_current_vet),
     db: Session = Depends(get_db),
 ) -> AppointmentDetailResponse:
     """Reschedule an appointment to a new date/time (vet-initiated, stays confirmed)"""
-    service = AppointmentService(db)
+    service = AppointmentService(db, background_tasks)
     return service.reschedule_appointment(
         appointment_id=appointment_id,
         vet_id=current_vet.id,
@@ -244,11 +252,12 @@ def reschedule_appointment(
 def complete_examination(
     appointment_id: UUID,
     data: CompleteExaminationRequest,
+    background_tasks: BackgroundTasks,
     current_vet: Vet = Depends(get_current_vet),
     db: Session = Depends(get_db),
 ) -> AppointmentDetailResponse:
     """Complete an examination: record diagnosis, medications, and mark appointment completed"""
-    service = AppointmentService(db)
+    service = AppointmentService(db, background_tasks)
     return service.complete_examination(
         appointment_id=appointment_id,
         vet_id=current_vet.id,

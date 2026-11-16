@@ -44,8 +44,10 @@ from app.schemas.owner import (
 class OwnerService:
     """Service for pet owner operations"""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, background=None):
+        """background: FastAPI BackgroundTasks; appointment emails go out through it."""
         self.db = db
+        self.background = background
         self.repository = OwnerRepository(db)
         self.notifications = NotificationService(db)
 
@@ -180,7 +182,9 @@ class OwnerService:
             owner_id=owner_id,
             pet_name=pet.name,
             date_str=date_str,
+            defer_email=True,
         )
+        self.notifications.release_emails(self.background)
 
         return AppointmentResponse.model_validate(appointment)
 
@@ -272,7 +276,9 @@ class OwnerService:
             owner_id=owner_id,
             pet_name=pet_names,
             date_str=date_str,
+            defer_email=True,
         )
+        self.notifications.release_emails(self.background)
 
         return [AppointmentResponse.model_validate(apt) for apt in appointments]
 
@@ -314,7 +320,9 @@ class OwnerService:
             owner_id=owner_id,
             pet_name=pet_name,
             date_str=date_str,
+            defer_email=True,
         )
+        self.notifications.release_emails(self.background)
 
         return AppointmentResponse.model_validate(cancelled)
 
@@ -332,6 +340,15 @@ class OwnerService:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Μόνο ενεργά ραντεβού μπορούν να αναπρογραμματιστούν.",
+            )
+
+        # Same limit as cancelling: inside the last 2 hours the clinic has to agree by phone.
+        from datetime import datetime, timedelta
+        time_until = appointment.scheduled_at.replace(tzinfo=None) - datetime.now(ATHENS).replace(tzinfo=None)
+        if time_until < timedelta(hours=2):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Δεν μπορείτε να αλλάξετε ώρα σε ραντεβού λιγότερο από 2 ώρες πριν την ώρα του.",
             )
 
         # Check working hours at new time
@@ -365,7 +382,9 @@ class OwnerService:
             owner_id=owner_id,
             pet_name=pet_name,
             date_str=new_date_str,
+            defer_email=True,
         )
+        self.notifications.release_emails(self.background)
 
         return AppointmentResponse.model_validate(rescheduled)
 

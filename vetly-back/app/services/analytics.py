@@ -20,8 +20,17 @@ from app.schemas.analytics import (
     PeakHourItem,
     PatientTypeResponse,
     PatientTypeItem,
+    RevenueServiceItem,
+    RevenueMonthItem,
+    RevenueResponse,
     FullAnalyticsResponse,
 )
+from app.services.scheduling import ATHENS
+
+
+def _athens_today() -> date:
+    """Today's date on the Athens wall clock (appointments are stored in Athens time)."""
+    return datetime.now(ATHENS).date()
 
 
 class AnalyticsService:
@@ -32,7 +41,7 @@ class AnalyticsService:
 
     def get_dashboard_stats(self, vet_id: UUID) -> DashboardStatsResponse:
         """Get dashboard summary statistics"""
-        today = date.today()
+        today = _athens_today()
         tomorrow = today + timedelta(days=1)
         month_start = today.replace(day=1)
 
@@ -109,7 +118,7 @@ class AnalyticsService:
         self, vet_id: UUID, days: int = 30
     ) -> AppointmentTrendResponse:
         """Get appointment trends over time"""
-        end_date = date.today()
+        end_date = _athens_today()
         start_date = end_date - timedelta(days=days - 1)
 
         # Query appointments grouped by date
@@ -249,6 +258,115 @@ class AnalyticsService:
 
         return PatientTypeResponse(items=items, total=total)
 
+    def get_revenue(self, vet_id: UUID) -> RevenueResponse:
+        """Revenue from completed visits only.
+
+        Cancelled, pending and confirmed appointments are never counted. The
+        amount is the price stored on each appointment (the final charge), so
+        later edits to a service's price do not change past revenue. Completed
+        visits without a price are counted separately and kept out of the
+        average.
+        """
+        today = _athens_today()
+        month_start = today.replace(day=1)
+        last30_start = today - timedelta(days=29)
+        day_after = datetime.combine(today + timedelta(days=1), datetime.min.time())
+
+        completed = [
+            Appointment.vet_id == vet_id,
+            Appointment.status == AppointmentStatus.COMPLETED,
+        ]
+        priced = [*completed, Appointment.price.is_not(None)]
+
+        def money(value) -> float:
+            return round(float(value or 0), 2)
+
+        def window(start: date):
+            return [
+                *priced,
+                Appointment.scheduled_at >= datetime.combine(start, datetime.min.time()),
+                Appointment.scheduled_at < day_after,
+            ]
+
+        totals = self.db.execute(
+            select(func.count(Appointment.id), func.coalesce(func.sum(Appointment.price), 0))
+            .where(*priced)
+        ).one()
+        completed_count = self.db.scalar(
+            select(func.count(Appointment.id)).where(*completed)
+        ) or 0
+        this_month = self.db.execute(
+            select(func.count(Appointment.id), func.coalesce(func.sum(Appointment.price), 0))
+            .where(*window(month_start))
+        ).one()
+        last30 = self.db.execute(
+            select(func.count(Appointment.id), func.coalesce(func.sum(Appointment.price), 0))
+            .where(*window(last30_start))
+        ).one()
+
+        by_service_rows = self.db.execute(
+            select(
+                Appointment.type,
+                func.count(Appointment.id).label("count"),
+                func.sum(Appointment.price).label("revenue"),
+            )
+            .where(*priced)
+            .group_by(Appointment.type)
+            .order_by(func.sum(Appointment.price).desc())
+        ).all()
+
+        # Last 12 calendar months, oldest first, empty months included
+        months: list[date] = []
+        cursor = month_start
+        for _ in range(12):
+            months.append(cursor)
+            cursor = (cursor - timedelta(days=1)).replace(day=1)
+        months.reverse()
+        month_expr = func.date_trunc("month", Appointment.scheduled_at)
+        month_rows = {
+            row.month.date(): row
+            for row in self.db.execute(
+                select(
+                    month_expr.label("month"),
+                    func.count(Appointment.id).label("count"),
+                    func.sum(Appointment.price).label("revenue"),
+                )
+                .where(
+                    *priced,
+                    Appointment.scheduled_at >= datetime.combine(months[0], datetime.min.time()),
+                    Appointment.scheduled_at < day_after,
+                )
+                .group_by(month_expr)
+            ).all()
+        }
+
+        priced_count, total_revenue = totals[0], money(totals[1])
+        return RevenueResponse(
+            total_revenue=total_revenue,
+            completed_count=completed_count,
+            priced_count=priced_count,
+            unpriced_count=max(completed_count - priced_count, 0),
+            average_per_visit=round(total_revenue / priced_count, 2) if priced_count else 0.0,
+            this_month_revenue=money(this_month[1]),
+            this_month_count=this_month[0],
+            last_30_days_revenue=money(last30[1]),
+            last_30_days_count=last30[0],
+            by_service=[
+                RevenueServiceItem(
+                    service_type=row.type, count=row.count, revenue=money(row.revenue)
+                )
+                for row in by_service_rows
+            ],
+            by_month=[
+                RevenueMonthItem(
+                    month=m.strftime("%Y-%m"),
+                    count=month_rows[m].count if m in month_rows else 0,
+                    revenue=money(month_rows[m].revenue) if m in month_rows else 0.0,
+                )
+                for m in months
+            ],
+        )
+
     def get_full_analytics(self, vet_id: UUID) -> FullAnalyticsResponse:
         """Get full analytics data"""
         return FullAnalyticsResponse(
@@ -257,5 +375,6 @@ class AnalyticsService:
             service_breakdown=self.get_service_breakdown(vet_id),
             peak_hours=self.get_peak_hours(vet_id),
             patient_types=self.get_patient_types(vet_id),
+            revenue=self.get_revenue(vet_id),
         )
 

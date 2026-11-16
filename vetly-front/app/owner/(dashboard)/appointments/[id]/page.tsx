@@ -109,7 +109,7 @@ export default function AppointmentDetailPage({ params }: { params: Promise<{ id
 
         {appointment.notes && <Section title="Σημειώσεις"><p className="whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{appointment.notes}</p></Section>}
 
-        {appointment.price != null && <Section title="Κόστος"><p className="text-2xl font-semibold tabular-nums text-ink-900">{Number(appointment.price).toFixed(2)} €</p></Section>}
+        {appointment.price != null && <Section title="Κόστος"><p className="text-2xl font-semibold tabular-nums text-ink-900">{Number(appointment.price).toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}</p></Section>}
 
         {appointment.medical_events.length > 0 && (
           <Section title="Ιατρικό ιστορικό">

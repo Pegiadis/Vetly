@@ -35,6 +35,7 @@ const footerLinks: readonly NavLink[] = [
   ['/vet/chat', 'Βοηθός', 'chat'],
   ['/vet/settings', 'Ρυθμίσεις', 'settings'],
 ];
+const adminLink: NavLink = ['/vet/admin/verifications', 'Εγκρίσεις ιατρείων', 'shield'];
 const navItem = 'flex h-8 items-center gap-2 rounded-[10px] px-2 text-sm font-medium text-ink-800';
 
 const paths: Record<string, string> = {
@@ -57,6 +58,7 @@ const paths: Record<string, string> = {
   check: 'm5 12 4 4L19 6',
   menu: 'M4 6h16M4 12h16M4 18h16',
   logout: 'M9 3H3v18h6m5-14 5 5-5 5m-7-5h12',
+  shield: 'M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z m-3 9 2 2 4-4',
 };
 
 export function ClinicIcon({ name, className = '' }: { name: string; className?: string }) {
@@ -69,6 +71,7 @@ export default function ClinicHomeShell({ children, unreadCount }: { children: R
   const pathname = usePathname();
   const setup = useClinicSetup();
   const [pending, setPending] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const onAssistantPage = pathname === '/vet/chat';
 
@@ -90,6 +93,15 @@ export default function ClinicHomeShell({ children, unreadCount }: { children: R
       window.removeEventListener('vetly:pending-updated', load);
     };
   }, [pathname]);
+
+  // Platform admins get an extra link; the server enforces access on the page's API.
+  useEffect(() => {
+    let active = true;
+    api.get<{ is_admin?: boolean }>('/auth/me')
+      .then(data => { if (active) setIsAdmin(data.is_admin === true); })
+      .catch(() => { /* no admin link when the profile cannot be read */ });
+    return () => { active = false; };
+  }, []);
 
   const isCurrent = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
   const renderLink = ([href, label, icon]: NavLink) => {
@@ -127,6 +139,7 @@ export default function ClinicHomeShell({ children, unreadCount }: { children: R
       </nav>
       <div className="mt-auto space-y-0.5 pt-6">
         {footerLinks.map(renderLink)}
+        {isAdmin && renderLink(adminLink)}
         <button onClick={logout} className={`${navItem} w-full hover:bg-black/[0.04]`}><ClinicIcon name="logout" className="text-ink-500" />Αποσύνδεση</button>
       </div>
     </aside>
