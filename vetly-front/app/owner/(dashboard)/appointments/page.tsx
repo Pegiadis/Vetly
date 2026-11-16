@@ -9,6 +9,7 @@ import { useMyAppointments, cancelAppointment, rescheduleAppointment, useAvailab
 import type { Appointment, AppointmentFilters } from '@/hooks/useOwnerData';
 import { ApiError } from '@/lib/api';
 import CalendarPicker from '@/components/CalendarPicker';
+import { isInsideCancelCutoff, CANCEL_CUTOFF_HOURS } from './cancelRules';
 import { ErrorBlock, InlineAlert, DrawerHeader, Field, formatDay, linkPrimary, textLink } from '@/components/owner/OwnerUI';
 
 type TabType = 'upcoming' | 'past';
@@ -145,7 +146,7 @@ function RescheduleDialog({
         <AppointmentSummary appointment={appointment} label="Τρέχον" />
         <div>
           <p className="mb-2 text-sm font-medium text-ink-700">Ημερομηνία</p>
-          <CalendarPicker value={selectedDate} onChange={handleDateChange} minDate={new Date()} maxDate={maxDate} accentColor="indigo" />
+          <CalendarPicker value={selectedDate} onChange={handleDateChange} minDate={new Date()} maxDate={maxDate} accentColor="clinic" />
         </div>
         {selectedDate && (
           <div>
@@ -175,6 +176,8 @@ function RescheduleDialog({
 function AppointmentCard({ apt, showActions, onCancel, onReschedule }: { apt: Appointment; showActions: boolean; onCancel: (apt: Appointment) => void; onReschedule: (apt: Appointment) => void }) {
   const address = [apt.vet?.address, apt.vet?.city].filter(Boolean).join(', ');
   const canEdit = showActions && ['pending', 'confirmed'].includes(apt.status);
+  const lateCancel = canEdit && isInsideCancelCutoff(apt.scheduled_at);
+  const clinicPhone = apt.vet?.phone;
   const secondaryLink = 'inline-flex min-h-10 items-center justify-center rounded-[10px] bg-black/[0.06] px-3 py-1 text-[13px] font-medium text-ink-900 hover:bg-black/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600 sm:min-h-8';
   return <article className="border-b border-ink-100 px-4 py-4 last:border-0 sm:px-5">
     <div className="flex items-start gap-3">
@@ -189,9 +192,10 @@ function AppointmentCard({ apt, showActions, onCancel, onReschedule }: { apt: Ap
     {address && <a href={`https://www.google.com/maps/dir/?api=1&destination=${apt.vet?.coordinates_lat != null && apt.vet?.coordinates_lng != null ? `${apt.vet.coordinates_lat},${apt.vet.coordinates_lng}` : encodeURIComponent(address)}`} target="_blank" rel="noopener noreferrer" className="mt-3 block break-words text-xs text-ink-500 hover:text-clinic-700">{address} · Οδηγίες διαδρομής ↗</a>}
     <div className="mt-3 flex flex-wrap items-center gap-2">
       <Link href={`/owner/appointments/${apt.id}`} className={secondaryLink}>Λεπτομέρειες</Link>
-      {canEdit && <><ClinicButton className="min-h-10 sm:min-h-8" onClick={() => onReschedule(apt)}>Αλλαγή ώρας</ClinicButton><ClinicButton variant="danger" className="min-h-10 sm:min-h-8" onClick={() => onCancel(apt)}>Ακύρωση</ClinicButton></>}
+      {canEdit && <><ClinicButton className="min-h-10 sm:min-h-8" disabled={lateCancel} onClick={() => onReschedule(apt)}>Αλλαγή ώρας</ClinicButton><ClinicButton variant="danger" className="min-h-10 sm:min-h-8" disabled={lateCancel} onClick={() => onCancel(apt)}>Ακύρωση</ClinicButton></>}
       {apt.status === 'completed' && <Link href="/owner/reviews" className={`${textLink} px-2 py-2`}>Αξιολόγηση</Link>}
     </div>
+    {lateCancel && <p className="mt-2 text-xs leading-5 text-ink-600">Η ακύρωση και η αλλαγή ώρας από την εφαρμογή δεν είναι διαθέσιμες λιγότερο από {CANCEL_CUTOFF_HOURS} ώρες πριν το ραντεβού. Για ακύρωση, κάλεσε το κτηνιατρείο{clinicPhone ? <>: <a href={`tel:${clinicPhone}`} className="font-medium text-clinic-700 underline">{clinicPhone}</a></> : ''}.</p>}
   </article>;
 }
 

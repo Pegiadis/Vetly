@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import ConnectionRetry from '@/components/ConnectionRetry';
 import OwnerShell from '@/components/owner/OwnerShell';
 import NotificationPopup from '@/components/NotificationPopup';
 import { useNotificationPoller } from '@/hooks/useNotificationPoller';
@@ -13,13 +14,12 @@ export default function OwnerLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, userType, isLoading } = useAuth();
+  const { isAuthenticated, userType, isLoading, user, authError, retryAuth } = useAuth();
   const router = useRouter();
 
   const { unreadCount, popupNotification, showPopup, dismissPopup } = useNotificationPoller({
     fetchUnreadCount: getOwnerUnreadCount,
     fetchLatestUnread: getOwnerLatestUnread,
-    intervalMs: 10000,
   });
 
   useEffect(() => {
@@ -39,6 +39,10 @@ export default function OwnerLayout({
 
   if (!isAuthenticated || userType !== 'pet_owner') {
     return null;
+  }
+
+  if (authError && !user) {
+    return <ConnectionRetry reason={authError} onRetry={() => { void retryAuth(); }} />;
   }
 
   return (
