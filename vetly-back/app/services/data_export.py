@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.db.base import (
     Appointment, ChatConversation, ChatMessage, MedicalEvent, Medication, Notification, Pet,
-    PetOwner, Reminder, Review, ServiceType, Vet, VetClient, VetClientPet, WeightHistory,
+    PetOwner, Reminder, Review, ServiceType, Vet, VetClient, VetClientPet, VetTimeOff, WeightHistory,
 )
 
 # Credentials, session counters and invite secrets are not account data.
@@ -73,6 +73,8 @@ def export_vet(db: Session, vet: Vet) -> dict:
     client_ids = [c.id for c in clients]
     client_pets = db.scalars(select(VetClientPet).where(_in(VetClientPet.vet_client_id, client_ids)).order_by(VetClientPet.created_at)).all()
     patients = db.scalars(select(Pet).where(_in(Pet.id, [p.pet_id for p in client_pets]))).all() if client_pets else []
+    appointments = db.scalars(select(Appointment).where(Appointment.vet_id == vet.id).order_by(Appointment.scheduled_at)).all()
+    seen = db.scalars(select(Pet).where(_in(Pet.id, list({a.pet_id for a in appointments}))).order_by(Pet.name)).all()
     return {
         "exported_at": datetime.utcnow().isoformat() + "Z",
         "account_type": "vet",
@@ -81,9 +83,15 @@ def export_vet(db: Session, vet: Vet) -> dict:
         "services": rows(db.scalars(select(ServiceType).where(ServiceType.vet_id == vet.id).order_by(ServiceType.name)).all()),
         "clients": rows(clients),
         "client_pets": rows(client_pets),
+        # Clinic-only patients in full; the profile of an owner's pet belongs to the owner's account.
         "patients": rows(patients),
+        "patients_seen": [
+            {"id": str(p.id), "name": p.name, "type": _plain(p.type), "breed": p.breed} for p in seen
+        ],
         "medical_events": rows(db.scalars(select(MedicalEvent).where(MedicalEvent.vet_id == vet.id).order_by(MedicalEvent.date)).all()),
-        "appointments": rows(db.scalars(select(Appointment).where(Appointment.vet_id == vet.id).order_by(Appointment.scheduled_at)).all()),
+        "appointments": rows(appointments),
+        "reminders_created": rows(db.scalars(select(Reminder).where(Reminder.vet_id == vet.id).order_by(Reminder.due_date)).all()),
+        "time_off": rows(db.scalars(select(VetTimeOff).where(VetTimeOff.vet_id == vet.id).order_by(VetTimeOff.created_at)).all()),
         # Reviewers are identified only by their review text and rating.
         "reviews_received": rows(db.scalars(select(Review).where(Review.vet_id == vet.id).order_by(Review.created_at)).all(), {"pet_owner_id"}),
     }
