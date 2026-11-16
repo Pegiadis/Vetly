@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ClinicButton, ClinicEmptyState, ClinicLoading, ClinicPageHeader, ClinicPanel, ClinicStatusBadge, ClinicTable, ClinicTableCell, ClinicTableHead } from '@/components/vet/ClinicUI';
+import { useConfirm } from '@/components/ConfirmDialog';
 import { approveVet, fetchPendingVets, rejectVet } from '@/hooks/useVetData';
 import type { AdminVet } from '@/types/vet';
 
@@ -30,8 +31,16 @@ export default function VetVerificationsPage() {
 
   useEffect(() => { void load(); }, [load]);
 
+  const { confirm, dialog } = useConfirm();
+
   const run = async (vet: AdminVet, action: 'approve' | 'reject') => {
     if (busyId) return;
+    if (action === 'approve' && !(await confirm({
+      title: `Έγκριση: ${vet.name};`,
+      description: `Άδεια ${vet.license_number} · ${vet.specialty} · ${vet.city}. Μετά την έγκριση μπορεί να συνδεθεί και το προφίλ του γίνεται ορατό.`,
+      confirmLabel: 'Έγκριση',
+      destructive: false,
+    }))) return;
     setBusyId(vet.id);
     setActionError(null);
     try {
@@ -51,6 +60,7 @@ export default function VetVerificationsPage() {
   }
 
   return <div>
+    {dialog}
     <ClinicPageHeader title="Επαλήθευση κτηνιάτρων" description="Ελέγξτε τα επαγγελματικά στοιχεία πριν εγκρίνετε νέο κτηνιατρείο. Έως την έγκριση δεν μπορεί να συνδεθεί." />
     {actionError && <p role="alert" className="mb-3 break-words rounded-[10px] bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>}
     <ClinicPanel className="overflow-hidden">

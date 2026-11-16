@@ -271,7 +271,7 @@ export default async function VetDetailPage({ params, searchParams }: PageProps)
                       <p className="mt-0.5 text-xs text-ink-500">{service.duration_minutes} λεπτά</p>
                     </div>
                     <span className="shrink-0 text-sm font-semibold text-clinic-800">
-                      {Number(service.price).toFixed(2)} €
+                      {Number(service.price).toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })}
                     </span>
                   </li>
                 ))}
