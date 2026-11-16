@@ -1,14 +1,18 @@
 """Authenticated owner account settings. Mutations are scoped to the caller."""
 import logging
 from typing import Literal
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, delete
 from sqlalchemy.orm import Session
 from app.core.deps import get_db, get_current_pet_owner
+from app.core.rate_limit import export_limit
 from app.core.security import verify_password, get_password_hash
 from app.db.base import PetOwner, Pet, Appointment
 from app.models.appointment import AppointmentStatus
+from app.services.data_export import export_owner
 from app.utils.upload import delete_upload
 
 router = APIRouter()
@@ -57,6 +61,15 @@ def update_settings(data: Preferences, db: Session = Depends(get_db), owner: Pet
     owner.email_reminders = data.email_reminders
     db.commit()
     return owner
+
+@router.get('/export')
+def export_account_data(db: Session = Depends(get_db), owner: PetOwner = Depends(get_current_pet_owner)):
+    """Download everything stored about the account as one JSON file."""
+    export_limit.check(f"owner:{owner.id}")
+    return JSONResponse(
+        export_owner(db, owner),
+        headers={"Content-Disposition": f'attachment; filename="vetly-data-{date.today().isoformat()}.json"'},
+    )
 
 @router.post('/password', status_code=204)
 def change_password(data: PasswordChange, db: Session = Depends(get_db), owner: PetOwner = Depends(get_current_pet_owner)):

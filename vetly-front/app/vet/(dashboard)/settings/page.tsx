@@ -2,9 +2,10 @@
 
 
 import ClinicDrawer from '@/components/vet/ClinicDrawer';
+import { useToast } from '@/components/Toast';
 import { ClinicButton, ClinicInput, ClinicPanel, ClinicSelect, ClinicPageHeader } from '@/components/vet/ClinicUI';
 import { useState, useEffect, useRef, type ReactNode } from 'react';
-import { useVetProfile, updateVetProfile, updateVetHours, uploadVetPhoto, changeVetPassword, logoutVetEverywhere, DayHours } from '@/hooks/useVetData';
+import { useVetProfile, updateVetProfile, updateVetHours, uploadVetPhoto, changeVetPassword, logoutVetEverywhere, useOnCall, getVetEmailPreferences, saveVetEmailPreferences, downloadVetAccountData, deleteVetAccount, VetEmailPreferences, DayHours } from '@/hooks/useVetData';
 import { useAuth } from '@/contexts/AuthContext';
 import { getImageUrl } from '@/lib/api';
 import { VetMapPicker } from '@/components/MapView';
@@ -94,6 +95,165 @@ function SecuritySection() {
         <p className="text-xs text-ink-500">Η αποσύνδεση από όλες τις συσκευές χρησιμοποιεί τον τρέχοντα κωδικό που έχετε εισάγει παραπάνω.</p>
       </form>
     </ProfileSection>
+  );
+}
+
+function Notice({ kind, children }: { kind: 'success' | 'error'; children: ReactNode }) {
+  return <div role={kind === 'error' ? 'alert' : 'status'} className={`rounded-lg border p-3 text-sm ${kind === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700'}`}>{children}</div>;
+}
+
+function errorText(err: unknown) {
+  return err instanceof Error && err.message ? err.message : 'Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.';
+}
+
+function OnCallSection() {
+  const { isOnCall, toggling, handleToggle } = useOnCall();
+  return (
+    <ProfileSection id="on-call" title="Εφημερία" description="Όταν είστε σε εφημερία, εμφανίζεστε στη λίστα εφημερευόντων που βλέπουν οι κηδεμόνες με λογαριασμό.">
+      <label className="flex items-start justify-between gap-4">
+        <span>
+          <span className="block text-sm font-medium text-ink-900">Εφημερεύω τώρα</span>
+          <span className="mt-1 block text-xs leading-5 text-ink-500">Οι κηδεμόνες βλέπουν το όνομα, το τηλέφωνο και τη διεύθυνση του ιατρείου σας στη λίστα εφημερευόντων και μπορούν να ζητήσουν ραντεβού. Χρειάζεται ορισμένη τοποθεσία στον χάρτη. Απενεργοποιήστε το όταν τελειώσει η εφημερία σας.</span>
+        </span>
+        <input type="checkbox" role="switch" aria-label="Εφημερεύω τώρα" className="mt-1 h-5 w-5 shrink-0 accent-clinic-600" checked={isOnCall} disabled={toggling} onChange={() => void handleToggle()} />
+      </label>
+    </ProfileSection>
+  );
+}
+
+const EMAIL_OPTIONS: { key: keyof VetEmailPreferences; label: string; description: string }[] = [
+  { key: 'email_new_bookings', label: 'Νέα αιτήματα ραντεβού', description: 'Email όταν κηδεμόνας ζητά νέο ραντεβού.' },
+  { key: 'email_cancellations', label: 'Ακυρώσεις και αλλαγές ώρας', description: 'Email όταν κηδεμόνας ακυρώνει ή αλλάζει την ώρα ραντεβού.' },
+  { key: 'email_reviews', label: 'Νέες αξιολογήσεις', description: 'Email όταν δημοσιεύεται νέα αξιολόγηση για το ιατρείο σας.' },
+];
+
+function NotificationsSection() {
+  const [prefs, setPrefs] = useState<VetEmailPreferences | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+
+  const load = () => {
+    getVetEmailPreferences().then(setPrefs).catch(() => setMessage({ kind: 'error', text: 'Δεν φορτώθηκαν οι προτιμήσεις email.' }));
+  };
+  useEffect(() => {
+    load();
+  }, []);
+
+  const save = async () => {
+    if (!prefs) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      setPrefs(await saveVetEmailPreferences(prefs));
+      setMessage({ kind: 'success', text: 'Οι προτιμήσεις email αποθηκεύτηκαν.' });
+    } catch (err) {
+      setMessage({ kind: 'error', text: errorText(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <ProfileSection id="email-notifications" title="Ειδοποιήσεις email" description="Επιλέξτε ποια email λαμβάνετε. Οι ειδοποιήσεις μέσα στην εφαρμογή παραμένουν πάντα ενεργές.">
+      {!prefs ? (
+        message ? <div className="space-y-3"><Notice kind="error">{message.text}</Notice><ClinicButton onClick={() => { setMessage(null); load(); }}>Επανάληψη</ClinicButton></div> : <p className="text-sm text-ink-500">Φόρτωση…</p>
+      ) : (
+        <div className="space-y-5">
+          {EMAIL_OPTIONS.map(item => (
+            <label key={item.key} className="flex items-start justify-between gap-4">
+              <span>
+                <span className="block text-sm font-medium text-ink-900">{item.label}</span>
+                <span className="mt-1 block text-xs leading-5 text-ink-500">{item.description}</span>
+              </span>
+              <input type="checkbox" className="mt-1 h-5 w-5 shrink-0 accent-clinic-600" checked={prefs[item.key]} disabled={busy} onChange={e => setPrefs({ ...prefs, [item.key]: e.target.checked })} />
+            </label>
+          ))}
+          <p className="text-xs leading-5 text-ink-500">Τα email επιβεβαίωσης λογαριασμού και επαναφοράς κωδικού δεν απενεργοποιούνται.</p>
+          {message && <Notice kind={message.kind}>{message.text}</Notice>}
+          <ClinicButton variant="primary" disabled={busy} onClick={() => void save()}>{busy ? 'Αποθήκευση...' : 'Αποθήκευση προτιμήσεων'}</ClinicButton>
+        </div>
+      )}
+    </ProfileSection>
+  );
+}
+
+function AccountDataSection() {
+  const { logout } = useAuth();
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const download = async () => {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await downloadVetAccountData();
+    } catch (err) {
+      setExportError(errorText(err));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const remove = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteVetAccount(password, confirmation);
+      logout();
+    } catch (err) {
+      setDeleteError(errorText(err));
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <>
+      <ProfileSection id="account-data" title="Τα δεδομένα μου" description="Κατεβάστε ένα αντίγραφο των δεδομένων του λογαριασμού σας.">
+        <div className="space-y-3">
+          <p className="text-sm leading-6 text-ink-600">Ένα αρχείο JSON με το προφίλ, τις υπηρεσίες, το ωράριο, τους πελάτες και τα ζώα που έχετε καταχωρίσει, τα ραντεβού και τις αξιολογήσεις που λάβατε. Μπορείτε να το κατεβάσετε μερικές φορές την ώρα.</p>
+          {exportError && <Notice kind="error">{exportError}</Notice>}
+          <ClinicButton disabled={exporting} onClick={() => void download()}>{exporting ? 'Προετοιμασία...' : 'Λήψη δεδομένων (JSON)'}</ClinicButton>
+        </div>
+      </ProfileSection>
+      <ProfileSection id="account-delete" title="Κλείσιμο λογαριασμού" description="Ο λογαριασμός απενεργοποιείται· τα ιατρικά αρχεία δεν διαγράφονται.">
+        <div className="space-y-3 text-sm leading-6 text-ink-600">
+          <p className="font-medium text-ink-900">Τι συμβαίνει όταν κλείσετε τον λογαριασμό:</p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>Δεν μπορείτε πια να συνδεθείτε και αποσυνδέεστε από όλες τις συσκευές.</li>
+            <li>Το προφίλ και ο σύνδεσμός του παύουν να εμφανίζονται στους κηδεμόνες και δεν δέχεστε νέα ραντεβού.</li>
+            <li>Τα μελλοντικά ραντεβού ακυρώνονται και οι κηδεμόνες ενημερώνονται.</li>
+            <li>Διαγράφονται το email, το τηλέφωνο, η διεύθυνση, η περιγραφή, η τοποθεσία και η φωτογραφία σας.</li>
+            <li>Ιατρικά αρχεία, ραντεβού και στοιχεία πελατών διατηρούνται, όπως απαιτείται για τα αρχεία του ιατρείου, με το όνομα και τον αριθμό άδειάς σας ως συντάκτη.</li>
+          </ul>
+          <p>Η ενέργεια δεν αναιρείται. Κατεβάστε πρώτα τα δεδομένα σας αν τα χρειάζεστε.</p>
+          {!confirming ? (
+            <ClinicButton variant="danger" onClick={() => setConfirming(true)}>Κλείσιμο λογαριασμού…</ClinicButton>
+          ) : (
+            <form onSubmit={remove} className="space-y-3 border-t border-ink-200 pt-4">
+              <div>
+                <label htmlFor="delete-password" className="block text-xs font-medium text-ink-700 mb-1.5">Τρέχων κωδικός</label>
+                <ClinicInput id="delete-password" type="password" autoComplete="current-password" maxLength={128} required value={password} disabled={deleting} onChange={e => setPassword(e.target.value)} />
+              </div>
+              <div>
+                <label htmlFor="delete-confirmation" className="block text-xs font-medium text-ink-700 mb-1.5">Πληκτρολογήστε ΔΙΑΓΡΑΦΗ</label>
+                <ClinicInput id="delete-confirmation" required value={confirmation} disabled={deleting} onChange={e => setConfirmation(e.target.value)} />
+              </div>
+              {deleteError && <Notice kind="error">{deleteError}</Notice>}
+              <div className="flex flex-wrap gap-2">
+                <ClinicButton type="button" disabled={deleting} onClick={() => { setConfirming(false); setPassword(''); setConfirmation(''); setDeleteError(null); }}>Ακύρωση</ClinicButton>
+                <ClinicButton type="submit" variant="danger" disabled={deleting || !password || confirmation !== 'ΔΙΑΓΡΑΦΗ'}>{deleting ? 'Κλείσιμο...' : 'Οριστικό κλείσιμο λογαριασμού'}</ClinicButton>
+              </div>
+            </form>
+          )}
+        </div>
+      </ProfileSection>
+    </>
   );
 }
 
@@ -205,6 +365,7 @@ export default function VetSettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [showLocationDialog, setShowLocationDialog] = useState(false);
 
+  const toast = useToast();
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -214,7 +375,7 @@ export default function VetSettingsPage() {
       refetch();
       refreshUser();
     } catch {
-      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+      toast.error('Η φωτογραφία δεν ανέβηκε. Δεκτά JPEG, PNG ή WebP έως 5 MB.');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -399,7 +560,7 @@ export default function VetSettingsPage() {
       {/* Header */}
       <ClinicPageHeader title="Προφίλ κτηνιατρείου" description="Η επαγγελματική σας παρουσία και οι ώρες που δέχεστε ραντεβού." />
       <nav aria-label="Ενότητες προφίλ" className="mb-6 flex flex-wrap gap-1 rounded-xl border border-ink-200 bg-white p-2">
-        {[['profile-photo', 'Εικόνα'], ['profile-details', 'Στοιχεία'], ['clinic-location', 'Τοποθεσία'], ['working-hours', 'Ωράριο'], ['account-security', 'Ασφάλεια']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 text-xs font-medium text-ink-700 hover:bg-clinic-50 focus-visible:outline-2 focus-visible:outline-clinic-600">{label}</a>)}
+        {[['profile-photo', 'Εικόνα'], ['profile-details', 'Στοιχεία'], ['clinic-location', 'Τοποθεσία'], ['working-hours', 'Ωράριο'], ['on-call', 'Εφημερία'], ['email-notifications', 'Email'], ['account-security', 'Ασφάλεια'], ['account-data', 'Δεδομένα'], ['account-delete', 'Κλείσιμο']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 text-xs font-medium text-ink-700 hover:bg-clinic-50 focus-visible:outline-2 focus-visible:outline-clinic-600">{label}</a>)}
       </nav>
 
       <div className="space-y-6">
@@ -677,7 +838,13 @@ export default function VetSettingsPage() {
           </div>
         </ProfileSection>
 
+        <OnCallSection />
+
+        <NotificationsSection />
+
         <SecuritySection />
+
+        <AccountDataSection />
 
         {/* Save Feedback */}
         {saveError && (

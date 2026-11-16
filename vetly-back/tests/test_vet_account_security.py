@@ -28,7 +28,7 @@ def vet_token_for(vet):
 
 
 def vet_payload(**over):
-    data = dict(VET_DATA, email="new-vet@example.com", license_number="LIC-NEW-1")
+    data = dict(VET_DATA, email="new-vet@example.com", license_number="LIC-NEW-1", accept_terms=True)
     data.update(over)
     return data
 
@@ -211,7 +211,7 @@ def test_vet_register_duplicate_license_still_rejected(client, registered_vet):
 # --- registration: pet owners ---
 
 def owner_payload(**over):
-    data = {"email": "fresh-owner@example.com", "password": "password123", "name": "Fresh Owner"}
+    data = {"email": "fresh-owner@example.com", "password": "password123", "name": "Fresh Owner", "accept_terms": True}
     data.update(over)
     return data
 
@@ -263,7 +263,7 @@ def test_invited_client_still_claims_after_squatter_is_replaced(client, db, regi
     db.add(card)
     db.commit()
     reg = client.post(f"{API}/invite/tok-123/register",
-                      json={"name": "Squatter", "email": "invited@example.com", "password": "squatter-pass1"})
+                      json={"name": "Squatter", "email": "invited@example.com", "password": "squatter-pass1", "accept_terms": True})
     assert reg.status_code in (200, 201)
     pending = db.scalar(select(PetOwner).where(PetOwner.email == "invited@example.com"))
     assert client.post(f"{API}/auth/pet-owner/register",

@@ -90,3 +90,5 @@ token_limit = RateLimit("token", limit=10, window_seconds=60)
 # Assistant messages, per signed-in user: every message costs model usage.
 chat_limit = RateLimit("chat", limit=20, window_seconds=300)
 chat_daily_limit = RateLimit("chat-daily", limit=200, window_seconds=86400)
+# Account data downloads, per signed-in user: each one reads most of the account's rows.
+export_limit = RateLimit("export", limit=5, window_seconds=3600)
