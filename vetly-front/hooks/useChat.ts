@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { api } from '@/lib/api';
-import { getStoredToken } from '@/contexts/AuthContext';
+import { api, authFetch } from '@/lib/api';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -58,7 +57,7 @@ export function useChatConversations(
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch conversations');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -101,7 +100,7 @@ export function useChatMessages(role: 'owner' | 'vet', conversationId: string | 
       setTitle(data.title);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch messages');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -169,7 +168,6 @@ export async function sendChatMessageStream(
   const prefix = role === 'owner' ? '/owner/chat' : '/vet/chat';
   const url = `${API_BASE_URL}${prefix}/send/stream`;
 
-  const token = getStoredToken();
   const body: { message: string; conversation_id?: string } = { message };
   if (conversationId) {
     body.conversation_id = conversationId;
@@ -177,11 +175,10 @@ export async function sendChatMessageStream(
 
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await authFetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify(body),
       signal,

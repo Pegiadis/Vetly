@@ -3,30 +3,26 @@
 interface ErrorFallbackProps {
   error: Error & { digest?: string };
   reset: () => void;
-  colorScheme?: 'teal' | 'indigo';
 }
 
-export default function ErrorFallback({ error, reset, colorScheme = 'teal' }: ErrorFallbackProps) {
-  const buttonClass =
-    colorScheme === 'indigo'
-      ? 'px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors'
-      : 'px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors';
-
+/** In-page error state for route error boundaries inside a dashboard shell. */
+export default function ErrorFallback({ error, reset }: ErrorFallbackProps) {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
-      <div className="text-center">
-        <div className="text-6xl mb-4">⚠️</div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">
-          Κάτι πήγε στραβά
-        </h2>
-        <p className="text-gray-600 mb-6">
-          Παρουσιάστηκε ένα σφάλμα. Παρακαλώ δοκιμάστε ξανά.
+    <div className="flex min-h-[400px] items-center justify-center p-6">
+      <div role="alert" className="w-full max-w-md rounded-xl border border-ink-200 bg-white p-6 text-center">
+        <h2 className="text-lg font-semibold tracking-tight text-ink-900">Κάτι πήγε στραβά</h2>
+        <p className="mt-2 text-sm leading-6 text-ink-600">
+          Παρουσιάστηκε απρόσμενο σφάλμα σε αυτή τη σελίδα. Δοκιμάστε ξανά ή επιλέξτε άλλη ενότητα από το μενού.
         </p>
         {error?.digest && (
-          <p className="text-xs text-gray-400 mb-4 font-mono">Κωδικός: {error.digest}</p>
+          <p className="mt-3 break-all font-mono text-xs text-ink-400">Κωδικός: {error.digest}</p>
         )}
-        <button onClick={reset} className={buttonClass}>
-          Δοκιμάστε ξανά
+        <button
+          type="button"
+          onClick={reset}
+          className="mt-5 inline-flex min-h-8 items-center justify-center rounded-[10px] bg-clinic-600 px-4 py-1 text-[13px] font-medium text-white transition-colors hover:bg-clinic-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-clinic-600"
+        >
+          Δοκιμή ξανά
         </button>
       </div>
     </div>

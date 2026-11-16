@@ -30,21 +30,24 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 const TOAST_DURATION = 4000;
 
-const typeStyles: Record<ToastType, { bg: string; icon: string; progressBg: string }> = {
+const typeStyles: Record<ToastType, { icon: string; iconColor: string; bar: string; role: 'status' | 'alert' }> = {
   success: {
-    bg: 'bg-teal-600',
     icon: 'M5 13l4 4L19 7',
-    progressBg: 'bg-teal-300',
+    iconColor: 'text-clinic-600',
+    bar: 'bg-clinic-600',
+    role: 'status',
   },
   error: {
-    bg: 'bg-red-600',
     icon: 'M6 18L18 6M6 6l12 12',
-    progressBg: 'bg-red-300',
+    iconColor: 'text-red-600',
+    bar: 'bg-red-600',
+    role: 'alert',
   },
   info: {
-    bg: 'bg-blue-600',
     icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-    progressBg: 'bg-blue-300',
+    iconColor: 'text-ink-500',
+    bar: 'bg-ink-400',
+    role: 'status',
   },
 };
 
@@ -68,28 +71,27 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
 
   return (
     <div
-      className={`${style.bg} text-white rounded-xl shadow-lg px-4 py-3 min-w-[280px] max-w-[400px] animate-slide-in-right relative overflow-hidden`}
+      role={style.role}
+      className="animate-slide-in-right relative w-[calc(100vw-2rem)] max-w-[380px] overflow-hidden rounded-xl border border-ink-200 bg-white text-ink-800"
     >
-      <div className="flex items-center gap-3">
-        <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <div className="flex items-start gap-3 px-4 py-3">
+        <svg className={`mt-0.5 h-4 w-4 shrink-0 ${style.iconColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={style.icon} />
         </svg>
-        <p className="text-sm font-medium flex-1">{toast.message}</p>
+        <p className="flex-1 text-sm leading-5 text-ink-800">{toast.message}</p>
         <button
+          type="button"
           onClick={() => onRemove(toast.id)}
-          className="flex-shrink-0 p-1 rounded-lg hover:bg-white/20 transition-colors"
+          aria-label="Κλείσιμο"
+          className="-mr-1 shrink-0 rounded-md p-1 text-ink-400 transition-colors hover:bg-black/[0.06] hover:text-ink-700 focus-visible:outline-2 focus-visible:outline-clinic-600"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
-      {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
-        <div
-          className={`h-full ${style.progressBg} transition-none`}
-          style={{ width: `${progress}%` }}
-        />
+      <div className="h-0.5 bg-ink-100">
+        <div className={`h-full ${style.bar} transition-none`} style={{ width: `${progress}%` }} />
       </div>
     </div>
   );
@@ -123,7 +125,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {mounted &&
         createPortal(
-          <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-auto">
+          <div className="pointer-events-none fixed right-4 top-4 z-[9999] flex flex-col gap-2 [&>*]:pointer-events-auto">
             {toasts.map((toast) => (
               <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />
             ))}

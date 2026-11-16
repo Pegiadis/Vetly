@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ClinicHomeShell from '@/components/vet/ClinicHomeShell';
 import { useAuth } from '@/contexts/AuthContext';
+import ConnectionRetry from '@/components/ConnectionRetry';
 import NotificationPopup from '@/components/NotificationPopup';
 import { useNotificationPoller } from '@/hooks/useNotificationPoller';
 import { getVetUnreadCount, getVetLatestUnread } from '@/hooks/useVetData';
@@ -13,13 +14,12 @@ export default function VetLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { isAuthenticated, userType, isLoading } = useAuth();
+  const { isAuthenticated, userType, isLoading, user, authError, retryAuth } = useAuth();
   const router = useRouter();
 
   const { unreadCount, popupNotification, showPopup, dismissPopup } = useNotificationPoller({
     fetchUnreadCount: getVetUnreadCount,
     fetchLatestUnread: getVetLatestUnread,
-    intervalMs: 10000,
   });
 
   useEffect(() => {
@@ -39,6 +39,10 @@ export default function VetLayout({
 
   if (!isAuthenticated || userType !== 'vet') {
     return null;
+  }
+
+  if (authError && !user) {
+    return <ConnectionRetry reason={authError} onRetry={() => { void retryAuth(); }} />;
   }
 
   return <>

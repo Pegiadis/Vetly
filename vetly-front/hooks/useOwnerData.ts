@@ -52,6 +52,7 @@ export interface AppointmentVetInfo {
   address: string | null;
   city: string | null;
   image_url: string | null;
+  phone?: string | null;
   coordinates_lat: number | null;
   coordinates_lng: number | null;
 }
@@ -96,7 +97,7 @@ export function useMyPets(page = 1, pageSize = 6) {
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch pets');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -124,7 +125,7 @@ export function useVets() {
       setError(null);
       hasFetchedRef.current = true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch vets');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -170,7 +171,7 @@ export function useVetServices(vetId: string | null, refreshKey = 0) {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch services');
+          setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
           setServices([]);
         }
       } finally {
@@ -202,7 +203,7 @@ export function useReviewableVets() {
       setVets(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch reviewable vets');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -244,7 +245,7 @@ export function useOnCallVets() {
       setVets(data.items);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch on-call vets');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -282,7 +283,7 @@ export function useAvailableSlots(vetId: string | null, date: string | null, dur
       if (request === requestVersion.current) setSlots(data.slots);
     } catch (err) {
       if (request !== requestVersion.current) return;
-      setError(err instanceof Error ? err.message : 'Failed to fetch available slots');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
       setSlots([]);
     } finally {
       if (request === requestVersion.current) setLoading(false);
@@ -324,7 +325,7 @@ export function useMyAppointments(page = 1, pageSize = 10, filters: AppointmentF
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      if (request === version.current) setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
+      if (request === version.current) setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       if (request === version.current) setLoading(false);
     }
@@ -350,7 +351,7 @@ export function useUpcomingAppointments() {
       setAppointments(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -430,7 +431,7 @@ export function useAppointmentDetail(appointmentId: string | null) {
       setAppointment(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch appointment details');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -491,7 +492,7 @@ export function usePetMedicalHistory(petId: string | null, page = 1, pageSize = 
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch medical history');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -548,7 +549,7 @@ export function useMyMedications(isActive?: boolean, page = 1, pageSize = 10, pe
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch medications');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -601,7 +602,7 @@ export function useMyReviews(page = 1, pageSize = 10) {
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch reviews');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -659,7 +660,7 @@ export function useMyNotifications(page = 1, pageSize = 10) {
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -714,7 +715,7 @@ export function useOwnerProfile() {
       setProfile(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch profile');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -837,7 +838,7 @@ export function useOwnerReminders(page = 1, pageSize = 10) {
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch reminders');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -852,4 +853,40 @@ export function useOwnerReminders(page = 1, pageSize = 10) {
 
 export async function dismissReminder(reminderId: string): Promise<OwnerReminder> {
   return api.post<OwnerReminder>(`/owner/reminders/${reminderId}/dismiss`, {});
+}
+
+// Whole-day closures of a vet between two ISO dates, for greying out days in the booking calendar.
+export function useVetClosedDates(vetId: string | null, from: string, to: string) {
+  const [closed, setClosed] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!vetId) {
+      setClosed([]);
+      return;
+    }
+    let cancelled = false;
+    api
+      .get<{ closed_dates: string[] }>(`/vets/${vetId}/closed-dates?from=${from}&to=${to}`)
+      .then((data) => { if (!cancelled) setClosed(data.closed_dates); })
+      .catch(() => { if (!cancelled) setClosed([]); });
+    return () => { cancelled = true; };
+  }, [vetId, from, to]);
+
+  return closed;
+}
+
+// --- Account data export ---
+
+export async function downloadOwnerAccountData(): Promise<void> {
+  const { authFetch, throwApiError } = await import('@/lib/api');
+  const response = await authFetch('/owner/settings/export');
+  if (!response.ok) await throwApiError(response);
+  const objectUrl = window.URL.createObjectURL(await response.blob());
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = `vetly-data-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(objectUrl);
 }

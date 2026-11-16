@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '@/lib/api';
-import { getStoredToken } from '@/contexts/AuthContext';
+import { api, authFetch, throwApiError } from '@/lib/api';
 
 export interface AppointmentPet {
   id: string;
@@ -54,7 +53,7 @@ export function useTodayAppointments() {
       setAppointments(data.items);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -79,7 +78,7 @@ export function usePendingAppointments() {
       setAppointments(data.items);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -190,7 +189,7 @@ export function useAllAppointments(page = 1, pageSize = 10, filters: VetAppointm
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      if (version === requestVersion.current) setError(err instanceof Error ? err.message : 'Failed to fetch appointments');
+      if (version === requestVersion.current) setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       if (version === requestVersion.current) setLoading(false);
     }
@@ -231,7 +230,7 @@ export function useDashboardStats() {
       setStats(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch stats');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -295,7 +294,7 @@ export function usePatients(search?: string) {
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch patients');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -325,7 +324,7 @@ export function usePatient(petId: string | null) {
       setPatient(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch patient');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -370,7 +369,7 @@ export function usePatientHistory(petId: string | null) {
       setEvents(data.items);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch history');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -399,7 +398,7 @@ export function usePatientHistory(petId: string | null) {
       })
       .catch(err => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch history');
+        setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
       })
       .finally(() => {
         if (cancelled) return;
@@ -468,7 +467,7 @@ export function useVetReviews(page = 1, pageSize = 10) {
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch reviews');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -495,7 +494,7 @@ export function useVetReviewStats() {
       setStats(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch review stats');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -557,7 +556,7 @@ export function useFullAnalytics() {
       setAnalytics(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch analytics');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -617,7 +616,7 @@ export function useVetProfile() {
       setProfile(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch profile');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -730,7 +729,7 @@ export function useVetAvailableSlots(vetId: string | null, date: string | null, 
         );
         setSlots(data.slots);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch available slots');
+        setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
         setSlots([]);
       } finally {
         setLoading(false);
@@ -777,7 +776,7 @@ export function useWeekAppointments(weekStart: string) {
       setAppointments(items);
       setError(null);
     } catch (err) {
-      if (request === requestId.current) setError(err instanceof Error ? err.message : 'Failed to fetch schedule');
+      if (request === requestId.current) setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       if (request === requestId.current) setLoading(false);
     }
@@ -830,7 +829,7 @@ export function useVetNotifications(page = 1, pageSize = 10, readFilter: '' | 'u
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      if (id === requestId.current) setError(err instanceof Error ? err.message : 'Failed to fetch notifications');
+      if (id === requestId.current) setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       if (id === requestId.current) setLoading(false);
     }
@@ -942,7 +941,7 @@ export function useVetClients(page = 1, pageSize = 10, search?: string) {
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch clients');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -976,7 +975,7 @@ export function useVetClient(clientId: string | null) {
       setClient(data);
       setError(null);
     } catch (err) {
-      if (request === requestId.current) { setClient(null); setError(err instanceof Error ? err.message : 'Failed to fetch client'); }
+      if (request === requestId.current) { setClient(null); setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.'); }
     } finally {
       if (request === requestId.current) setLoading(false);
     }
@@ -1089,7 +1088,7 @@ export function useServiceTypes(page = 1, pageSize = 20) {
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch services');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -1125,19 +1124,9 @@ export async function deleteServiceType(id: string): Promise<void> {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
-function getStoredTokenForDownload(): string | null {
-  if (typeof window === 'undefined') return null;
-  return getStoredToken();
-}
-
 async function downloadBlob(url: string, filename: string): Promise<void> {
-  const token = getStoredTokenForDownload();
-  const response = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!response.ok) {
-    throw new Error('Αποτυχία λήψης αρχείου');
-  }
+  const response = await authFetch(url);
+  if (!response.ok) await throwApiError(response);
   const blob = await response.blob();
   const objectUrl = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -1212,7 +1201,7 @@ export function useVetReminders(page = 1, pageSize = 10) {
       setTotal(data.total);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch reminders');
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
     } finally {
       setLoading(false);
     }
@@ -1277,4 +1266,132 @@ export async function changeVetPassword(currentPassword: string, newPassword: st
 
 export async function logoutVetEverywhere(currentPassword: string): Promise<{ access_token: string }> {
   return api.post<{ access_token: string }>('/vet/settings/logout-all', { current_password: currentPassword });
+}
+
+// --- Time off / closures ---
+
+export interface VetTimeOff {
+  id: string;
+  start_date: string;
+  end_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface TimeOffAffectedAppointment {
+  id: string;
+  scheduled_at: string;
+  duration_minutes: number;
+  status: string;
+  pet_name: string | null;
+  owner_name: string | null;
+}
+
+export type VetTimeOffCreated = VetTimeOff & { affected_appointments: TimeOffAffectedAppointment[] };
+
+export function useVetTimeOff() {
+  const [items, setItems] = useState<VetTimeOff[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const refetch = useCallback(async () => {
+    try {
+      setError(null);
+      setItems(await api.get<VetTimeOff[]>('/vet/time-off'));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Δεν φορτώθηκαν τα στοιχεία.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refetch();
+  }, [refetch]);
+
+  return { items, loading, error, refetch };
+}
+
+export async function createVetTimeOff(payload: {
+  start_date: string;
+  end_date: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  reason?: string | null;
+}): Promise<VetTimeOffCreated> {
+  return api.post<VetTimeOffCreated>('/vet/time-off', payload);
+}
+
+export async function deleteVetTimeOff(id: string): Promise<void> {
+  return api.delete<void>(`/vet/time-off/${id}`);
+}
+
+// --- Account settings: email preferences, data export, closing the account ---
+
+export interface VetEmailPreferences {
+  email_new_bookings: boolean;
+  email_cancellations: boolean;
+  email_reviews: boolean;
+}
+
+export async function getVetEmailPreferences(): Promise<VetEmailPreferences> {
+  return api.get<VetEmailPreferences>('/vet/settings');
+}
+
+export async function saveVetEmailPreferences(prefs: VetEmailPreferences): Promise<VetEmailPreferences> {
+  return api.put<VetEmailPreferences>('/vet/settings', prefs);
+}
+
+export async function downloadVetAccountData(): Promise<void> {
+  await downloadBlob(`${API_BASE_URL}/vet/settings/export`, `vetly-clinic-data-${new Date().toISOString().slice(0, 10)}.json`);
+}
+
+export async function deleteVetAccount(currentPassword: string, confirmation: string): Promise<void> {
+  await api.post<void>('/vet/settings/delete-account', { current_password: currentPassword, confirmation });
+}
+
+// --- Billing ---
+
+// Appointments carry the price charged; the API sends it as a decimal string.
+export interface VetAppointment {
+  price?: string | number | null;
+  service_type_id?: string | null;
+}
+
+export interface CompleteExaminationData {
+  /** Final amount charged for the visit in euro; omitted keeps the booked price. */
+  price?: number;
+}
+
+export interface RevenueSummary {
+  total_revenue: number;
+  completed_count: number;
+  priced_count: number;
+  unpriced_count: number;
+  average_per_visit: number;
+  this_month_revenue: number;
+  this_month_count: number;
+  last_30_days_revenue: number;
+  last_30_days_count: number;
+  by_service: { service_type: string; count: number; revenue: number }[];
+  by_month: { month: string; count: number; revenue: number }[];
+}
+
+export interface FullAnalytics {
+  revenue?: RevenueSummary;
+}
+
+const euroFormat = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' });
+
+/** Greek euro formatting, e.g. 45 -> "45,00 €". Missing values give an em dash. */
+export function formatEuro(value: number | string | null | undefined): string {
+  if (value === null || value === undefined || value === '') return '—';
+  const amount = Number(value);
+  return Number.isFinite(amount) ? euroFormat.format(amount) : '—';
+}
+
+export async function approveAppointmentWithPrice(appointmentId: string, price?: number): Promise<VetAppointment> {
+  return api.post<VetAppointment>(`/vet/appointments/${appointmentId}/approve`, price === undefined ? {} : { price });
 }

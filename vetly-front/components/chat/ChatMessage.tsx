@@ -6,10 +6,10 @@ import remarkGfm from 'remark-gfm';
 
 const colorMap: Record<string, { bubble: string; avatarBg: string; avatarIcon: string; link: string }> = {
   teal: {
-    bubble: 'bg-teal-600 text-white',
-    avatarBg: 'bg-teal-100',
-    avatarIcon: 'text-teal-600',
-    link: 'text-teal-600 hover:text-teal-700',
+    bubble: 'bg-clinic-600 text-white',
+    avatarBg: 'bg-clinic-100',
+    avatarIcon: 'text-clinic-600',
+    link: 'text-clinic-600 hover:text-clinic-700',
   },
   indigo: {
     bubble: 'bg-clinic-600 text-white',
@@ -38,13 +38,13 @@ function makeMarkdownComponents(linkClass: string): Components {
     em: ({ children }) => <em className="italic">{children}</em>,
     // Inline code
     code: ({ children }) => (
-      <code className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded text-xs font-mono">
+      <code className="bg-ink-100 text-ink-800 px-1 py-0.5 rounded text-xs font-mono">
         {children}
       </code>
     ),
     // Block quotes
     blockquote: ({ children }) => (
-      <blockquote className="border-l-4 border-slate-200 pl-3 italic text-slate-600 mb-2 last:mb-0">
+      <blockquote className="border-l-4 border-ink-200 pl-3 italic text-ink-600 mb-2 last:mb-0">
         {children}
       </blockquote>
     ),
@@ -67,30 +67,30 @@ function makeMarkdownComponents(linkClass: string): Components {
       </a>
     ),
     // Horizontal rules
-    hr: () => <hr className="my-3 border-slate-200" />,
+    hr: () => <hr className="my-3 border-ink-200" />,
     // Tables (GFM). Wrapped in an overflow-x-auto container so wide tables
     // scroll horizontally instead of blowing out the chat bubble width.
     table: ({ children }) => (
       <div className="overflow-x-auto my-2 -mx-1">
-        <table className="min-w-full text-xs border-collapse border border-slate-200 rounded-lg">
+        <table className="min-w-full text-xs border-collapse border border-ink-200 rounded-lg">
           {children}
         </table>
       </div>
     ),
     thead: ({ children }) => (
-      <thead className="bg-slate-50">{children}</thead>
+      <thead className="bg-ink-50">{children}</thead>
     ),
     tbody: ({ children }) => <tbody>{children}</tbody>,
     tr: ({ children }) => (
-      <tr className="border-b border-slate-200 last:border-b-0">{children}</tr>
+      <tr className="border-b border-ink-200 last:border-b-0">{children}</tr>
     ),
     th: ({ children }) => (
-      <th className="px-2 py-1.5 text-left font-bold text-slate-700 border-r border-slate-200 last:border-r-0">
+      <th className="px-2 py-1.5 text-left font-bold text-ink-700 border-r border-ink-200 last:border-r-0">
         {children}
       </th>
     ),
     td: ({ children }) => (
-      <td className="px-2 py-1.5 text-slate-600 border-r border-slate-200 last:border-r-0 align-top">
+      <td className="px-2 py-1.5 text-ink-600 border-r border-ink-200 last:border-r-0 align-top">
         {children}
       </td>
     ),
@@ -141,7 +141,7 @@ export default function ChatMessage({
         className={`min-w-0 max-w-[90%] break-words [overflow-wrap:anywhere] rounded-xl px-4 py-3 ${
           isUser
             ? colors.bubble
-            : 'bg-white border border-slate-200 text-slate-800'
+            : 'bg-white border border-ink-200 text-ink-800'
         }`}
       >
         {isUser ? (
@@ -163,7 +163,7 @@ export default function ChatMessage({
             )}
             {streaming && (
               <span
-                className="inline-block w-1.5 h-4 bg-slate-400 animate-pulse align-middle"
+                className="inline-block w-1.5 h-4 bg-ink-400 animate-pulse align-middle"
                 aria-hidden="true"
               />
             )}
@@ -172,7 +172,7 @@ export default function ChatMessage({
         {!streaming && (
           <p
             className={`text-xs mt-1 ${
-              isUser ? 'text-white/70' : 'text-slate-400'
+              isUser ? 'text-white/70' : 'text-ink-400'
             }`}
           >
             {time}

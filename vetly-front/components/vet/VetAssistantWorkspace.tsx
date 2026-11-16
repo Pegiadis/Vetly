@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
 import type { Patient } from '@/hooks/useVetData';
 import { ClinicButton, ClinicInput, ClinicPanel, ClinicTextarea, ClinicLoading, ClinicPagination } from './ClinicUI';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 type Context = {
   patient: Pick<Patient, 'id' | 'name' | 'type' | 'breed' | 'age' | 'weight' | 'gender'>;
@@ -16,6 +17,7 @@ const date = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString
 function PatientWorkspace({ patient }: { patient: Patient }) {
   const [context, setContext] = useState<Context | null>(null);
   const [contextError, setContextError] = useState('');
+  const { confirm, dialog } = useConfirm();
   const [attempt, setAttempt] = useState(0);
   const [notes, setNotes] = useState('');
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -30,7 +32,7 @@ function PatientWorkspace({ patient }: { patient: Patient }) {
   }, [patient.id, attempt]);
   async function generate(task: Draft['task']) {
     if (busy || !context) return;
-    if (text && !window.confirm('Να αντικατασταθεί το τρέχον προσχέδιο;')) return;
+    if (text && !(await confirm({ title: 'Να αντικατασταθεί το τρέχον προσχέδιο;', description: 'Οι αλλαγές που έχετε κάνει στο κείμενο θα χαθούν.', confirmLabel: 'Αντικατάσταση', destructive: false }))) return;
     setBusy(true); setError(''); setCopied(false);
     try {
       const result = await api.post<Draft>('/vet/chat/patient-draft', { pet_id: patient.id, task, notes: task === 'instructions' ? notes : '' });
@@ -39,7 +41,7 @@ function PatientWorkspace({ patient }: { patient: Patient }) {
     finally { setBusy(false); }
   }
   const sources = draft || context;
-  return <div className="min-w-0 space-y-4">
+  return <div className="min-w-0 space-y-4">{dialog}
     <ClinicPanel className="px-5 py-4"><p className="text-xs text-ink-500">Επιλεγμένος ασθενής</p><h2 className="mt-1 text-lg font-semibold text-ink-900">{patient.name}</h2><p className="mt-1 text-xs text-ink-500">{patient.breed || patient.type} · {patient.age ?? '—'} ετών · {patient.weight ?? '—'} kg</p><p className="mt-2 text-xs text-ink-500">Χρησιμοποιούνται μόνο τα στοιχεία αυτού του ασθενή και έως 50 πρόσφατες καταχωρίσεις. Τα προσχέδια δεν αποθηκεύονται στον φάκελο.</p></ClinicPanel>
     {!context && !contextError && <ClinicLoading label="Φόρτωση φακέλου…" />}
     {contextError && <div role="alert" className="rounded-lg border border-red-200 bg-white p-4 text-sm text-red-700">{contextError}<ClinicButton className="ml-2" onClick={() => { setContextError(''); setAttempt(a => a + 1); }}>Επανάληψη</ClinicButton></div>}

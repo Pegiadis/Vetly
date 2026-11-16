@@ -5,6 +5,7 @@ import { ClinicButton, ClinicPanel, ClinicTextarea, ClinicPageHeader } from '@/c
 import { useState } from 'react';
 import { useVetReviews, useVetReviewStats, replyToReview, updateReviewReply, deleteReviewReply } from '@/hooks/useVetData';
 import { useToast } from '@/components/Toast';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('el-GR', {
@@ -27,6 +28,7 @@ export default function VetReviewsPage() {
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
+  const { confirm, dialog } = useConfirm();
 
   const loading = reviewsLoading || statsLoading;
 
@@ -63,7 +65,7 @@ export default function VetReviewsPage() {
   };
 
   const handleDeleteReply = async (reviewId: string) => {
-    if (!window.confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε την απάντησή σας;')) return;
+    if (!(await confirm({ title: 'Να διαγραφεί η απάντησή σας;', description: 'Η απάντηση θα αφαιρεθεί από την αξιολόγηση.', confirmLabel: 'Διαγραφή' }))) return;
     setSubmitting(true);
     try {
       await deleteReviewReply(reviewId);
@@ -100,6 +102,7 @@ export default function VetReviewsPage() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      {dialog}
       <ClinicPageHeader title="Αξιολογήσεις" description="Τα σχόλια των κηδεμόνων και οι απαντήσεις του κτηνιατρείου σας." />
       <div className="grid items-start gap-5 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-8">
         <aside aria-label="Σύνοψη αξιολογήσεων" className="space-y-4 lg:sticky lg:top-20">

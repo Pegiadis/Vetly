@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useChatConversations, sendChatMessageStream, deleteChatConversation, type ChatMessage } from '@/hooks/useChat';
 import ChatMessageView from '@/components/chat/ChatMessage';
 import { ClinicButton, ClinicInput, ClinicTextarea, ClinicPagination } from './ClinicUI';
+import { useConfirm } from '@/components/ConfirmDialog';
 
 const starters = [
   ['Οργάνωση ημέρας', 'Βοήθησέ με να οργανώσω την ημέρα μου με βάση τα διαθέσιμα στοιχεία του ιατρείου.'],
@@ -39,6 +40,7 @@ export default function VetConversationChat({ role = 'vet' }: { role?: 'vet' | '
   const pending = useRef(false);
   const viewport = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLTextAreaElement>(null);
+  const { confirm, dialog } = useConfirm();
 
   useEffect(() => () => { generation.current++; abort.current?.abort(); }, []);
   useEffect(() => {
@@ -48,7 +50,7 @@ export default function VetConversationChat({ role = 'vet' }: { role?: 'vet' | '
 
   async function choose(id: string | null) {
     if (busy || deleting) return;
-    if (text.trim() && !window.confirm('Να καθαριστεί το μη απεσταλμένο μήνυμα;')) return;
+    if (text.trim() && !(await confirm({ title: 'Να καθαριστεί το μη απεσταλμένο μήνυμα;', description: 'Το κείμενο που έχετε γράψει δεν έχει σταλεί και θα χαθεί.', confirmLabel: 'Καθαρισμός', destructive: false }))) return;
     const version = ++generation.current;
     setActive(id); setMessages([]); setError(''); setText(''); setReadFailed(false); setMobileList(false);
     setTitle(conversations.find(c => c.id === id)?.title || 'Νέα συνομιλία');
@@ -102,7 +104,8 @@ export default function VetConversationChat({ role = 'vet' }: { role?: 'vet' | '
   }
 
   async function remove(id: string) {
-    if (busy || deleting || !window.confirm('Να διαγραφεί οριστικά αυτή η συνομιλία;')) return;
+    if (busy || deleting) return;
+    if (!(await confirm({ title: 'Να διαγραφεί οριστικά αυτή η συνομιλία;', description: 'Η ενέργεια δεν μπορεί να αναιρεθεί.', confirmLabel: 'Διαγραφή' }))) return;
     setDeleting(id); setError('');
     try {
       await deleteChatConversation(role, id);
@@ -112,7 +115,7 @@ export default function VetConversationChat({ role = 'vet' }: { role?: 'vet' | '
     finally { setDeleting(null); }
   }
 
-  return <section aria-label="Συνομιλία με τον AI βοηθό" className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xs">
+  return <section aria-label="Συνομιλία με τον AI βοηθό" className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white shadow-xs">{dialog}
     <div className="flex shrink-0 items-center justify-between border-b border-ink-200 p-2 md:hidden"><ClinicButton aria-expanded={mobileList} onClick={() => setMobileList(v => !v)}>Συνομιλίες</ClinicButton><ClinicButton disabled={busy || !!deleting} onClick={() => choose(null)}>+ Νέα</ClinicButton></div>
     <div className="flex min-h-0 flex-1 flex-col md:flex-row">
       <aside aria-label="Ιστορικό συνομιλιών" className={`${mobileList ? 'flex' : 'hidden'} max-h-44 w-full shrink-0 flex-col border-b border-ink-200 bg-ink-50/50 md:flex md:max-h-none md:w-60 md:border-b-0 md:border-r`}>

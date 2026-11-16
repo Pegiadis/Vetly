@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 
 type UserType = 'vet' | 'pet_owner' | null;
 
@@ -22,6 +22,10 @@ interface AuthContextType {
   logout: () => void;
   refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
+  /** Set when the profile could not be loaded for a reason other than an invalid session (network, 5xx). */
+  authError: 'network' | 'unavailable' | null;
+  /** Tries to load the profile again; the stored token is kept meanwhile. */
+  retryAuth: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -60,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [userType, setUserType] = useState<UserType>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<'network' | 'unavailable' | null>(null);
+  const sessionRef = useRef<{ token: string; type: UserType } | null>(null);
 
   useEffect(() => {
     // Migrate old shared token to per-type keys
@@ -118,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchUser = async (authToken: string, type: UserType) => {
+    sessionRef.current = { token: authToken, type };
     try {
       const endpoint = type === 'vet' ? '/auth/me' : '/auth/pet-owner/me';
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'}${endpoint}`, {
@@ -136,16 +143,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           image_url: userData.image_url || null,
           email_verified: userData.email_verified ?? true,
         });
-      } else {
+        setAuthError(null);
+      } else if (response.status === 401 || response.status === 403) {
+        // The server rejected the session or the account: only then is the token dropped.
+        sessionRef.current = null;
+        setAuthError(null);
         logout();
+      } else {
+        // 5xx and other transient failures keep the token so the user can retry.
+        setAuthError('unavailable');
       }
     } catch (error) {
       console.error('Failed to fetch user:', error);
-      logout();
+      setAuthError('network');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const retryAuth = async () => {
+    const session = sessionRef.current;
+    if (!session) return;
+    await fetchUser(session.token, session.type);
+  };
+
+  // While the profile could not be loaded, retry on reconnect and every 15 seconds.
+  const retryRef = useRef(retryAuth);
+  useEffect(() => { retryRef.current = retryAuth; });
+  useEffect(() => {
+    if (!authError) return;
+    const run = () => { void retryRef.current(); };
+    const timer = window.setInterval(run, 15000);
+    window.addEventListener('online', run);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', run);
+    };
+  }, [authError]);
 
   const login = async (authToken: string, type: 'vet' | 'pet_owner') => {
     const decodedType = decodeTokenType(authToken);
@@ -172,6 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(USER_TYPE_KEY);
     setToken(null);
     setUser(null);
+    setAuthError(null);
     setUserType(null);
   };
 
@@ -186,6 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         refreshUser,
         isAuthenticated: !!token,
+        authError,
+        retryAuth,
       }}
     >
       {children}

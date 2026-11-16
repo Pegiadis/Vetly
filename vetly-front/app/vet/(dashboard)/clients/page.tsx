@@ -5,6 +5,7 @@ import CreateAppointmentDialog from '@/components/vet/CreateAppointmentDialog';
 import ClinicDrawer from '@/components/vet/ClinicDrawer';
 import { ClinicButton, ClinicInput, ClinicPanel, ClinicSelect, ClinicTextarea, ClinicTable, ClinicTableHead, ClinicTableCell } from '@/components/vet/ClinicUI';
 import { useState, useEffect, useRef } from 'react';
+import { useToast } from '@/components/Toast';
 import Link from 'next/link';
 import ClinicAvatar from '@/components/vet/ClinicAvatar';
 import {
@@ -652,6 +653,8 @@ export default function VetClientsPage() {
 
   // Custom reminder types
   const [customReminderTypes, setCustomReminderTypes] = useState<string[]>([]);
+  const [renamingType, setRenamingType] = useState<{ idx: number; value: string } | null>(null);
+  const toast = useToast();
   const [reminderTypeDropdownOpen, setReminderTypeDropdownOpen] = useState(false);
   const [showAddReminderType, setShowAddReminderType] = useState(false);
   const [newReminderTypeName, setNewReminderTypeName] = useState('');
@@ -712,8 +715,8 @@ export default function VetClientsPage() {
       setInviteData(data);
       refetchClient();
       refetch();
-    } catch {
-      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Κάτι πήγε στραβά. Δοκιμάστε ξανά.');
     }
   };
 
@@ -723,8 +726,8 @@ export default function VetClientsPage() {
       setInviteData(data);
       refetchClient();
       refetch();
-    } catch {
-      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Κάτι πήγε στραβά. Δοκιμάστε ξανά.');
     }
   };
 
@@ -739,8 +742,8 @@ export default function VetClientsPage() {
         refetchClient();
       }
       refetch();
-    } catch {
-      alert('Κάτι πήγε στραβά. Παρακαλώ δοκιμάστε ξανά.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Κάτι πήγε στραβά. Δοκιμάστε ξανά.');
     }
     setDeleteTarget(null);
   };
@@ -971,7 +974,7 @@ export default function VetClientsPage() {
                             </ClinicButton>
                             <ClinicButton variant="ghost"
                               onClick={() => { setShowReminderPetId(showReminderPetId === pet.id ? null : pet.id); setReminderError(''); }}
-                              className="text-teal-600 hover:text-teal-700"
+                              className="text-clinic-600 hover:text-clinic-700"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1019,6 +1022,33 @@ export default function VetClientsPage() {
                                         <div className="border-t border-ink-200">
                                           {customReminderTypes.map((ct, idx) => (
                                             <div key={idx} className="group">
+                                              {renamingType?.idx === idx ? (
+                                                <div className="flex gap-1 p-1.5">
+                                                  <ClinicInput
+                                                    type="text"
+                                                    autoFocus
+                                                    aria-label="Νέο όνομα τύπου"
+                                                    value={renamingType.value}
+                                                    onChange={(e) => setRenamingType({ idx, value: e.target.value })}
+                                                    onKeyDown={(e) => {
+                                                      if (e.key === 'Escape') { e.stopPropagation(); setRenamingType(null); }
+                                                      if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        const newName = renamingType.value.trim();
+                                                        if (newName && newName !== ct) {
+                                                          const updated = customReminderTypes.map((t, i) => i === idx ? newName : t);
+                                                          setCustomReminderTypes(updated);
+                                                          updateCustomReminderTypes(updated).catch(() => {});
+                                                          if (reminderForm.type === ct) setReminderForm(f => ({ ...f, type: newName }));
+                                                        }
+                                                        setRenamingType(null);
+                                                      }
+                                                    }}
+                                                    className="h-8 flex-1 text-xs"
+                                                  />
+                                                  <ClinicButton type="button" onClick={() => setRenamingType(null)}>Άκυρο</ClinicButton>
+                                                </div>
+                                              ) : (
                                               <button
                                                 type="button"
                                                 onClick={() => { setReminderForm(f => ({ ...f, type: ct })); setReminderTypeDropdownOpen(false); }}
@@ -1030,13 +1060,7 @@ export default function VetClientsPage() {
                                                     role="button"
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      const newName = prompt('Μετονομασία τύπου:', ct);
-                                                      if (newName && newName.trim() && newName.trim() !== ct) {
-                                                        const updated = customReminderTypes.map((t, i) => i === idx ? newName.trim() : t);
-                                                        setCustomReminderTypes(updated);
-                                                        updateCustomReminderTypes(updated).catch(() => {});
-                                                        if (reminderForm.type === ct) setReminderForm(f => ({ ...f, type: newName.trim() }));
-                                                      }
+                                                      setRenamingType({ idx, value: ct });
                                                     }}
                                                     className="text-ink-400 hover:text-clinic-600 p-0.5 transition-colors"
                                                   >
@@ -1061,6 +1085,7 @@ export default function VetClientsPage() {
                                                   </span>
                                                 </span>
                                               </button>
+                                              )}
                                             </div>
                                           ))}
                                         </div>
@@ -1277,7 +1302,7 @@ export default function VetClientsPage() {
                             <div className="mt-2">
                               <ClinicButton variant="ghost"
                                 onClick={(e) => { e.stopPropagation(); setShowReminderPetId(showReminderPetId === pet.id ? null : pet.id); setReminderError(''); }}
-                                className="text-teal-600 hover:text-teal-700"
+                                className="text-clinic-600 hover:text-clinic-700"
                               >
                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />

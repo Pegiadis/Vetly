@@ -9,5 +9,5 @@ export default function VetDashboardError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  return <ErrorFallback error={error} reset={reset} colorScheme="indigo" />;
+  return <ErrorFallback error={error} reset={reset} />;
 }

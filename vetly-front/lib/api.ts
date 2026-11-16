@@ -144,44 +144,64 @@ function getAuthHeaders(): Record<string, string> {
   return {};
 }
 
-async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+/** Clears the session and sends the user to the right login page with a return path. */
+function handleUnauthorized(): void {
+  if (typeof window === 'undefined') return;
+  const path = window.location.pathname;
+  const isAuthPage = path.includes('/login') || path.includes('/register') || path.includes('/verify') || path.includes('/reset') || path.includes('/forgot');
+  if (isAuthPage) return;
+  localStorage.removeItem('vetly_token_vet');
+  localStorage.removeItem('vetly_token_pet_owner');
+  localStorage.removeItem('vetly_user_type');
+  const isVet = path === '/vet' || path.startsWith('/vet/');
+  const back = sanitizeNextPath(`${path}${window.location.search}`);
+  const next = back ? `&next=${encodeURIComponent(back)}` : '';
+  window.location.href = `${isVet ? '/vet/login' : '/owner/login'}?expired=true${next}`;
+}
 
+/**
+ * Authenticated fetch for every call that must not go through the JSON helpers
+ * (uploads, file downloads, streams). Adds the bearer token, turns a network
+ * failure into an ApiError with a Greek message and handles an expired session
+ * (401) like `api` does. A non-2xx response is returned as is; pair it with
+ * `throwApiError` when the caller wants the error.
+ */
+export async function authFetch(input: string, init?: RequestInit): Promise<Response> {
+  const url = input.startsWith('/') ? `${API_BASE_URL}${input}` : input;
   let response: Response;
   try {
     response = await fetch(url, {
-      ...options,
+      ...init,
       headers: {
-        'Content-Type': 'application/json',
         ...getAuthHeaders(),
-        ...options?.headers,
+        ...init?.headers,
       },
     });
   } catch (err) {
     if (err instanceof DOMException && err.name === 'AbortError') throw err;
     throw new ApiError(0, NETWORK_ERROR_MESSAGE, 'Network error');
   }
+  if (response.status === 401) handleUnauthorized();
+  return response;
+}
 
-  if (!response.ok) {
-    if (response.status === 401) {
-      if (typeof window !== 'undefined') {
-        const path = window.location.pathname;
-        const isAuthPage = path.includes('/login') || path.includes('/register') || path.includes('/verify') || path.includes('/reset') || path.includes('/forgot');
-        if (!isAuthPage) {
-          localStorage.removeItem('vetly_token_vet');
-          localStorage.removeItem('vetly_token_pet_owner');
-          localStorage.removeItem('vetly_user_type');
-          const isVet = path === '/vet' || path.startsWith('/vet/');
-          const back = sanitizeNextPath(`${path}${window.location.search}`);
-          const next = back ? `&next=${encodeURIComponent(back)}` : '';
-          window.location.href = `${isVet ? '/vet/login' : '/owner/login'}?expired=true${next}`;
-        }
-      }
-    }
-    const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-    const detail: unknown = error?.detail ?? 'Request failed';
-    throw new ApiError(response.status, translateDetail(response.status, detail), detail);
-  }
+/** Throws an ApiError with a Greek message built from a non-2xx response. */
+export async function throwApiError(response: Response): Promise<never> {
+  const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+  const detail: unknown = error?.detail ?? 'Request failed';
+  throw new ApiError(response.status, translateDetail(response.status, detail), detail);
+}
+
+async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const response = await authFetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+  });
+
+  if (!response.ok) await throwApiError(response);
 
   if (response.status === 204) {
     return undefined as T;
@@ -217,27 +237,13 @@ export const api = {
     }),
 
   upload: async <T>(endpoint: string, file: File): Promise<T> => {
-    const url = `${API_BASE_URL}${endpoint}`;
     const formData = new FormData();
     formData.append('file', file);
-
-    let response: Response;
-    try {
-      response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          ...getAuthHeaders(),
-        },
-        body: formData,
-      });
-    } catch {
-      throw new ApiError(0, NETWORK_ERROR_MESSAGE, 'Network error');
-    }
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Upload failed' }));
-      const detail: unknown = error?.detail ?? 'Upload failed';
-      throw new ApiError(response.status, translateDetail(response.status, detail), detail);
-    }
+    const response = await authFetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) await throwApiError(response);
     return response.json();
   },
 };
