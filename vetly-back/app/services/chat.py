@@ -4,7 +4,7 @@ Chat service - handles AI chat logic with Anthropic Claude
 
 import logging
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
 import anthropic
@@ -496,6 +496,18 @@ class ChatService:
             .order_by(Appointment.scheduled_at.asc())
         ).all())
 
+        # The next two weeks after today, so "this week" questions can be answered.
+        upcoming = list(self.db.scalars(
+            select(Appointment).where(
+                Appointment.vet_id == vet_id,
+                Appointment.scheduled_at > today_end,
+                Appointment.scheduled_at <= today_end + timedelta(days=14),
+                Appointment.status.in_(["confirmed", "pending"]),
+            )
+            .order_by(Appointment.scheduled_at.asc())
+            .limit(40)
+        ).all())
+
         # Recent patients (last 10 completed appointments)
         recent = list(self.db.scalars(
             select(Appointment).where(
@@ -522,6 +534,7 @@ class ChatService:
         # Replaces the previous N+1 pattern (one SELECT Pet per appointment/reminder).
         pet_ids = (
             {a.pet_id for a in today_appts}
+            | {a.pet_id for a in upcoming}
             | {a.pet_id for a in recent}
             | {r.pet_id for r in reminders}
         )
@@ -546,6 +559,24 @@ class ChatService:
                 lines.append(
                     f"  - {a.scheduled_at.strftime('%H:%M')}: {pet_info} ({status_val})"
                 )
+
+        lines.append(f"\nToday is {today.strftime('%A %Y-%m-%d')} (Europe/Athens).")
+        if upcoming:
+            owner_ids = {a.pet_owner_id for a in upcoming if a.pet_owner_id}
+            owners_by_id = {
+                o.id: o.name
+                for o in self.db.scalars(select(PetOwner).where(PetOwner.id.in_(owner_ids))).all()
+            } if owner_ids else {}
+            lines.append(f"\nUpcoming appointments, next 14 days ({len(upcoming)}):")
+            for a in upcoming:
+                pet = pets_by_id.get(a.pet_id)
+                status_val = a.status.value if hasattr(a.status, 'value') else a.status
+                lines.append(
+                    f"  - {a.scheduled_at.strftime('%A %Y-%m-%d %H:%M')}: {pet.name if pet else 'Unknown'}"
+                    f", owner {owners_by_id.get(a.pet_owner_id, '?')}, {a.type} ({status_val})"
+                )
+        else:
+            lines.append("\nUpcoming appointments, next 14 days: none")
 
         # Pending appointments
         pending_count = self.db.scalar(
