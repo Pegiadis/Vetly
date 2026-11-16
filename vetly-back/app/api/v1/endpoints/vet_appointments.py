@@ -111,12 +111,28 @@ def get_pending_appointments(
     )
 
 
+# Shown until the clinic saves its own list; the first edit stores the whole list.
+DEFAULT_DIAGNOSIS_TYPES = [
+    "Προληπτικός έλεγχος",
+    "Εμβολιασμός",
+    "Γαστρεντερίτιδα",
+    "Δερματίτιδα",
+    "Ωτίτιδα",
+    "Παρασίτωση",
+    "Τραυματισμός",
+    "Οδοντική νόσος",
+    "Λοίμωξη αναπνευστικού",
+    "Λοίμωξη ουροποιητικού",
+    "Μετεγχειρητικός έλεγχος",
+]
+
+
 @router.get("/diagnosis-types", response_model=CustomDiagnosisTypesResponse)
 def get_custom_diagnosis_types(
     current_vet: Vet = Depends(get_current_vet),
 ) -> CustomDiagnosisTypesResponse:
-    """Get the vet's custom diagnosis types"""
-    return CustomDiagnosisTypesResponse(types=current_vet.custom_diagnosis_types or [])
+    """Get the vet's diagnosis list, or the starter list while it is empty"""
+    return CustomDiagnosisTypesResponse(types=current_vet.custom_diagnosis_types or DEFAULT_DIAGNOSIS_TYPES)
 
 
 @router.put("/diagnosis-types", response_model=CustomDiagnosisTypesResponse)

@@ -201,6 +201,10 @@ export default function ExaminationDialog({
 
   const timeStr = formatTime(appointment.scheduled_at);
   const dateStr = formatDate(appointment.scheduled_at);
+  // The server refuses to complete a visit before its day; say so up front.
+  const visitDay = new Date(appointment.scheduled_at);
+  visitDay.setHours(0, 0, 0, 0);
+  const notYet = visitDay.getTime() > new Date().setHours(0, 0, 0, 0);
 
   return (
     <ClinicDrawer label="Καταχώριση εξέτασης" embedded={embedded} busy={submitting} onClose={onClose}>
@@ -236,6 +240,11 @@ export default function ExaminationDialog({
           </div>
 
           <div className="p-6 space-y-6">
+            {notYet && (
+              <p role="status" className="rounded-[10px] bg-[#ffe0c7] px-3 py-2 text-sm text-[#622700]">
+                Η επίσκεψη είναι στις {dateStr}. Η εξέταση καταχωρίζεται από την ημέρα του ραντεβού και μετά.
+              </p>
+            )}
             <div>
               <label className="block text-sm font-semibold text-ink-700 mb-2">
                 Διάγνωση <span className="text-red-500">*</span>
@@ -363,7 +372,7 @@ export default function ExaminationDialog({
                                 if (e.key === 'Escape') setShowAddDiagnosis(false);
                               }}
                               placeholder="Νέα διάγνωση..."
-                              className="flex-1 px-2.5 py-1.5"
+                              className="min-w-0 flex-1 px-2.5 py-1.5"
                               autoFocus
                             />
                             <ClinicButton variant="primary"
@@ -843,7 +852,7 @@ export default function ExaminationDialog({
               <ClinicButton variant="primary"
                 type="button"
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || notYet}
                 className="flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? (

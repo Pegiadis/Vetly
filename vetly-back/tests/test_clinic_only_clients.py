@@ -33,6 +33,12 @@ def create_visit(client, db, vet, headers, pet):
     return response.json()
 
 
+def visit_is_today(db, visit):
+    """A visit can only be completed from its day on."""
+    db.get(Appointment, UUID(visit['id'])).scheduled_at = datetime.now().replace(hour=0, minute=5, second=0, microsecond=0)
+    db.commit()
+
+
 def test_no_account_can_book_complete_examination_and_retain_private_notes(client, db, registered_vet, vet_auth_header):
     card, pet = make_card(client, vet_auth_header)
     identity = db.get(PetOwner, UUID(card['pet_owner_id']))
@@ -40,6 +46,7 @@ def test_no_account_can_book_complete_examination_and_retain_private_notes(clien
     fake_login = {'Authorization': 'Bearer ' + create_access_token(str(identity.id), 'pet_owner')}
     assert client.get('/api/v1/owner/pets', headers=fake_login).status_code == 401
     visit = create_visit(client, db, registered_vet, vet_auth_header, pet)
+    visit_is_today(db, visit)
     response = client.post(f"/api/v1/vet/appointments/{visit['id']}/complete", headers=vet_auth_header,
                            json={'diagnosis': 'Vaccine recorded', 'examination_notes': 'Clinical instructions', 'medications': []})
     assert response.status_code == 200, response.text
@@ -56,6 +63,7 @@ def test_no_account_can_book_complete_examination_and_retain_private_notes(clien
 def test_new_signup_claims_after_verification_with_same_pet_and_history(client, db, registered_vet, vet_auth_header):
     card, pet = make_card(client, vet_auth_header, 'clinic-claim@example.com')
     visit = create_visit(client, db, registered_vet, vet_auth_header, pet)
+    visit_is_today(db, visit)
     response = client.post(f"/api/v1/vet/appointments/{visit['id']}/complete", headers=vet_auth_header,
                            json={'diagnosis': 'Vaccination', 'examination_notes': 'Follow-up instructions',
                                  'medications': [{'name': 'Test medication', 'dosage': 'Test dose', 'frequency': 'daily', 'duration_days': 5}]})

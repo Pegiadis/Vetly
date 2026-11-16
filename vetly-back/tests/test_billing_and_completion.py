@@ -337,3 +337,38 @@ class TestRevenue:
         assert res.json()["total_revenue"] == 45.0
         full = client.get(f"{API}/vet/analytics", headers=vet_auth_header).json()
         assert full["revenue"]["total_revenue"] == 45.0
+
+
+def test_future_visit_cannot_be_completed(client, db):
+    """Completing a visit before its day is refused and leaves it untouched."""
+    from tests.test_appointments import _make_owner, _make_pet, _make_vet, _vet_headers, WEEKDAY_HOURS
+    from app.models.appointment import Appointment, AppointmentStatus
+
+    vet = _make_vet(db, hours=WEEKDAY_HOURS)
+    owner = _make_owner(db)
+    pet = _make_pet(db, owner.id)
+    appointment = Appointment(
+        vet_id=vet.id, pet_owner_id=owner.id, pet_id=pet.id, type="Checkup", duration_minutes=30,
+        status=AppointmentStatus.CONFIRMED,
+        scheduled_at=datetime.now(ATHENS).replace(tzinfo=None) + timedelta(days=2),
+    )
+    db.add(appointment)
+    db.commit()
+
+    response = client.post(
+        f"/api/v1/vet/appointments/{appointment.id}/complete",
+        json={"diagnosis": "Healthy", "medications": []},
+        headers=_vet_headers(vet),
+    )
+    assert response.status_code == 400
+    assert "δεν έχει γίνει ακόμα" in response.json()["detail"]
+    db.refresh(appointment)
+    assert appointment.status == AppointmentStatus.CONFIRMED
+
+
+def test_new_clinic_gets_starter_diagnoses(client, db):
+    from tests.test_appointments import _make_vet, _vet_headers
+
+    vet = _make_vet(db)
+    types = client.get("/api/v1/vet/appointments/diagnosis-types", headers=_vet_headers(vet)).json()["types"]
+    assert "Προληπτικός έλεγχος" in types and len(types) >= 8

@@ -469,6 +469,11 @@ class TestStatusTransitions:
             headers=_vet_headers(vet),
         )
 
+        # A visit can only be completed from its day on: move it to earlier today.
+        appointment = db.get(Appointment, uuid.UUID(apt["id"]))
+        appointment.scheduled_at = datetime.now().replace(hour=0, minute=5, second=0, microsecond=0)
+        db.commit()
+
         # Complete examination
         resp = client.post(
             f"{API}/vet/appointments/{apt['id']}/complete",
@@ -495,6 +500,9 @@ class TestStatusTransitions:
             f"{API}/vet/appointments/{apt['id']}/approve",
             headers=_vet_headers(vet),
         )
+        appointment = db.get(Appointment, uuid.UUID(apt["id"]))
+        appointment.scheduled_at = datetime.now().replace(hour=0, minute=5, second=0, microsecond=0)
+        db.commit()
         client.post(
             f"{API}/vet/appointments/{apt['id']}/complete",
             json={"diagnosis": "Healthy", "medications": []},

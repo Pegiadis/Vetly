@@ -248,6 +248,8 @@ class AppointmentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Μη έγκυρη αλλαγή κατάστασης.",
             )
+        if new_status == AppointmentStatus.COMPLETED:
+            self._require_visit_day_reached(appointment)
         try:
             updated = self.repository.update_status(
                 appointment, new_status, data.notes, commit=False
@@ -406,6 +408,16 @@ class AppointmentService:
 
         return self._build_detail_response(updated)
 
+    @staticmethod
+    def _require_visit_day_reached(appointment) -> None:
+        """A visit is completed on or after its day: completing a future one
+        would count it as done before it happened and skew the monthly figures."""
+        if appointment.scheduled_at.date() > datetime.now(ATHENS).date():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Η επίσκεψη δεν έχει γίνει ακόμα. Η εξέταση καταχωρίζεται από την ημέρα του ραντεβού και μετά.",
+            )
+
     def complete_examination(
         self,
         appointment_id: UUID,
@@ -430,6 +442,7 @@ class AppointmentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Can only complete confirmed or pending appointments",
             )
+        self._require_visit_day_reached(appointment)
 
         try:
             today = datetime.now(ATHENS).date()
