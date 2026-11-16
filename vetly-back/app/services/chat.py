@@ -439,7 +439,10 @@ class ChatService:
             .limit(5)
         ).all())
         if appts:
-            lines.append(f"\nUpcoming Appointments ({len(appts)}):")
+            lines.append(
+                f"\nUpcoming Appointments ({len(appts)}); 'pending' means the request is waiting "
+                "for the vet's clinic to approve it, 'confirmed' means the clinic approved it:"
+            )
             for a in appts:
                 pet_name = next((p.name for p in pets if p.id == a.pet_id), "?")
                 lines.append(
@@ -476,6 +479,8 @@ class ChatService:
 
         lines = [
             f"--- USER CONTEXT (Veterinarian) ---",
+            "Appointment statuses: 'pending' is a request waiting for THIS clinic to approve or reject "
+            "(not for the owner); 'confirmed' is approved by the clinic.",
             f"Name: {vet.name}",
             f"Specialty: {vet.specialty or 'General'}",
         ]
