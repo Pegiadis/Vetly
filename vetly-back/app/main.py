@@ -139,7 +139,9 @@ app.add_middleware(
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
-# Serve uploaded files
+# Serve uploaded files. The mount checks the directory at import time, before
+# the startup hook runs, so a fresh checkout or server needs it created here.
+ensure_upload_dir()
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 
