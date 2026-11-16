@@ -3,72 +3,37 @@ Email notification templates for Vetly.
 All user-facing text is in Greek.
 """
 
+from functools import wraps
+from html import escape
+
 from app.core.config import settings
 from app.core.email import send_email
+from app.core.email_layout import button, details_box, detail, email_shell, paragraph, quote
 
 
-# ── Color constants ──────────────────────────────────────────────
-
-TEAL = "#0d9488"
-TEAL_LIGHT = "#f0fdfa"
-INDIGO = "#4f46e5"
-INDIGO_LIGHT = "#eef2ff"
-
-
-# ── Base wrapper ─────────────────────────────────────────────────
-
-def _wrap_html(title: str, body_html: str, color: str, color_light: str, app_name: str) -> str:
-    """Wrap body content in the standard Vetly email template."""
-    return f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f8fafc;">
-  <div style="max-width:480px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
-    <div style="background:{color};padding:32px;text-align:center;">
-      <h1 style="color:white;margin:0;font-size:24px;">{app_name}</h1>
-    </div>
-    <div style="padding:32px;">
-      <h2 style="color:#1e293b;margin:0 0 16px;">{title}</h2>
-      {body_html}
-      <div style="margin-top:32px;padding:16px;background:{color_light};border-radius:8px;">
-        <p style="color:#64748b;font-size:12px;margin:0;">
-          Αυτό το email στάλθηκε αυτόματα από το {app_name}. Παρακαλούμε μην απαντήσετε σε αυτό το μήνυμα.
-        </p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>"""
-
+# ── Layout helpers ───────────────────────────────────────────────
 
 def _owner_email(title: str, body_html: str) -> str:
-    return _wrap_html(title, body_html, TEAL, TEAL_LIGHT, "Vetly")
+    return email_shell(title, body_html, "Vetly")
 
 
 def _vet_email(title: str, body_html: str) -> str:
-    return _wrap_html(title, body_html, INDIGO, INDIGO_LIGHT, "Vetly Pro")
+    return email_shell(title, body_html, "Vetly Pro")
 
 
-def _p(text: str) -> str:
-    return f'<p style="color:#475569;line-height:1.6;margin:0 0 16px;">{text}</p>'
+_p = paragraph
+_detail = detail
+_details_box = details_box
 
 
-def _detail(label: str, value: str) -> str:
-    return (
-        f'<div style="display:flex;justify-content:space-between;padding:8px 0;'
-        f'border-bottom:1px solid #f1f5f9;">'
-        f'<span style="color:#64748b;font-size:14px;">{label}:&nbsp;</span>'
-        f'<span style="color:#1e293b;font-size:14px;font-weight:600;">{value}</span>'
-        f'</div>'
-    )
-
-
-def _details_box(*rows: str) -> str:
-    inner = "".join(rows)
-    return (
-        f'<div style="background:#f8fafc;border-radius:12px;padding:16px;margin:16px 0;">'
-        f'{inner}</div>'
-    )
+def _escaped(template):
+    """Escape every text argument: names, comments and notes are typed by users."""
+    @wraps(template)
+    def wrapper(*args, **kwargs):
+        clean = [escape(a) if isinstance(a, str) else a for a in args]
+        clean_kw = {k: escape(v) if isinstance(v, str) else v for k, v in kwargs.items()}
+        return template(*clean, **clean_kw)
+    return wrapper
 
 
 # ── Public helper ────────────────────────────────────────────────
@@ -89,6 +54,7 @@ def send_notification_email(to_email: str, subject: str, html_body: str) -> None
 
 # ── Template: Appointment confirmed (→ owner) ───────────────────
 
+@_escaped
 def appointment_confirmed_email(
     owner_name: str, vet_name: str, pet_name: str, date_str: str, service: str = "",
 ) -> tuple[str, str]:
@@ -106,11 +72,12 @@ def appointment_confirmed_email(
         + _p("Μπορείτε να δείτε τις λεπτομέρειες στον πίνακα ελέγχου σας στο Vetly.")
     )
     subject = f"Επιβεβαίωση ραντεβού - Vetly"
-    return subject, _owner_email("Ραντεβού Επιβεβαιώθηκε", body)
+    return subject, _owner_email("Το ραντεβού σας επιβεβαιώθηκε", body)
 
 
 # ── Template: Appointment rejected (→ owner) ────────────────────
 
+@_escaped
 def appointment_rejected_email(
     owner_name: str, vet_name: str, pet_name: str, date_str: str,
 ) -> tuple[str, str]:
@@ -129,11 +96,12 @@ def appointment_rejected_email(
         + _p("Μπορείτε να κλείσετε νέο ραντεβού μέσω του Vetly.")
     )
     subject = "Ακύρωση αιτήματος ραντεβού - Vetly"
-    return subject, _owner_email("Ραντεβού Απορρίφθηκε", body)
+    return subject, _owner_email("Το ραντεβού δεν επιβεβαιώθηκε", body)
 
 
 # ── Template: Appointment cancelled by owner (→ vet) ────────────
 
+@_escaped
 def appointment_cancelled_by_owner_email(
     vet_name: str, owner_name: str, pet_name: str, date_str: str,
 ) -> tuple[str, str]:
@@ -151,11 +119,12 @@ def appointment_cancelled_by_owner_email(
         + details
     )
     subject = "Ακύρωση ραντεβού - Vetly Pro"
-    return subject, _vet_email("Ακύρωση Ραντεβού", body)
+    return subject, _vet_email("Ακύρωση ραντεβού", body)
 
 
 # ── Template: Appointment cancelled by vet (→ owner) ────────────
 
+@_escaped
 def appointment_cancelled_by_vet_email(
     owner_name: str, vet_name: str, pet_name: str, date_str: str,
 ) -> tuple[str, str]:
@@ -174,11 +143,12 @@ def appointment_cancelled_by_vet_email(
         + _p("Μπορείτε να κλείσετε νέο ραντεβού μέσω του Vetly.")
     )
     subject = "Ακύρωση ραντεβού - Vetly"
-    return subject, _owner_email("Ακύρωση Ραντεβού", body)
+    return subject, _owner_email("Ακύρωση ραντεβού", body)
 
 
 # ── Template: Appointment rescheduled by owner (→ vet) ──────────
 
+@_escaped
 def appointment_rescheduled_by_owner_email(
     vet_name: str, owner_name: str, pet_name: str, date_str: str,
 ) -> tuple[str, str]:
@@ -197,11 +167,12 @@ def appointment_rescheduled_by_owner_email(
         + _p("Ελέγξτε τον πίνακα ελέγχου σας στο Vetly Pro για λεπτομέρειες.")
     )
     subject = "Αναπρογραμματισμός ραντεβού - Vetly Pro"
-    return subject, _vet_email("Αναπρογραμματισμός Ραντεβού", body)
+    return subject, _vet_email("Νέα ώρα ραντεβού", body)
 
 
 # ── Template: Appointment rescheduled by vet (→ owner) ──────────
 
+@_escaped
 def appointment_rescheduled_by_vet_email(
     owner_name: str, vet_name: str, pet_name: str, date_str: str,
 ) -> tuple[str, str]:
@@ -220,11 +191,12 @@ def appointment_rescheduled_by_vet_email(
         + _p("Ελέγξτε τον πίνακα ελέγχου σας στο Vetly για λεπτομέρειες.")
     )
     subject = "Αναπρογραμματισμός ραντεβού - Vetly"
-    return subject, _owner_email("Αναπρογραμματισμός Ραντεβού", body)
+    return subject, _owner_email("Νέα ώρα ραντεβού", body)
 
 
 # ── Template: Appointment reminder (→ owner, 24h before) ────────
 
+@_escaped
 def appointment_reminder_email(
     owner_name: str, vet_name: str, pet_name: str, date_str: str, service: str = "",
 ) -> tuple[str, str]:
@@ -241,11 +213,12 @@ def appointment_reminder_email(
         + _p("Αν χρειάζεται να ακυρώσετε ή να αλλάξετε ώρα, μπορείτε να το κάνετε μέσω του Vetly.")
     )
     subject = "Υπενθύμιση ραντεβού - Vetly"
-    return subject, _owner_email("Υπενθύμιση Ραντεβού", body)
+    return subject, _owner_email("Υπενθύμιση ραντεβού", body)
 
 
 # ── Template: New appointment request (→ vet) ───────────────────
 
+@_escaped
 def new_appointment_request_email(
     vet_name: str, owner_name: str, pet_name: str, date_str: str, service: str = "",
 ) -> tuple[str, str]:
@@ -265,11 +238,12 @@ def new_appointment_request_email(
         + _p("Συνδεθείτε στο Vetly Pro για να αποδεχτείτε ή να απορρίψετε το αίτημα.")
     )
     subject = "Νέο αίτημα ραντεβού - Vetly Pro"
-    return subject, _vet_email("Νέο Αίτημα Ραντεβού", body)
+    return subject, _vet_email("Νέο αίτημα ραντεβού", body)
 
 
 # ── Template: Examination completed (→ owner) ───────────────────
 
+@_escaped
 def examination_completed_email(
     owner_name: str, vet_name: str, pet_name: str, date_str: str,
 ) -> tuple[str, str]:
@@ -287,11 +261,12 @@ def examination_completed_email(
         + _p("Μπορείτε να δείτε τα αποτελέσματα και τις σημειώσεις στο ιστορικό υγείας στο Vetly.")
     )
     subject = "Ολοκλήρωση εξέτασης - Vetly"
-    return subject, _owner_email("Εξέταση Ολοκληρώθηκε", body)
+    return subject, _owner_email("Η εξέταση ολοκληρώθηκε", body)
 
 
 # ── Template: New reminder (→ owner) ────────────────────────────
 
+@_escaped
 def new_reminder_email(
     vet_name: str, pet_name: str, title: str, due_date: str, message: str = "",
 ) -> tuple[str, str]:
@@ -310,11 +285,26 @@ def new_reminder_email(
         + _p("Μπορείτε να δείτε τις υπενθυμίσεις σας στον πίνακα ελέγχου στο Vetly.")
     )
     subject = "Νέα υπενθύμιση - Vetly"
-    return subject, _owner_email("Νέα Υπενθύμιση", body)
+    return subject, _owner_email("Νέα υπενθύμιση", body)
+
+
+# ── Template: Vet account approved (→ vet) ──────────────────────
+
+@_escaped
+def vet_account_approved_email(vet_name: str, login_url: str) -> tuple[str, str]:
+    """Return (subject, html) telling a vet that the professional verification passed."""
+    body = (
+        _p(f"Αγαπητέ/ή {vet_name},")
+        + _p("Ο λογαριασμός σας εγκρίθηκε. Μπορείτε πλέον να συνδεθείτε και να ξεκινήσετε να χρησιμοποιείτε το Vetly Pro.")
+        + button(login_url, "Σύνδεση στο Vetly Pro")
+    )
+    subject = "Ο λογαριασμός σας εγκρίθηκε - Vetly Pro"
+    return subject, _vet_email("Ο λογαριασμός σας εγκρίθηκε", body)
 
 
 # ── Template: New review (→ vet) ────────────────────────────────
 
+@_escaped
 def new_review_email(
     vet_name: str, owner_name: str, rating: int, comment: str = "",
 ) -> tuple[str, str]:
@@ -325,12 +315,7 @@ def new_review_email(
     )
     comment_html = ""
     if comment:
-        comment_html = (
-            f'<div style="background:#f8fafc;border-left:3px solid {INDIGO};'
-            f'padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;">'
-            f'<p style="color:#475569;font-style:italic;margin:0;">&laquo;{comment}&raquo;</p>'
-            f'</div>'
-        )
+        comment_html = quote(f'&laquo;{comment}&raquo;')
     body = (
         _p(f"Αγαπητέ/ή {vet_name},")
         + _p(f"Ο/Η <strong>{owner_name}</strong> σας άφησε μια νέα αξιολόγηση!")
@@ -338,4 +323,4 @@ def new_review_email(
         + comment_html
     )
     subject = "Νέα αξιολόγηση - Vetly Pro"
-    return subject, _vet_email("Νέα Αξιολόγηση", body)
+    return subject, _vet_email("Νέα αξιολόγηση", body)
