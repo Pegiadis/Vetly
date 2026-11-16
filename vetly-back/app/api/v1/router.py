@@ -70,3 +70,6 @@ from app.api.v1.endpoints import owner_push
 api_router.include_router(owner_push.router, prefix="/owner/push-devices", tags=["Owner Push"])
 from app.api.v1.endpoints import vet_account
 api_router.include_router(vet_account.router, prefix="/vet/settings", tags=["Vet Account"])
+from app.api.v1.endpoints import vet_time_off
+api_router.include_router(vet_time_off.router, prefix="/vet/time-off", tags=["Vet Time Off"])
+api_router.include_router(vet_time_off.closed_dates_router, prefix="/vets", tags=["Vet Time Off"])

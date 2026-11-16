@@ -7,7 +7,9 @@ interface CalendarPickerProps {
   onChange: (date: string) => void;
   minDate?: Date;
   maxDate?: Date;
-  accentColor?: 'teal' | 'indigo' | 'red';
+  accentColor?: 'clinic' | 'red';
+  /** ISO dates (YYYY-MM-DD) that cannot be picked, e.g. clinic closures. */
+  disabledDates?: string[];
 }
 
 const DAYS_GR = ['Δε', 'Τρ', 'Τε', 'Πε', 'Πα', 'Σα', 'Κυ'];
@@ -33,7 +35,8 @@ export default function CalendarPicker({
   onChange,
   minDate,
   maxDate,
-  accentColor = 'teal',
+  accentColor = 'clinic',
+  disabledDates,
 }: CalendarPickerProps) {
   const today = stripTime(new Date());
   const initialMonth = value ? new Date(value + 'T00:00:00') : today;
@@ -44,7 +47,7 @@ export default function CalendarPicker({
   const max = maxDate ? stripTime(maxDate) : null;
 
   const accentMap = {
-    indigo: {
+    clinic: {
       bg: 'bg-clinic-600', bgLight: 'bg-clinic-50', text: 'text-clinic-600',
       ring: 'ring-clinic-200', hoverBg: 'hover:bg-clinic-50',
       selectedText: 'text-white', todayRing: 'ring-clinic-300',
@@ -53,11 +56,6 @@ export default function CalendarPicker({
       bg: 'bg-red-600', bgLight: 'bg-red-50', text: 'text-red-600',
       ring: 'ring-red-200', hoverBg: 'hover:bg-red-50',
       selectedText: 'text-white', todayRing: 'ring-red-300',
-    },
-    teal: {
-      bg: 'bg-teal-600', bgLight: 'bg-teal-50', text: 'text-teal-600',
-      ring: 'ring-teal-200', hoverBg: 'hover:bg-teal-50',
-      selectedText: 'text-white', todayRing: 'ring-teal-300',
     },
   };
   const accent = accentMap[accentColor];
@@ -118,7 +116,7 @@ export default function CalendarPicker({
   const isDisabled = (d: Date) => {
     if (min && d < min) return true;
     if (max && d > max) return true;
-    return false;
+    return disabledDates?.includes(toDateStr(d)) ?? false;
   };
 
   const isSelected = (d: Date) => {

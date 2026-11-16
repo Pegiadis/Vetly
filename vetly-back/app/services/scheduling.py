@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.orm import object_session
 
 from app.db.base import Appointment, Vet, ServiceType
 from app.models.appointment import AppointmentStatus
@@ -50,8 +51,20 @@ def check_working_hours(vet, scheduled_at: datetime, duration_minutes: int) -> N
             opens = datetime.combine(start.date(), datetime.strptime(shift["open"], "%H:%M").time())
             closes = datetime.combine(start.date(), datetime.strptime(shift["close"], "%H:%M").time())
             if opens <= start < end <= closes:
+                check_time_off(object_session(vet), vet.id, start, duration_minutes)
                 return
     raise HTTPException(400, "Το ραντεβού πρέπει να ολοκληρώνεται εντός του ωραρίου του κτηνιάτρου.")
+
+
+def check_time_off(db, vet_id: UUID, scheduled_at: datetime, duration_minutes: int) -> None:
+    """Reject a slot that overlaps one of the vet's closures / time off."""
+    if db is None:
+        return
+    from app.repositories.vet_time_off import VetTimeOffRepository
+    start = appointment_time(scheduled_at)
+    end = start + timedelta(minutes=duration_minutes or 30)
+    if VetTimeOffRepository(db).find_overlapping(vet_id, start, end):
+        raise HTTPException(400, "Ο κτηνίατρος δεν είναι διαθέσιμος αυτή την ημερομηνία ή ώρα (κλειστό ιατρείο).")
 
 
 def has_conflict(db, vet_id: UUID, scheduled_at: datetime, duration_minutes: int,

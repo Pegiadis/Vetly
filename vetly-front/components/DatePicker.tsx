@@ -107,10 +107,10 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
         className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
           value
             ? 'bg-control-50 text-control-700 border border-control-200 hover:border-control-300'
-            : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+            : 'bg-white text-ink-500 border border-ink-200 hover:border-ink-300'
         }`}
       >
-        <svg className={`w-4 h-4 flex-shrink-0 ${value ? 'text-control-500' : 'text-slate-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg className={`w-4 h-4 flex-shrink-0 ${value ? 'text-control-500' : 'text-ink-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
         <span className="whitespace-nowrap">{value ? formatDisplay(value) : placeholder}</span>
@@ -129,25 +129,25 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
 
       {/* Dropdown Calendar */}
       {open && (
-        <div className={`absolute left-0 z-50 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 w-[288px] animate-in fade-in duration-150 ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
+        <div className={`absolute left-0 z-50 bg-white rounded-xl border border-ink-200 p-4 w-[288px] animate-in fade-in duration-150 ${dropUp ? 'bottom-full mb-2' : 'top-full mt-2'}`}>
           {/* Month Navigation */}
           <div className="flex items-center justify-between mb-4">
             <button
               type="button"
               onClick={prevMonth}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <span className="text-sm font-bold text-slate-800">
+            <span className="text-sm font-bold text-ink-800">
               {MONTHS_EL[viewMonth]} {viewYear}
             </span>
             <button
               type="button"
               onClick={nextMonth}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-ink-400 hover:text-ink-700 hover:bg-ink-100 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -158,7 +158,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
           {/* Weekday Headers */}
           <div className="grid grid-cols-7 mb-1">
             {DAYS_EL.map(d => (
-              <div key={d} className="h-8 flex items-center justify-center text-[11px] font-bold text-slate-400 uppercase">
+              <div key={d} className="h-8 flex items-center justify-center text-[11px] font-bold text-ink-400 uppercase">
                 {d}
               </div>
             ))}
@@ -188,7 +188,7 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
                       ? 'bg-control-600 text-white font-bold shadow-sm'
                       : isToday
                         ? 'bg-control-50 text-control-700 font-bold ring-1 ring-control-200'
-                        : 'text-slate-700 hover:bg-slate-100 font-medium'
+                        : 'text-ink-700 hover:bg-ink-100 font-medium'
                   }`}
                 >
                   {day}
@@ -198,11 +198,11 @@ export default function DatePicker({ value, onChange, placeholder = 'Επιλέ�
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-ink-100">
             <button
               type="button"
               onClick={clear}
-              className="text-xs font-bold text-slate-400 hover:text-slate-600 transition-colors px-2 py-1 rounded-lg hover:bg-slate-50"
+              className="text-xs font-bold text-ink-400 hover:text-ink-600 transition-colors px-2 py-1 rounded-lg hover:bg-ink-50"
             >
               Καθαρισμός
             </button>

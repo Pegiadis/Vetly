@@ -2,12 +2,22 @@
 
 import { useEffect, useRef, useState } from 'react';
 import ClinicAvatar from './ClinicAvatar';
-import type { VetAppointment } from '@/hooks/useVetData';
+import type { VetAppointment, VetTimeOff } from '@/hooks/useVetData';
 
 const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 const minutes = (value: string) => { const d = new Date(value); return d.getHours()*60+d.getMinutes(); };
 const clock = (value: string) => new Date(value).toLocaleTimeString('el-GR',{hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 const statuses: Record<string,string> = {pending:'Αναμονή',confirmed:'Επιβεβαιωμένο',completed:'Ολοκληρωμένο',cancelled:'Ακυρωμένο',rejected:'Απορρίφθηκε'};
+
+const toMinutes = (value: string | null) => value ? Number(value.slice(0,2))*60+Number(value.slice(3,5)) : 0;
+// Closed windows of one day as minute ranges; a closure without times blocks the whole day.
+function closedWindows(closures: VetTimeOff[], day: string) {
+  return closures.filter(c=>c.start_date<=day&&day<=c.end_date).map(c=>({
+    start:c.start_time&&c.end_time?toMinutes(c.start_time):0,
+    end:c.start_time&&c.end_time?toMinutes(c.end_time):1440,
+    reason:c.reason,
+  }));
+}
 
 // Pack overlapping visible blocks into lanes, including the minimum readable height.
 function layout(items: VetAppointment[]) {
@@ -24,7 +34,7 @@ function layout(items: VetAppointment[]) {
   flush();return result;
 }
 
-export default function ScheduleTimeline({dates,appointments,selectedId,onSelect,onDay,onCreate,onMove}: {dates:Date[];appointments:VetAppointment[];selectedId:string|null;onSelect:(a:VetAppointment)=>void;onDay:(d:Date)=>void;onCreate?:(date:string,time:string)=>void;onMove?:(a:VetAppointment,date:string,time:string)=>void}) {
+export default function ScheduleTimeline({dates,appointments,selectedId,onSelect,onDay,onCreate,onMove,closures=[]}: {closures?:VetTimeOff[];dates:Date[];appointments:VetAppointment[];selectedId:string|null;onSelect:(a:VetAppointment)=>void;onDay:(d:Date)=>void;onCreate?:(date:string,time:string)=>void;onMove?:(a:VetAppointment,date:string,time:string)=>void}) {
   const scroll=useRef<HTMLDivElement>(null);
   const [now,setNow]=useState(()=>new Date());
   useEffect(()=>{const timer=setInterval(()=>setNow(new Date()),60000);return()=>clearInterval(timer)},[]);
@@ -33,15 +43,17 @@ export default function ScheduleTimeline({dates,appointments,selectedId,onSelect
   const first=Math.min(8, ...all.map(b=>Math.floor(b.start/60)));
   const last=Math.max(20, ...all.map(b=>Math.ceil(b.end/60)));
   const height=(last-first)*120;
+  const closed=dates.map(date=>closedWindows(closures,key(date)));
   const dateKey=dates.map(key).join(',');
   useEffect(()=>{if(scroll.current)scroll.current.scrollTop=Math.max(0,(8-first)*120)},[dateKey,first]);
   const columns=`48px repeat(${dates.length}, minmax(0, 1fr))`;
   return <div ref={scroll} role="region" aria-label="Ώρες ημερολογίου" tabIndex={0} className="max-h-[68dvh] min-h-80 overflow-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-clinic-600">
     <div className={dates.length>1 ? 'min-w-[980px]' : 'min-w-0'}>
-      <div className="sticky top-0 z-20 grid border-b border-ink-200 bg-white" style={{gridTemplateColumns:columns}}><div className="self-center text-center text-[10px] text-ink-400">Ώρα</div>{dates.map(date=><button key={key(date)} onClick={()=>onDay(date)} className="border-l border-ink-100 py-3 text-xs"><span className="text-ink-500">{date.toLocaleDateString('el-GR',{weekday:'short'})}</span><span className={`mx-auto mt-1 grid h-7 w-7 place-items-center rounded-full font-semibold ${key(date)===key(now)?'bg-clinic-600 text-white':'text-ink-800'}`}>{date.getDate()}</span></button>)}</div>
+      <div className="sticky top-0 z-20 grid border-b border-ink-200 bg-white" style={{gridTemplateColumns:columns}}><div className="self-center text-center text-[10px] text-ink-400">Ώρα</div>{dates.map(date=><button key={key(date)} onClick={()=>onDay(date)} className="border-l border-ink-100 py-3 text-xs"><span className="text-ink-500">{date.toLocaleDateString('el-GR',{weekday:'short'})}</span><span className={`mx-auto mt-1 grid h-7 w-7 place-items-center rounded-full font-semibold ${key(date)===key(now)?'bg-clinic-600 text-white':'text-ink-800'}`}>{date.getDate()}</span>{closed[dates.indexOf(date)].some(w=>w.end-w.start>=1440)&&<span className="mt-1 block text-[10px] font-medium text-ink-500">Κλειστά</span>}</button>)}</div>
       <div className="grid" style={{gridTemplateColumns:columns}}><div className="relative bg-white" style={{height}}>{Array.from({length:last-first},(_,i)=><span key={i} className="absolute right-2 text-[11px] tabular-nums text-ink-500" style={{top:i*120+4}}>{String(first+i).padStart(2,'0')}:00</span>)}</div>
         {dates.map((date,index)=><div key={key(date)} className={`relative border-l border-ink-200 ${key(date)===key(now)?'bg-clinic-50/30':'bg-white'}`} style={{height,backgroundImage:'repeating-linear-gradient(to bottom, transparent 0, transparent 59px, #edf0ee 59px, #edf0ee 60px, transparent 60px, transparent 119px, #dce3df 119px, #dce3df 120px)'}}>
-          {onCreate && Array.from({length:(last-first)*4},(_,i)=>{const minute=first*60+i*15;if(minute>=1440)return null;const slot=`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;return <button key={slot} type="button" aria-label={`Νέο ραντεβού, ${key(date)}, ${slot}`} data-calendar-slot={`${key(date)}T${slot}`} onClick={()=>onCreate(key(date),slot)} onDragOver={e=>{if(e.dataTransfer.types.includes('application/vetly-appointment')){e.preventDefault();e.dataTransfer.dropEffect='move';}}} onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData('application/vetly-appointment');const a=appointments.find(item=>item.id===id);if(a?.status==='confirmed')onMove?.(a,key(date),slot);}} className="absolute inset-x-0 h-[30px] text-left text-[10px] text-transparent hover:bg-clinic-100/60 hover:text-clinic-800 focus-visible:z-10 focus-visible:bg-clinic-100 focus-visible:text-clinic-800 focus-visible:outline-2 focus-visible:outline-clinic-600" style={{top:i*30}}><span className="px-2">+ {slot}</span></button>})}
+          {closed[index].map((w,i)=>{const top=(Math.max(w.start,first*60)-first*60)*2,bottom=(Math.min(w.end,last*60)-first*60)*2;if(bottom<=top)return null;return <div key={`closed-${i}`} role="img" aria-label={`Κλειστό ${w.end-w.start>=1440?'όλη την ημέρα':`${String(Math.floor(w.start/60)).padStart(2,'0')}:${String(w.start%60).padStart(2,'0')}–${String(Math.floor(w.end/60)).padStart(2,'0')}:${String(w.end%60).padStart(2,'0')}`}${w.reason?`, ${w.reason}`:''}`} className="pointer-events-none absolute inset-x-0 border-y border-ink-200 bg-ink-100/80" style={{top,height:bottom-top,backgroundImage:'repeating-linear-gradient(135deg, transparent 0, transparent 6px, rgba(0,0,0,0.05) 6px, rgba(0,0,0,0.05) 12px)'}}><span className="block truncate px-2 py-1 text-[11px] font-medium text-ink-600">Κλειστό{w.reason?` · ${w.reason}`:''}</span></div>})}
+          {onCreate && Array.from({length:(last-first)*4},(_,i)=>{const minute=first*60+i*15;if(minute>=1440)return null;if(closed[index].some(w=>minute>=w.start&&minute<w.end))return null;const slot=`${String(Math.floor(minute/60)).padStart(2,'0')}:${String(minute%60).padStart(2,'0')}`;return <button key={slot} type="button" aria-label={`Νέο ραντεβού, ${key(date)}, ${slot}`} data-calendar-slot={`${key(date)}T${slot}`} onClick={()=>onCreate(key(date),slot)} onDragOver={e=>{if(e.dataTransfer.types.includes('application/vetly-appointment')){e.preventDefault();e.dataTransfer.dropEffect='move';}}} onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData('application/vetly-appointment');const a=appointments.find(item=>item.id===id);if(a?.status==='confirmed')onMove?.(a,key(date),slot);}} className="absolute inset-x-0 h-[30px] text-left text-[10px] text-transparent hover:bg-clinic-100/60 hover:text-clinic-800 focus-visible:z-10 focus-visible:bg-clinic-100 focus-visible:text-clinic-800 focus-visible:outline-2 focus-visible:outline-clinic-600" style={{top:i*30}}><span className="px-2">+ {slot}</span></button>})}
           {blocks[index].map(({appointment:a,start,end,lane,lanes})=>{
             const name=a.pet?.name || 'Ασθενής';
             const selected=selectedId===a.id;

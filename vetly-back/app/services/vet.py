@@ -166,6 +166,9 @@ class VetService:
             apt_end = apt_start + timedelta(minutes=apt.duration_minutes)
             booked_ranges.append((apt_start, apt_end))
 
+        from app.repositories.vet_time_off import VetTimeOffRepository, closure_overlaps
+        closures = VetTimeOffRepository(self.repository.db).list_in_range(vet_id, target_date, target_date)
+
         # Filter out booked slots
         available = []
         for slot_start in all_slots:
@@ -174,7 +177,9 @@ class VetService:
                 slot_start < apt_end and slot_end > apt_start
                 for apt_start, apt_end in booked_ranges
             )
-            if not is_booked:
+            if not is_booked and not any(
+                closure_overlaps(c, slot_start, slot_end) for c in closures
+            ):
                 available.append(slot_start)
 
         # If today, filter out past slots
