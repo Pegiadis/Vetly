@@ -1,0 +1,178 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Matches the node:20 base image in vetly-front/Dockerfile.
+  NODE_VERSION: "20"
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  backend:
+    name: Backend (pytest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: vetly-back
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vetly
+          POSTGRES_PASSWORD: vetly
+          POSTGRES_DB: vetly_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vetly -d vetly_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://vetly:vetly@localhost:5432/vetly_test
+      SECRET_KEY: ci-only-dummy-secret-key-0123456789abcdef
+      ENVIRONMENT: development
+      EMAIL_PROVIDER: console
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            vetly-back/requirements.txt
+            vetly-back/requirements-dev.txt
+            vetly-back/requirements-pilot.lock
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Apply migrations
+        run: alembic upgrade head
+      - name: Run tests
+        run: pytest -q
+
+  frontend:
+    name: Frontend (types, lint, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: vetly-front
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: vetly-front/package-lock.json
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+
+  e2e:
+    name: End-to-end (Playwright, public pages)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: vetly
+          POSTGRES_PASSWORD: vetly
+          POSTGRES_DB: vetly_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U vetly -d vetly_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://vetly:vetly@localhost:5432/vetly_e2e
+      SECRET_KEY: ci-only-dummy-secret-key-0123456789abcdef
+      ENVIRONMENT: development
+      EMAIL_PROVIDER: console
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-python@v5.6.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            vetly-back/requirements.txt
+            vetly-back/requirements-pilot.lock
+      - name: Install backend dependencies
+        working-directory: vetly-back
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Migrate the database and start the backend
+        working-directory: vetly-back
+        run: |
+          alembic upgrade head
+          nohup uvicorn app.main:app --host 127.0.0.1 --port 8000 > "$RUNNER_TEMP/backend.log" 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/backend.log"
+          exit 1
+
+      - uses: actions/setup-node@v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: vetly-front/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: vetly-front
+        run: npm ci
+      - name: Build the frontend
+        working-directory: vetly-front
+        run: npm run build
+      - name: Install Chromium
+        working-directory: vetly-front
+        run: npx playwright install --with-deps chromium
+      - name: Run the public and auth-page specs
+        working-directory: vetly-front
+        # CI=true makes playwright.config.ts start `npm run start` itself.
+        run: npx playwright test public auth-pages
+        env:
+          CI: "true"
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: playwright-report
+          path: |
+            vetly-front/playwright-report/
+            vetly-front/test-results/
+          retention-days: 7
+      - name: Upload the backend log
+        if: failure()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: backend-log
+          path: ${{ runner.temp }}/backend.log
+          if-no-files-found: ignore
+          retention-days: 7
