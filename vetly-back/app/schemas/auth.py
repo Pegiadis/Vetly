@@ -37,6 +37,7 @@ class VetRegisterRequest(BaseModel):
         max_length=500,
         pattern=r"^/uploads/(vet|pet|pet_cover|owner)/[a-f0-9]{32}\.(jpg|png)$",
     )
+    accept_terms: bool = False
 
 
 class PetOwnerRegisterRequest(BaseModel):
@@ -47,6 +48,7 @@ class PetOwnerRegisterRequest(BaseModel):
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)
     client: Literal['web', 'mobile'] = 'web'
+    accept_terms: bool = False
 
     @field_validator('password')
     @classmethod

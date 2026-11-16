@@ -68,6 +68,11 @@ class VetResponse(VetBase):
     updated_at: datetime
 
 
+class VetMeResponse(VetResponse):
+    """The signed-in vet's own profile. is_admin is never part of any other vet response."""
+    is_admin: bool = False
+
+
 class VetListResponse(BaseModel):
     """Paginated list of vets"""
     items: list[VetResponse]

@@ -33,6 +33,7 @@ export default function InviteRegisterPage() {
     confirmPassword: '',
     phone: '',
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [existingAccount, setExistingAccount] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -102,6 +103,11 @@ export default function InviteRegisterPage() {
       return;
     }
 
+    if (!acceptedTerms) {
+      setError('Για να συνεχίσετε, αποδεχτείτε τους Όρους Χρήσης και την Πολιτική Απορρήτου.');
+      return;
+    }
+
     setLoading(true);
     try {
       await api.post<RegisterResponse>(`/invite/${token}/register`, {
@@ -109,6 +115,7 @@ export default function InviteRegisterPage() {
         email: formData.email,
         password: formData.password,
         phone: formData.phone || undefined,
+        accept_terms: acceptedTerms,
       });
       router.push(`/verify-email/pending?email=${encodeURIComponent(formData.email)}&userType=pet_owner`);
     } catch (err) {
@@ -271,6 +278,13 @@ export default function InviteRegisterPage() {
               {touched.confirmPassword && fieldErrors.confirmPassword && <p className="text-xs text-red-600 mt-1">{fieldErrors.confirmPassword}</p>}
             </div>
           </div>
+
+          <label className="flex items-start gap-2.5 text-xs leading-relaxed text-slate-600">
+            <input type="checkbox" name="acceptTerms" checked={acceptedTerms} onChange={(e) => { setAcceptedTerms(e.target.checked); setError(''); }} className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 accent-teal-600" />
+            <span>
+              Αποδέχομαι τους <Link href="/terms" target="_blank" rel="noopener" className="font-medium text-teal-700 underline-offset-4 hover:underline">Όρους Χρήσης</Link> και την <Link href="/privacy" target="_blank" rel="noopener" className="font-medium text-teal-700 underline-offset-4 hover:underline">Πολιτική Απορρήτου</Link>
+            </span>
+          </label>
 
           <div>
             <button

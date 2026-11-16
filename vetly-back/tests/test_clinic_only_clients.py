@@ -64,7 +64,7 @@ def test_new_signup_claims_after_verification_with_same_pet_and_history(client, 
     record = db.get(VetClient, UUID(card['id'])); db.refresh(record)
     token = record.invite_token
     response = client.post(f'/api/v1/invite/{token}/register', json={
-        'name': 'Joined Guardian', 'email': record.email, 'password': 'SafePass123!'})
+        'name': 'Joined Guardian', 'email': record.email, 'password': 'SafePass123!', 'accept_terms': True})
     assert response.status_code == 200, response.text
     db.refresh(record)
     assert record.status == 'invited' and str(record.pet_owner_id) == card['pet_owner_id']

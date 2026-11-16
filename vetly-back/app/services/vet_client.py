@@ -39,39 +39,19 @@ INVITE_EXPIRY_DAYS = 7
 
 
 def _build_invite_email_html(vet_name: str, invite_url: str) -> str:
-    """Build HTML email for client invite using teal (owner) color scheme."""
-    color = "#0d9488"
-    color_light = "#f0fdfa"
-    return f"""
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8"></head>
-    <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f8fafc;">
-      <div style="max-width:480px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.07);">
-        <div style="background:{color};padding:32px;text-align:center;">
-          <h1 style="color:white;margin:0;font-size:24px;">Vetly</h1>
-        </div>
-        <div style="padding:32px;">
-          <h2 style="color:#1e293b;margin:0 0 16px;">Πρόσκληση στο Vetly</h2>
-          <p style="color:#475569;line-height:1.6;margin:0 0 24px;">
-            {vet_name} σας προσκαλεί στο Vetly. Δημιουργήστε λογαριασμό για να διαχειριστείτε
-            τα ραντεβού και το ιστορικό υγείας του κατοικιδίου σας.
-          </p>
-          <div style="text-align:center;margin:32px 0;">
-            <a href="{invite_url}" style="display:inline-block;background:{color};color:white;padding:14px 32px;border-radius:12px;text-decoration:none;font-weight:bold;font-size:16px;">
-              Εγγραφή στο Vetly
-            </a>
-          </div>
-          <div style="margin-top:24px;padding:16px;background:{color_light};border-radius:8px;">
-            <p style="color:#64748b;font-size:12px;margin:0;word-break:break-all;">
-              Αν το κουμπί δεν λειτουργεί, αντιγράψτε αυτόν τον σύνδεσμο:<br>{invite_url}
-            </p>
-          </div>
-        </div>
-      </div>
-    </body>
-    </html>
-    """
+    """Build the HTML email that invites a clinic client to open an account."""
+    from html import escape
+
+    from app.core.email_layout import button, email_shell, paragraph
+
+    body = (
+        paragraph(
+            f"<strong>{escape(vet_name)}</strong> σας προσκαλεί στο Vetly. Δημιουργήστε λογαριασμό για να "
+            "διαχειρίζεστε τα ραντεβού και το ιστορικό υγείας του κατοικιδίου σας."
+        )
+        + button(invite_url, "Εγγραφή στο Vetly")
+    )
+    return email_shell("Πρόσκληση στο Vetly", body)
 
 
 class VetClientService:
@@ -244,7 +224,9 @@ class VetClientService:
 
     def register_via_invite(self, token: str, data: InviteRegisterRequest) -> RegisterResponse:
         from app.core.pilot import require_pilot_access
+        from app.core.legal import consent_fields
         require_pilot_access(data.email)
+        consent = consent_fields(data.accept_terms)
         client = self.repo.get_by_invite_token(token)
         if not client:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid invite link")
@@ -256,24 +238,42 @@ class VetClientService:
         if data.email.casefold() != (client.email or "").casefold():
             raise HTTPException(400, "Το email πρέπει να αντιστοιχεί στην πρόσκληση.")
 
-        # Check email not taken
-        existing = self.db.scalar(select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()))
-        if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered",
-            )
-
-        # Create PetOwner
-        pet_owner = PetOwner(
-            email=data.email,
-            password_hash=get_password_hash(data.password),
-            name=data.name,
-            phone=data.phone,
-            address=data.address,
-            email_verified=False,
+        # The email is already pinned to the invite, so this can only ever reveal the
+        # invitee's own address. Even so the answer matches a fresh registration, the
+        # same as the open register form: a verified account is told by email and is
+        # claimed by signing in and accepting the invite; the account is left untouched.
+        existing = self.db.scalar(
+            select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()).with_for_update()
         )
-        self.db.add(pet_owner)
+        response = RegisterResponse(email=data.email, message="Ελέγξτε το email σας για επιβεβαίωση.")
+        if existing and (existing.email_verified or not existing.password_hash):
+            if existing.email_verified:
+                from app.services.auth import _send_already_registered_email
+                _send_already_registered_email(data.email, "pet_owner")
+            return response
+
+        if existing:
+            # Unverified registration for the invited address: replaced, so it cannot
+            # block the invite. The claim still happens only after email verification.
+            existing.password_hash = get_password_hash(data.password)
+            existing.auth_version += 1
+            existing.name = data.name
+            existing.phone = data.phone
+            existing.address = data.address
+            existing.terms_accepted_at = consent["terms_accepted_at"]
+            existing.terms_version = consent["terms_version"]
+            pet_owner = existing
+        else:
+            pet_owner = PetOwner(
+                email=data.email,
+                password_hash=get_password_hash(data.password),
+                name=data.name,
+                phone=data.phone,
+                address=data.address,
+                email_verified=False,
+                **consent,
+            )
+            self.db.add(pet_owner)
         self.db.flush()
 
         if client.pet_owner_id is None:

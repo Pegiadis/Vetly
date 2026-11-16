@@ -2,7 +2,7 @@
 Vet (Veterinarian) model
 """
 
-from sqlalchemy import Column, String, Boolean, Numeric, Integer, Text
+from sqlalchemy import Column, String, Boolean, Numeric, Integer, Text, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -22,6 +22,9 @@ class Vet(BaseModel):
     password_hash = Column(String(255), nullable=True)  # Nullable for existing records
     # Bumped to revoke every issued session token and password-reset link.
     auth_version = Column(Integer, default=0, server_default="0", nullable=False)
+    # Consent recorded at registration: when, and which legal text version.
+    terms_accepted_at = Column(DateTime, nullable=True)
+    terms_version = Column(String(50), nullable=True)
     name = Column(String(255), nullable=False)
     slug = Column(String(255), unique=True, index=True, nullable=True)
     specialty = Column(String(255), nullable=False)  # e.g., "General Practice", "Surgery"
@@ -49,6 +52,14 @@ class Vet(BaseModel):
     is_verified = Column(Boolean, default=False, nullable=False)
     email_verified = Column(Boolean, default=False, nullable=False)
     
+    # Which notification emails this vet receives (in-app notifications are always created).
+    email_new_bookings = Column(Boolean, default=True, server_default="true", nullable=False)
+    email_cancellations = Column(Boolean, default=True, server_default="true", nullable=False)
+    email_reviews = Column(Boolean, default=True, server_default="true", nullable=False)
+
+    # Set when the vet closes the account; the row stays so clinical records keep their author.
+    deactivated_at = Column(DateTime, nullable=True)
+
     # Ratings
     rating_average = Column(Numeric(3, 2), default=0.0, nullable=False)
     reviews_count = Column(Integer, default=0, nullable=False)

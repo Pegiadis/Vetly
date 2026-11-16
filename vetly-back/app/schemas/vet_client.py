@@ -137,6 +137,7 @@ class InviteRegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     phone: str | None = Field(None, max_length=50)
     address: str | None = Field(None, max_length=500)
+    accept_terms: bool = False
 
     @field_validator("password")
     @classmethod

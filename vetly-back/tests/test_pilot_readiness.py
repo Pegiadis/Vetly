@@ -96,7 +96,7 @@ def test_registration_does_not_verify_professional(client, db):
     response = client.post('/api/v1/auth/vet/register', json={
         'email':'pending-pilot@example.com', 'password':'TestPass123', 'name':'Pending',
         'specialty':'General', 'license_number':'PILOT-123', 'phone':'2101234567',
-        'address':'Test Street', 'city':'Athens',
+        'address':'Test Street', 'city':'Athens', 'accept_terms':True,
     })
     assert response.status_code == 201, response.text
     vet = db.scalar(select(Vet).where(Vet.email == 'pending-pilot@example.com'))
@@ -125,7 +125,7 @@ def test_closed_pilot_blocks_signup_and_existing_token(client, monkeypatch, owne
     monkeypatch.setattr(settings, 'PILOT_MODE', True)
     monkeypatch.setattr(settings, 'PILOT_ALLOWED_EMAILS', [])
     assert client.post('/api/v1/auth/pet-owner/register', json={
-        'email':'uninvited@example.com', 'password':'TestPass123', 'name':'Uninvited'
+        'email':'uninvited@example.com', 'password':'TestPass123', 'name':'Uninvited', 'accept_terms':True
     }).status_code == 403
     assert client.get('/api/v1/owner/pets', headers=owner_auth_header).status_code == 403
     monkeypatch.setattr(settings, 'PILOT_ALLOWED_EMAILS', [registered_owner.email.upper()])
@@ -198,7 +198,7 @@ def test_invite_requires_email_verification(client, db, registered_vet, monkeypa
                        invite_expires_at=datetime.utcnow() + timedelta(days=1))
     db.add(invite)
     db.commit()
-    payload = {'email': invite.email, 'name': 'Pilot Invite', 'password': 'TestPass123'}
+    payload = {'email': invite.email, 'name': 'Pilot Invite', 'password': 'TestPass123', 'accept_terms': True}
     response = client.post('/api/v1/invite/pilot-regression-invite/register', json=payload)
     assert response.status_code == 200, response.text
     assert 'access_token' not in response.json()

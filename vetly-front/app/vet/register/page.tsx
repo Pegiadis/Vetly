@@ -118,6 +118,7 @@ function VetRegisterForm() {
         phone: formData.phone,
         address: formData.address,
         city: formData.city,
+        accept_terms: acceptedTerms,
       });
 
       rememberPendingNext(nextPath);

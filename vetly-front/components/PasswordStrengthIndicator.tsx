@@ -47,7 +47,7 @@ export default function PasswordStrengthIndicator({ password }: PasswordStrength
           <div
             key={segment}
             className={`h-1 flex-1 rounded-full transition-colors ${
-              segment <= filledSegments ? color : 'bg-slate-200'
+              segment <= filledSegments ? color : 'bg-ink-200'
             }`}
           />
         ))}

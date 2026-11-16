@@ -30,6 +30,7 @@ from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
 from app.utils.slug import generate_unique_slug
 from app.core.pilot import require_pilot_access
+from app.core.legal import consent_fields
 
 
 REGISTER_MESSAGE = "Ελέγξτε το email σας για επιβεβαίωση."
@@ -37,23 +38,19 @@ REGISTER_MESSAGE = "Ελέγξτε το email σας για επιβεβαίωσ
 
 def _send_already_registered_email(to_email: str, user_type: str) -> None:
     """Tell the owner of an existing account that someone tried to register its address."""
-    color = "#0d9488" if user_type == "pet_owner" else "#4f46e5"
+    from app.core.email_layout import button, email_shell, muted, paragraph
+
     app_name = "Vetly" if user_type == "pet_owner" else "Vetly Pro"
     login_url = f"{settings.FRONTEND_URL.rstrip('/')}/{'owner' if user_type == 'pet_owner' else 'vet'}/login"
-    html = (
-        '<!DOCTYPE html><html><head><meta charset="utf-8"></head>'
-        '<body style="margin:0;padding:0;font-family:Arial,sans-serif;background-color:#f8fafc;">'
-        '<div style="max-width:480px;margin:40px auto;background:white;border-radius:16px;overflow:hidden;">'
-        f'<div style="background:{color};padding:32px;text-align:center;"><h1 style="color:white;margin:0;font-size:24px;">{app_name}</h1></div>'
-        '<div style="padding:32px;">'
-        '<h2 style="color:#1e293b;margin:0 0 16px;">Έχετε ήδη λογαριασμό</h2>'
-        '<p style="color:#475569;line-height:1.6;margin:0 0 24px;">'
-        'Κάποιος προσπάθησε να δημιουργήσει νέο λογαριασμό με αυτό το email, αλλά υπάρχει ήδη λογαριασμός. '
-        'Συνδεθείτε με τον κωδικό σας ή χρησιμοποιήστε την επιλογή «Ξεχάσατε τον κωδικό;» αν δεν τον θυμάστε.</p>'
-        f'<p style="margin:0 0 24px;"><a href="{login_url}" style="color:{color};font-weight:bold;">Σύνδεση</a></p>'
-        '<p style="color:#94a3b8;font-size:13px;line-height:1.5;margin:0;">Αν δεν ήσασταν εσείς, αγνοήστε αυτό το email. Ο λογαριασμός σας δεν έχει αλλάξει.</p>'
-        '</div></div></body></html>'
+    body = (
+        paragraph(
+            "Κάποιος προσπάθησε να δημιουργήσει νέο λογαριασμό με αυτό το email, αλλά υπάρχει ήδη λογαριασμός. "
+            "Συνδεθείτε με τον κωδικό σας ή χρησιμοποιήστε την επιλογή «Ξεχάσατε τον κωδικό;» αν δεν τον θυμάστε."
+        )
+        + button(login_url, "Σύνδεση")
+        + muted("Αν δεν ήσασταν εσείς, αγνοήστε αυτό το email. Ο λογαριασμός σας δεν έχει αλλάξει.")
     )
+    html = email_shell("Έχετε ήδη λογαριασμό", body, app_name)
     email_module.send_email(to_email, f"Έχετε ήδη λογαριασμό - {app_name}", html)
 
 
@@ -102,6 +99,8 @@ class AuthService:
 
     def register_vet(self, data: VetRegisterRequest) -> RegisterResponse:
         require_pilot_access(data.email)
+        # Checked before any account lookup so the answer never depends on the email.
+        consent = consent_fields(data.accept_terms)
         response = RegisterResponse(message=REGISTER_MESSAGE, email=data.email)
         existing = self.db.scalar(select(Vet).where(Vet.email == data.email).with_for_update())
 
@@ -113,12 +112,25 @@ class AuthService:
             return response
 
         # A licence number is public professional data, so rejecting a duplicate is acceptable.
-        license_owner = self.db.scalar(select(Vet).where(Vet.license_number == data.license_number))
+        license_owner = self.db.scalar(select(Vet).where(Vet.license_number == data.license_number).with_for_update())
         if license_owner and (existing is None or license_owner.id != existing.id):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="License number already registered",
-            )
+            if license_owner.email_verified or license_owner.is_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="License number already registered",
+                )
+            # The holder never proved access to its email and was never approved, so it
+            # cannot have signed in or created data. Its row is removed instead of being
+            # given a placeholder licence; the new registration takes the number.
+            try:
+                with self.db.begin_nested():
+                    self.db.delete(license_owner)
+                    self.db.flush()
+            except IntegrityError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="License number already registered",
+                )
 
         if existing:
             # An unverified registration never proved access to the address, so a
@@ -133,6 +145,8 @@ class AuthService:
             existing.city = data.city
             existing.description = data.description
             existing.image_url = data.image_url
+            existing.terms_accepted_at = consent["terms_accepted_at"]
+            existing.terms_version = consent["terms_version"]
             vet = existing
         else:
             vet = Vet(
@@ -150,6 +164,7 @@ class AuthService:
                 is_verified=False,
                 is_on_call=False,
                 email_verified=False,
+                **consent,
             )
             self.db.add(vet)
         try:
@@ -205,6 +220,8 @@ class AuthService:
 
     def register_pet_owner(self, data: PetOwnerRegisterRequest) -> RegisterResponse:
         require_pilot_access(data.email)
+        # The mobile register screen shows no terms yet, so only web is held to consent.
+        consent = consent_fields(data.accept_terms, required=data.client != 'mobile')
         response = RegisterResponse(message=REGISTER_MESSAGE, email=data.email)
         existing = self.db.scalar(
             select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()).with_for_update()
@@ -226,6 +243,8 @@ class AuthService:
             existing.name = data.name
             existing.phone = data.phone
             existing.address = data.address
+            existing.terms_accepted_at = consent.get("terms_accepted_at")
+            existing.terms_version = consent.get("terms_version")
             pet_owner = existing
         else:
             pet_owner = PetOwner(
@@ -235,6 +254,7 @@ class AuthService:
                 phone=data.phone,
                 address=data.address,
                 email_verified=False,
+                **consent,
             )
             self.db.add(pet_owner)
         try:

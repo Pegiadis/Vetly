@@ -88,6 +88,7 @@ function OwnerRegisterForm() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
+        accept_terms: acceptedTerms,
       });
 
       rememberPendingNext(nextPath);

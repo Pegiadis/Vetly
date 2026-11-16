@@ -24,6 +24,7 @@ class TestOwnerRegistration:
             "email": "newowner@example.com",
             "password": "secure123",
             "name": "New Owner",
+            "accept_terms": True,
         }
         resp = client.post(self.ENDPOINT, json=payload)
         assert resp.status_code == 201
@@ -36,6 +37,7 @@ class TestOwnerRegistration:
             "email": registered_owner.email,
             "password": "secure123",
             "name": "Duplicate Owner",
+            "accept_terms": True,
         }
         resp = client.post(self.ENDPOINT, json=payload)
         # Same response as a new registration: the form does not reveal existing accounts.
@@ -58,6 +60,7 @@ class TestVetRegistration:
             "phone": "6900000099",
             "address": "Thessaloniki 10",
             "city": "Thessaloniki",
+            "accept_terms": True,
         }
         base.update(overrides)
         return base

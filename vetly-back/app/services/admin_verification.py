@@ -7,6 +7,9 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.core import email as email_module
+from app.core.email_templates import vet_account_approved_email
 from app.db.base import Vet
 
 logger = logging.getLogger(__name__)
@@ -17,7 +20,7 @@ class AdminVerificationService:
         self.db = db
 
     def list_pending(self) -> tuple[list[Vet], int]:
-        condition = Vet.is_verified.is_(False)
+        condition = Vet.is_verified.is_(False) & Vet.deactivated_at.is_(None)
         items = list(self.db.scalars(select(Vet).where(condition).order_by(Vet.created_at.asc())))
         total = self.db.scalar(select(func.count(Vet.id)).where(condition)) or 0
         return items, total
@@ -37,7 +40,18 @@ class AdminVerificationService:
             self.db.commit()
             self.db.refresh(vet)
             logger.info("Admin %s approved vet %s", admin.id, vet.id)
+            self._send_approved_email(vet)
         return vet
+
+    @staticmethod
+    def _send_approved_email(vet: Vet) -> None:
+        """The approval is already committed, so a mail failure must not undo or fail it."""
+        try:
+            login_url = f"{settings.FRONTEND_URL.rstrip('/')}/vet/login"
+            subject, html = vet_account_approved_email(vet.name, login_url)
+            email_module.send_email(vet.email, subject, html)
+        except Exception:
+            logger.exception("Could not send approval email to vet %s", vet.id)
 
     def revoke(self, vet_id: UUID, admin: Vet) -> Vet:
         vet = self._get(vet_id)
