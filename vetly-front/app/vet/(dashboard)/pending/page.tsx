@@ -3,7 +3,7 @@
 import { api } from '@/lib/api';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ClinicButton, ClinicEmptyState, ClinicInput, ClinicListRow, ClinicLoading, ClinicPageHeader, ClinicPagination, ClinicPanel, ClinicStatusBadge, ClinicTextarea } from '@/components/vet/ClinicUI';
-import { approveAppointment, rejectAppointment, useAllAppointments, usePatient, usePatientHistory, VetAppointment } from '@/hooks/useVetData';
+import { approveAppointment, approveAppointmentWithPrice, formatEuro, rejectAppointment, useAllAppointments, usePatient, usePatientHistory, VetAppointment } from '@/hooks/useVetData';
 import { useToast } from '@/components/Toast';
 
 const formatDate = (value: string) => new Date(value).toLocaleDateString('el-GR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -34,8 +34,10 @@ function RequestPanel({ appointment, busy, onClose, onDecide }: {
   appointment: VetAppointment;
   busy: boolean;
   onClose: () => void;
-  onDecide: (action: 'approve' | 'reject', reason?: string) => Promise<void>;
+  onDecide: (action: 'approve' | 'reject', reason?: string, price?: number) => Promise<void>;
 }) {
+  const booked = appointment.price === null || appointment.price === undefined || appointment.price === '' ? null : Number(appointment.price);
+  const [price, setPrice] = useState(booked === null ? '' : String(booked).replace('.', ','));
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -43,12 +45,19 @@ function RequestPanel({ appointment, busy, onClose, onDecide }: {
   const reasonRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { ref.current?.focus({ preventScroll: true }); if (window.innerWidth < 1280) ref.current?.scrollIntoView({ block: 'start' }); }, []);
   useEffect(() => { if (rejecting) reasonRef.current?.focus(); }, [rejecting]);
+  const group = !!appointment.group_id;
   const submit = async (action: 'approve' | 'reject') => {
     setError('');
-    try { await onDecide(action, reason.trim() || undefined); }
+    // Only send a price the vet actually changed; an empty field keeps the booked one.
+    let amount: number | undefined;
+    if (action === 'approve' && !group && price.trim()) {
+      const parsed = Number(price.trim().replace(',', '.'));
+      if (!Number.isFinite(parsed) || parsed < 0) { setError('Γράψτε το ποσό ως αριθμό, π.χ. 35,00.'); return; }
+      if (parsed !== booked) amount = Math.round(parsed * 100) / 100;
+    }
+    try { await onDecide(action, reason.trim() || undefined, amount); }
     catch (err) { setError(err instanceof Error ? err.message : 'Η ενέργεια δεν ολοκληρώθηκε. Δοκιμάστε ξανά.'); }
   };
-  const group = !!appointment.group_id;
   return <div ref={ref} tabIndex={-1} role="region" aria-label="Έλεγχος αιτήματος" aria-busy={busy} className="min-w-0 scroll-mt-20 outline-none xl:sticky xl:top-20 xl:max-h-[calc(100dvh-6rem)] xl:overflow-y-auto">
     <ClinicPanel className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-ink-200 px-5 py-3"><h2 className="text-sm font-semibold">Έλεγχος αιτήματος</h2><ClinicButton variant="ghost" aria-label="Κλείσιμο αιτήματος" disabled={busy} onClick={onClose}>×</ClinicButton></div>
@@ -67,7 +76,7 @@ function RequestPanel({ appointment, busy, onClose, onDecide }: {
           <ClinicTextarea ref={reasonRef} id="request-rejection-reason" rows={3} maxLength={1000} value={reason} disabled={busy} onChange={e => setReason(e.target.value)} placeholder="Σημειώστε τον λόγο απόρριψης…" className="w-full" />
           <p className="text-xs leading-5 text-ink-500">{group ? 'Τα εκκρεμή αιτήματα της ομάδας θα απορριφθούν.' : 'Το αίτημα θα απορριφθεί.'} Ο κηδεμόνας θα ειδοποιηθεί.</p>
           <div className="flex flex-wrap gap-2"><ClinicButton type="submit" variant="danger" disabled={busy}>{busy ? 'Αποθήκευση…' : 'Επιβεβαίωση απόρριψης'}</ClinicButton><ClinicButton type="button" disabled={busy} onClick={() => { setRejecting(false); setError(''); }}>Πίσω</ClinicButton></div>
-        </form> : <><p className="mb-3 text-xs text-ink-500">Με την απόφασή σας θα ειδοποιηθεί ο κηδεμόνας.</p><div className="flex flex-wrap gap-2"><ClinicButton variant="primary" disabled={busy} onClick={() => void submit('approve')}>{busy ? 'Αποθήκευση…' : group ? 'Έγκριση ομάδας' : 'Έγκριση αιτήματος'}</ClinicButton><ClinicButton variant="danger" disabled={busy} onClick={() => { setRejecting(true); setError(''); }}>{group ? 'Απόρριψη ομάδας' : 'Απόρριψη'}</ClinicButton></div></>}
+        </form> : <>{!group && <div className="mb-3"><label htmlFor="request-price" className="block text-sm font-semibold">Τιμή επίσκεψης (€) <span className="font-normal text-ink-500">(προαιρετική)</span></label><ClinicInput id="request-price" type="text" inputMode="decimal" value={price} disabled={busy} onChange={e => setPrice(e.target.value)} placeholder="π.χ. 35,00" className="mt-1 w-32" /><p className="mt-1 text-xs leading-5 text-ink-500">{booked === null ? 'Η υπηρεσία δεν έχει τιμή. Μπορείτε να ορίσετε μία τώρα ή στην ολοκλήρωση.' : `Τιμή καταλόγου: ${formatEuro(booked)}. Αλλάξτε τη μόνο αν συμφωνήσατε κάτι άλλο.`}</p></div>}<p className="mb-3 text-xs text-ink-500">Με την απόφασή σας θα ειδοποιηθεί ο κηδεμόνας.</p><div className="flex flex-wrap gap-2"><ClinicButton variant="primary" disabled={busy} onClick={() => void submit('approve')}>{busy ? 'Αποθήκευση…' : group ? 'Έγκριση ομάδας' : 'Έγκριση αιτήματος'}</ClinicButton><ClinicButton variant="danger" disabled={busy} onClick={() => { setRejecting(true); setError(''); }}>{group ? 'Απόρριψη ομάδας' : 'Απόρριψη'}</ClinicButton></div></>}
       </div>
     </ClinicPanel>
   </div>;
@@ -111,13 +120,13 @@ export default function VetPendingPage() {
     return Array.from(result.entries());
   }, [appointments]);
   const close = () => { setSelected(null); requestAnimationFrame(() => trigger.current?.focus()); };
-  const decide = async (action: 'approve' | 'reject', reason?: string) => {
+  const decide = async (action: 'approve' | 'reject', reason?: string, price?: number) => {
     if (!selected || actionLock.current) return;
     actionLock.current = true;
     setBusy(true);
     try {
       // Both endpoints already cascade to pending group members: submit once.
-      if (action === 'approve') await approveAppointment(selected.id);
+      if (action === 'approve') await (price === undefined ? approveAppointment(selected.id) : approveAppointmentWithPrice(selected.id, price));
       else await rejectAppointment(selected.id, reason);
       const removedOnPage = appointments.filter(a => a.id === selected.id || (selected.group_id && a.group_id === selected.group_id)).length;
       close();
