@@ -171,8 +171,7 @@ class AuthService:
 
     def register_pet_owner(self, data: PetOwnerRegisterRequest) -> RegisterResponse:
         require_pilot_access(data.email)
-        # The mobile register screen shows no terms yet, so only web is held to consent.
-        consent = consent_fields(data.accept_terms, required=data.client != 'mobile')
+        consent = consent_fields(data.accept_terms)
         response = RegisterResponse(message=REGISTER_MESSAGE, email=data.email)
         existing = self.db.scalar(
             select(PetOwner).where(func.lower(PetOwner.email) == data.email.casefold()).with_for_update()

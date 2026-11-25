@@ -8,14 +8,8 @@ TERMS_VERSION = "2026-11-10-draft"
 TERMS_REQUIRED_MESSAGE = "Πρέπει να αποδεχτείτε τους Όρους Χρήσης και την Πολιτική Απορρήτου για να δημιουργήσετε λογαριασμό."
 
 
-def consent_fields(accept_terms: bool, *, required: bool = True) -> dict:
-    """Column values recording consent. Raises 400 when consent is required but not given.
-
-    `required=False` is only for the mobile app, whose register screen does not show the
-    terms yet: its accounts are stored without consent (NULL) instead of a false record.
-    """
-    if accept_terms:
-        return {"terms_accepted_at": datetime.utcnow(), "terms_version": TERMS_VERSION}
-    if required:
+def consent_fields(accept_terms: bool) -> dict:
+    """Column values recording consent. Raises 400 when consent is not given (web and mobile alike)."""
+    if not accept_terms:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, TERMS_REQUIRED_MESSAGE)
-    return {}
+    return {"terms_accepted_at": datetime.utcnow(), "terms_version": TERMS_VERSION}

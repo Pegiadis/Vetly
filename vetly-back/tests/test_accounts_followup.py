@@ -54,11 +54,10 @@ def test_owner_register_requires_terms_on_web(client, db):
     assert owner.terms_version == TERMS_VERSION and owner.terms_accepted_at is not None
 
 
-def test_mobile_owner_register_is_lenient_and_stores_no_false_consent(client, db):
+def test_mobile_owner_register_requires_terms_too(client, db):
     resp = client.post(f"{API}/auth/pet-owner/register", json=owner_payload(client="mobile", accept_terms=False))
-    assert resp.status_code == 201
-    owner = db.scalar(select(PetOwner).where(PetOwner.email == "fresh-owner@example.com"))
-    assert owner.terms_accepted_at is None and owner.terms_version is None
+    assert resp.status_code == 400
+    assert db.scalar(select(PetOwner).where(PetOwner.email == "fresh-owner@example.com")) is None
 
 
 def test_mobile_owner_register_records_consent_when_sent(client, db):

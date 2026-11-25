@@ -9,7 +9,7 @@ AUTH = '/api/v1/auth'
 def test_mobile_registration_and_verification(client, db, monkeypatch):
     emails = []
     monkeypatch.setattr('app.services.auth.send_verification_email', lambda *args: emails.append(args))
-    data = {'name': 'Mobile Test', 'email': 'mobile-registration@example.com', 'password': 'MobileTest123', 'client': 'mobile'}
+    data = {'name': 'Mobile Test', 'email': 'mobile-registration@example.com', 'password': 'MobileTest123', 'client': 'mobile', 'accept_terms': True}
     assert client.post(AUTH + '/pet-owner/register', json=data).status_code == 201
     assert emails[0][3] == 'mobile'
     login = {key: data[key] for key in ['email', 'password']}
