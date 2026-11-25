@@ -1,138 +1,186 @@
 'use client';
 
-import { useEffect } from 'react';
-import L from 'leaflet';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
+import { useEffect, useRef } from 'react';
+import { LngLatBounds, Map as MapLibreMap, Marker, NavigationControl, Popup, setWorkerUrl } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 
-// Fix Leaflet default marker icon issue in Next.js
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
+// Copied into public/ by scripts/copy-map-worker.mjs (bundling moves the library away from its worker file).
+setWorkerUrl('/vendor/maplibre-gl-worker.mjs');
 
-const selectedIcon = new L.Icon({
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [30, 46],
-  iconAnchor: [15, 46],
-  popupAnchor: [0, -46],
-  shadowSize: [41, 41],
-  className: 'selected-marker',
-});
+/*
+ * Vector maps with MapLibre. Tiles come from OpenFreeMap (free, no key, commercial use allowed;
+ * OpenStreetMap data). To self-host later (e.g. Protomaps), only MAP_STYLE changes.
+ */
+const MAP_STYLE = process.env.NEXT_PUBLIC_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/positron';
 
-const defaultIcon = new L.Icon({
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-// Default center: Thessaloniki
-const THESSALONIKI_CENTER: [number, number] = [40.6301, 22.9474];
+// Default center: Thessaloniki, as before. [lng, lat] order for MapLibre.
+const THESSALONIKI: [number, number] = [22.9474, 40.6301];
 const DEFAULT_ZOOM = 12;
 
-// --- VetMapPicker: for vet settings ---
+// Clinic palette (globals.css).
+const CLINIC_600 = '#006064';
+const CLINIC_100 = '#def5ed';
+const ON_CALL = '#047857';
 
-function ClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click(e) {
-      onClick(e.latlng.lat, e.latlng.lng);
-    },
+/** Softens the base style toward the Vetly palette. Layer ids differ per style, so missing ones are skipped. */
+function applyPalette(map: MapLibreMap) {
+  const paint: [string, Parameters<MapLibreMap['setPaintProperty']>[1], string][] = [
+    ['water', 'fill-color', '#bfe1dd'],
+    ['park', 'fill-color', '#dcefe2'],
+    ['landcover_wood', 'fill-color', '#dcefe2'],
+    ['background', 'background-color', '#f6f8f7'],
+  ];
+  for (const [layer, property, value] of paint) {
+    if (map.getLayer(layer)) {
+      try { map.setPaintProperty(layer, property, value); } catch { /* property not used by this layer */ }
+    }
+  }
+  // Labels in Greek only: the base style shows the local name plus a Latin transliteration.
+  for (const layer of map.getStyle().layers ?? []) {
+    if (layer.type === 'symbol' && map.getLayoutProperty(layer.id, 'text-field') !== undefined) {
+      map.setLayoutProperty(layer.id, 'text-field', ['coalesce', ['get', 'name:el'], ['get', 'name'], ['get', 'name:latin']]);
+    }
+  }
+}
+
+function createMap(container: HTMLElement, center: [number, number], zoom: number) {
+  const map = new MapLibreMap({
+    container,
+    style: MAP_STYLE,
+    center,
+    zoom,
+    attributionControl: { compact: true },
+    cooperativeGestures: true, // one finger scrolls the page on phones; two fingers move the map
   });
-  return null;
+  map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+  map.on('style.load', () => applyPalette(map));
+  return map;
 }
 
-interface VetMapPickerProps {
-  lat: number | null;
-  lng: number | null;
-  onChange: (lat: number, lng: number) => void;
+/** A round pin in the clinic colour. Built with the DOM so vet names never become HTML. */
+function pinElement(color: string, label: string) {
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'vetly-pin';
+  el.setAttribute('aria-label', label);
+  el.style.setProperty('--pin', color);
+  el.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8.5 7.5a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm7 0a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5ZM5 11.25a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5Zm14 0a1.75 1.75 0 1 1 0-3.5 1.75 1.75 0 0 1 0 3.5ZM12 10c2.6 0 5.25 3.4 5.25 5.9 0 1.7-1.3 2.6-2.7 2.6-.95 0-1.6-.45-2.55-.45s-1.6.45-2.55.45c-1.4 0-2.7-.9-2.7-2.6C6.75 13.4 9.4 10 12 10Z"/></svg>';
+  return el;
 }
 
-export function VetMapPickerInner({ lat, lng, onChange }: VetMapPickerProps) {
-  const center: [number, number] = lat && lng ? [lat, lng] : THESSALONIKI_CENTER;
-
-  return (
-    <MapContainer center={center} zoom={lat && lng ? 15 : DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }} attributionControl={false}>
-      <InvalidateSize />
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <ClickHandler onClick={onChange} />
-      {lat && lng && <Marker position={[lat, lng]} />}
-    </MapContainer>
-  );
-}
-
-// --- VetSearchMap: for owner booking ---
-
-interface VetMarker {
-  id: string;
+interface PopupVet {
   name: string;
   specialty: string;
+  address: string | null;
   rating_average: number;
   reviews_count: number;
-  address: string | null;
   lat: number;
   lng: number;
+  phone?: string;
 }
 
-function InvalidateSize() {
-  const map = useMap();
-  useEffect(() => {
-    const timer = setTimeout(() => map.invalidateSize(), 100);
-    return () => clearTimeout(timer);
-  }, [map]);
-  return null;
+function popupContent(vet: PopupVet) {
+  const root = document.createElement('div');
+  root.className = 'vetly-popup';
+  const line = (tag: string, text: string, className: string) => {
+    const el = document.createElement(tag);
+    el.className = className;
+    el.textContent = text;
+    root.appendChild(el);
+    return el;
+  };
+  line('strong', vet.name, 'vetly-popup-title');
+  line('span', vet.specialty, 'vetly-popup-muted');
+  if (vet.address) line('span', vet.address, 'vetly-popup-muted');
+  if (vet.reviews_count > 0) {
+    line('span', `★ ${Number(vet.rating_average).toFixed(1).replace('.', ',')} · ${vet.reviews_count} ${vet.reviews_count === 1 ? 'αξιολόγηση' : 'αξιολογήσεις'}`, 'vetly-popup-text');
+  }
+  const links = document.createElement('div');
+  links.className = 'vetly-popup-links';
+  if (vet.phone) {
+    const call = document.createElement('a');
+    call.href = `tel:${vet.phone}`;
+    call.textContent = `Κλήση ${vet.phone}`;
+    links.appendChild(call);
+  }
+  const directions = document.createElement('a');
+  directions.href = `https://www.google.com/maps/dir/?api=1&destination=${vet.lat},${vet.lng}`;
+  directions.target = '_blank';
+  directions.rel = 'noopener noreferrer';
+  directions.textContent = 'Οδηγίες';
+  links.appendChild(directions);
+  root.appendChild(links);
+  return root;
 }
 
-function FlyToSelected({ selectedId, markers }: { selectedId: string | null; markers: VetMarker[] }) {
-  const map = useMap();
+// --- Markers for a list of vets (booking and on-call) ---
+
+interface MarkerVet extends PopupVet { id: string }
+
+function VetMarkersMap<T extends MarkerVet>({ vets, selectedVetId, onSelectVet, color }: {
+  vets: T[]; selectedVetId: string | null; onSelectVet: (id: string) => void; color: string;
+}) {
+  const container = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const markers = useRef(new Map<string, { marker: Marker; el: HTMLElement }>());
+  const select = useRef(onSelectVet);
+  select.current = onSelectVet;
 
   useEffect(() => {
-    if (!selectedId) return;
-    const marker = markers.find(m => m.id === selectedId);
-    if (marker) {
-      map.flyTo([marker.lat, marker.lng], 14, { duration: 0.5 });
+    if (!container.current) return;
+    const map = createMap(container.current, THESSALONIKI, DEFAULT_ZOOM);
+    mapRef.current = map;
+    const existing = markers.current;
+    return () => { existing.clear(); map.remove(); mapRef.current = null; };
+  }, []);
+
+  // Rebuild markers only when the vets or their positions change. Parents pass a new array on every
+  // render (e.g. after a selection); rebuilding then would close the popup the click just opened.
+  const vetsKey = vets.map(vet => `${vet.id}:${vet.lat}:${vet.lng}`).join('|');
+  const latestVets = useRef(vets);
+  latestVets.current = vets;
+  useEffect(() => {
+    const vets = latestVets.current;
+    const map = mapRef.current;
+    if (!map) return;
+    markers.current.forEach(({ marker }) => marker.remove());
+    markers.current.clear();
+    const bounds = new LngLatBounds();
+    for (const vet of vets) {
+      const el = pinElement(color, vet.name);
+      const popup = new Popup({ offset: 22, closeButton: false, maxWidth: '240px' }).setDOMContent(popupContent(vet));
+      const marker = new Marker({ element: el, anchor: 'bottom' }).setLngLat([vet.lng, vet.lat]).setPopup(popup).addTo(map);
+      el.addEventListener('click', () => select.current(vet.id));
+      markers.current.set(vet.id, { marker, el });
+      bounds.extend([vet.lng, vet.lat]);
     }
-  }, [selectedId, markers, map]);
+    if (vets.length === 1) map.jumpTo({ center: [vets[0].lng, vets[0].lat], zoom: 14 });
+    else if (vets.length > 1) map.fitBounds(bounds, { padding: 48, maxZoom: 14, duration: 0 });
+  }, [vetsKey, color]);
 
-  return null;
+  // Highlight and fly to the selected vet.
+  useEffect(() => {
+    markers.current.forEach(({ el }, id) => el.classList.toggle('is-selected', id === selectedVetId));
+    const entry = selectedVetId ? markers.current.get(selectedVetId) : undefined;
+    if (entry && mapRef.current) mapRef.current.flyTo({ center: entry.marker.getLngLat(), zoom: 14, duration: 500 });
+  }, [selectedVetId, vetsKey]);
+
+  return <div ref={container} className="vetly-map h-full w-full overflow-hidden rounded-xl" />;
 }
+
+// --- VetSearchMap: owner booking ---
 
 interface VetSearchMapProps {
-  vets: VetMarker[];
+  vets: MarkerVet[];
   selectedVetId: string | null;
   onSelectVet: (id: string) => void;
 }
 
-// --- OnCallMap: for owner emergency page ---
+export function VetSearchMapInner(props: VetSearchMapProps) {
+  return <VetMarkersMap {...props} color={CLINIC_600} />;
+}
 
-const onCallIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-
-const selectedOnCallIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  iconSize: [30, 46],
-  iconAnchor: [15, 46],
-  popupAnchor: [0, -46],
-  shadowSize: [41, 41],
-  className: 'selected-marker',
-});
+// --- OnCallMap: owner emergency page ---
 
 export interface OnCallVetMarker {
   id: string;
@@ -152,108 +200,53 @@ interface OnCallMapProps {
   onSelectVet: (id: string) => void;
 }
 
-export function OnCallMapInner({ vets, selectedVetId, onSelectVet }: OnCallMapProps) {
-  return (
-    <MapContainer center={THESSALONIKI_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }} attributionControl={false}>
-      <InvalidateSize />
-      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      <FlyToSelected selectedId={selectedVetId} markers={vets} />
-      {vets.map((vet) => (
-        <Marker
-          key={vet.id}
-          position={[vet.lat, vet.lng]}
-          icon={selectedVetId === vet.id ? selectedOnCallIcon : onCallIcon}
-          eventHandlers={{ click: () => onSelectVet(vet.id) }}
-        >
-          <Popup>
-            <div style={{ minWidth: 170 }}>
-              <strong style={{ fontSize: 14 }}>{vet.name}</strong>
-              <br />
-              <span style={{ fontSize: 12, color: '#64748b' }}>{vet.specialty}</span>
-              <br />
-              {vet.address && (
-                <>
-                  <span style={{ fontSize: 11, color: '#94a3b8' }}>{vet.address}</span>
-                  <br />
-                </>
-              )}
-              {vet.phone && (
-                <a
-                  href={`tel:${vet.phone}`}
-                  style={{ fontSize: 12, color: '#16a34a', textDecoration: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 4 }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                  {vet.phone}
-                </a>
-              )}
-              <br />
-              <span style={{ fontSize: 12 }}>
-                {Number(vet.rating_average).toFixed(1)} ({vet.reviews_count})
-              </span>
-              <br />
-              <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${vet.lat},${vet.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontSize: 12, color: '#3b82f6', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 4 }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                Οδηγίες
-              </a>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-    </MapContainer>
-  );
+export function OnCallMapInner(props: OnCallMapProps) {
+  return <VetMarkersMap {...props} color={ON_CALL} />;
 }
 
-// --- VetSearchMap: for owner booking ---
+// --- VetMapPicker: vet settings, click to place the clinic ---
 
-export function VetSearchMapInner({ vets, selectedVetId, onSelectVet }: VetSearchMapProps) {
-  return (
-    <MapContainer center={THESSALONIKI_CENTER} zoom={DEFAULT_ZOOM} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }} attributionControl={false}>
-      <InvalidateSize />
-      <TileLayer
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
-      <FlyToSelected selectedId={selectedVetId} markers={vets} />
-      {vets.map((vet) => (
-        <Marker
-          key={vet.id}
-          position={[vet.lat, vet.lng]}
-          icon={selectedVetId === vet.id ? selectedIcon : defaultIcon}
-          eventHandlers={{ click: () => onSelectVet(vet.id) }}
-        >
-          <Popup>
-            <div style={{ minWidth: 150 }}>
-              <strong style={{ fontSize: 14 }}>{vet.name}</strong>
-              <br />
-              <span style={{ fontSize: 12, color: '#64748b' }}>{vet.specialty}</span>
-              <br />
-              {vet.address && (
-                <>
-                  <span style={{ fontSize: 11, color: '#94a3b8' }}>{vet.address}</span>
-                  <br />
-                </>
-              )}
-              <span style={{ fontSize: 12 }}>
-                ⭐ {Number(vet.rating_average).toFixed(1)} ({vet.reviews_count})
-              </span>
-              <br />
-              <a
-                href={`https://www.google.com/maps/dir/?api=1&destination=${vet.lat},${vet.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontSize: 12, color: '#3b82f6', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 4 }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                Οδηγίες Google Maps
-              </a>
-            </div>
-          </Popup>
-        </Marker>
-      ))}
-    </MapContainer>
-  );
+interface VetMapPickerProps {
+  lat: number | null;
+  lng: number | null;
+  onChange: (lat: number, lng: number) => void;
+}
+
+export function VetMapPickerInner({ lat, lng, onChange }: VetMapPickerProps) {
+  const container = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const marker = useRef<Marker | null>(null);
+  const change = useRef(onChange);
+  change.current = onChange;
+
+  useEffect(() => {
+    if (!container.current) return;
+    const placed = lat != null && lng != null;
+    const map = createMap(container.current, placed ? [lng, lat] : THESSALONIKI, placed ? 15 : DEFAULT_ZOOM);
+    map.on('click', event => change.current(event.lngLat.lat, event.lngLat.lng));
+    map.getCanvas().style.cursor = 'crosshair';
+    mapRef.current = map;
+    return () => { map.remove(); mapRef.current = null; marker.current = null; };
+    // The map is created once; later position changes move the marker below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (lat == null || lng == null) { marker.current?.remove(); marker.current = null; return; }
+    if (!marker.current) {
+      const el = pinElement(CLINIC_600, 'Τοποθεσία ιατρείου');
+      el.classList.add('is-selected');
+      marker.current = new Marker({ element: el, anchor: 'bottom', draggable: true }).setLngLat([lng, lat]).addTo(map);
+      marker.current.on('dragend', () => {
+        const point = marker.current?.getLngLat();
+        if (point) change.current(point.lat, point.lng);
+      });
+    } else {
+      marker.current.setLngLat([lng, lat]);
+    }
+  }, [lat, lng]);
+
+  return <div ref={container} className="vetly-map h-full w-full overflow-hidden rounded-xl" style={{ background: CLINIC_100 }} />;
 }

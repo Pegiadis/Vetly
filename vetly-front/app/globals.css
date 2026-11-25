@@ -47,30 +47,39 @@
   --control-700: #004e52;
 }
 
-/* Fix Leaflet tiles broken by Tailwind's base img styles */
-.leaflet-container img {
-  max-width: none !important;
-  max-height: none !important;
-}
+/* MapLibre maps (components/MapComponents.tsx) */
+.vetly-map .maplibregl-canvas { outline: none; }
+.vetly-map .maplibregl-ctrl-group { border-radius: 10px; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12); }
+.vetly-map .maplibregl-ctrl-attrib { font-size: 10px; }
 
-.leaflet-container {
-  width: 100%;
-  height: 100%;
+.vetly-pin {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--pin, #006064);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.28);
+  cursor: pointer;
+  transition: width 0.15s, height 0.15s, box-shadow 0.15s;
 }
+.vetly-pin svg { width: 16px; height: 16px; transform: rotate(45deg); }
+.vetly-pin:focus-visible { outline: 3px solid #85dbc3; outline-offset: 2px; }
+.vetly-pin.is-selected { width: 40px; height: 40px; box-shadow: 0 0 0 4px rgba(0, 96, 100, 0.25), 0 3px 8px rgba(15, 23, 42, 0.3); }
+.vetly-pin.is-selected svg { width: 19px; height: 19px; }
 
-/* Fix Leaflet controls z-index under sticky/fixed elements */
-.leaflet-pane {
-  z-index: 1;
-}
-.leaflet-top,
-.leaflet-bottom {
-  z-index: 2;
-}
-
-/* Selected marker pulse effect */
-.selected-marker {
-  filter: hue-rotate(120deg) saturate(1.5);
-}
+.maplibregl-popup-content { border-radius: 12px; padding: 12px 14px; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16); font-family: inherit; }
+.vetly-popup { display: flex; flex-direction: column; gap: 2px; min-width: 160px; }
+.vetly-popup-title { font-size: 14px; color: #1f2937; }
+.vetly-popup-muted { font-size: 12px; color: #5c6c68; }
+.vetly-popup-text { font-size: 12px; color: #374b46; margin-top: 2px; }
+.vetly-popup-links { display: flex; gap: 12px; margin-top: 6px; }
+.vetly-popup-links a { font-size: 12px; font-weight: 600; color: #006064; text-decoration: none; }
+.vetly-popup-links a:hover { text-decoration: underline; }
 
 /* Toast slide-in animation */
 @keyframes slide-in-right {
