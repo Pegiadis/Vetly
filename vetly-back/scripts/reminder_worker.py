@@ -5,6 +5,7 @@ from datetime import datetime
 from threading import Event
 
 from app.db.session import SessionLocal
+from app.services.appointment_reminders import send_appointment_reminders
 from app.services.reminder import ReminderService
 from app.services.push import create_medication_notifications, process_push
 from app.services.purge import purge_deleted_pets
@@ -36,6 +37,9 @@ def main():
             # Fail visibly so the container restart policy and monitoring can act.
             count = ReminderService(db).process_due_reminders()
             logging.info("Created %d in-app reminders", count)
+            reminded = send_appointment_reminders(db)
+            if reminded:
+                logging.info("Sent %d appointment reminders", reminded)
             create_medication_notifications(db)
             process_push(db)
             last_purge_day = run_daily_purge(db, last_purge_day)
