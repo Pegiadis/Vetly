@@ -253,8 +253,12 @@ export function useOnCallVets() {
 
   useEffect(() => {
     fetchOnCallVets();
-    const interval = setInterval(fetchOnCallVets, 30000);
-    return () => clearInterval(interval);
+    // Refresh every 30 seconds while the tab is visible; a hidden tab asks nothing and
+    // catches up the moment it is shown again.
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchOnCallVets(); }, 30000);
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchOnCallVets(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { clearInterval(interval); document.removeEventListener('visibilitychange', onVisible); };
   }, [fetchOnCallVets]);
 
   return { vets, loading, error, refetch: fetchOnCallVets };
