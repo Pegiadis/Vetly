@@ -1,7 +1,32 @@
 {
   "build": {
-    "development": { "developmentClient": true, "distribution": "internal", "node": "24.22.1" },
-    "preview": { "distribution": "internal", "node": "24.22.1" },
-    "production": { "autoIncrement": true, "node": "24.22.1" }
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "node": "24.22.1"
+    },
+    "preview": {
+      "distribution": "internal",
+      "node": "24.22.1",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://vetly.gr/api/v1",
+        "EXPO_PUBLIC_WEB_URL": "https://vetly.gr"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "node": "24.22.1",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://vetly.gr/api/v1",
+        "EXPO_PUBLIC_WEB_URL": "https://vetly.gr"
+      }
+    }
+  },
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "submit": {
+    "production": {}
   }
 }
