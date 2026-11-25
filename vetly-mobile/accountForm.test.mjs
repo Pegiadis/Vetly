@@ -2,9 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { passwordError, profilePayload, parseAccountLink } from './accountForm.mjs';
 
-test('passwords respect matching, strength and bcrypt UTF-8 limits', () => {
+test('passwords respect matching, the 8-character minimum and bcrypt UTF-8 limits', () => {
   assert.equal(passwordError('Φροντίδα123', 'Φροντίδα123'), '');
-  for (const value of ['short1', 'onlyletterslong', '12345678901', 'α'.repeat(36) + '1']) assert.ok(passwordError(value, value));
+  assert.equal(passwordError('12345678', '12345678'), ''); // the API accepts it, so the app does too
+  for (const value of ['short1', '1234567', 'α'.repeat(36) + '1']) assert.ok(passwordError(value, value));
   assert.ok(passwordError('Goodpassword123', 'Different123'));
 });
 test('profile trims fields and supports explicitly clearing optional contact details', () => {

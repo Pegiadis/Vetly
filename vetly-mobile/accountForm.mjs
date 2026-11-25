@@ -3,9 +3,8 @@ export function passwordError(password, repeat) {
   // bcrypt accepts at most 72 UTF-8 bytes, including non-Latin passwords.
   const bytes = [...password].reduce((n, c) => n + (c.codePointAt(0) <= 0x7f ? 1 : c.codePointAt(0) <= 0x7ff ? 2 : c.codePointAt(0) <= 0xffff ? 3 : 4), 0);
   if (bytes > 72) return 'Ο κωδικός είναι πολύ μεγάλος. Χρησιμοποίησε λιγότερους χαρακτήρες.';
-  if ([...password].length < 10 || !/\p{L}/u.test(password) || !/[0-9]/.test(password)) {
-    return 'Χρησιμοποίησε τουλάχιστον 10 χαρακτήρες, με γράμματα και αριθμούς.';
-  }
+  // Same rule as the web and the API: at least 8 characters.
+  if ([...password].length < 8) return 'Ο κωδικός χρειάζεται τουλάχιστον 8 χαρακτήρες.';
   return '';
 }
 export function profilePayload(form) {
