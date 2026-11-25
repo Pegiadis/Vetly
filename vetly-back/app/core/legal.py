@@ -3,7 +3,7 @@ from datetime import datetime
 
 from fastapi import HTTPException, status
 
-TERMS_VERSION = "2026-11-10-draft"
+TERMS_VERSION = "2026-11-25-draft"
 
 TERMS_REQUIRED_MESSAGE = "Πρέπει να αποδεχτείτε τους Όρους Χρήσης και την Πολιτική Απορρήτου για να δημιουργήσετε λογαριασμό."
 
