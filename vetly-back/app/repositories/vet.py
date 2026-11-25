@@ -8,8 +8,16 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session
 
-from app.db.base import Vet, Appointment
+from app.db.base import Vet, Appointment, ServiceType
 from app.models.appointment import AppointmentStatus
+
+# Which clinics appear in lists and searches: active, not closed, and with at least one
+# service an owner can book. A clinic still setting up is reachable only by its own link.
+LISTED = (
+    Vet.is_verified.is_(True),
+    Vet.deactivated_at.is_(None),
+    select(ServiceType.id).where(ServiceType.vet_id == Vet.id, ServiceType.is_active.is_(True)).exists(),
+)
 
 
 class VetRepository:
@@ -25,10 +33,10 @@ class VetRepository:
 
     def get_all(self, skip: int = 0, limit: int = 10) -> tuple[list[Vet], int]:
         """Get all vets with pagination"""
-        query = select(Vet).where(Vet.is_verified.is_(True), Vet.deactivated_at.is_(None)).offset(skip).limit(limit)
+        query = select(Vet).where(*LISTED).offset(skip).limit(limit)
         vets = self.db.scalars(query).all()
 
-        total = self.db.scalar(select(func.count(Vet.id)).where(Vet.is_verified.is_(True), Vet.deactivated_at.is_(None)))
+        total = self.db.scalar(select(func.count(Vet.id)).where(*LISTED))
 
         return list(vets), total or 0
 
@@ -39,11 +47,11 @@ class VetRepository:
 
     def get_by_city(self, city: str, skip: int = 0, limit: int = 10) -> tuple[list[Vet], int]:
         """Get vets filtered by city"""
-        query = select(Vet).where(Vet.city.ilike(f"%{city}%"), Vet.is_verified.is_(True), Vet.deactivated_at.is_(None)).offset(skip).limit(limit)
+        query = select(Vet).where(Vet.city.ilike(f"%{city}%"), *LISTED).offset(skip).limit(limit)
         vets = self.db.scalars(query).all()
 
         total = self.db.scalar(
-            select(func.count(Vet.id)).where(Vet.city.ilike(f"%{city}%"), Vet.is_verified.is_(True), Vet.deactivated_at.is_(None))
+            select(func.count(Vet.id)).where(Vet.city.ilike(f"%{city}%"), *LISTED)
         )
 
         return list(vets), total or 0
@@ -54,10 +62,10 @@ class VetRepository:
             Vet.specialty.ilike(f"%{query_str}%")
         )
 
-        query = select(Vet).where(search_filter, Vet.is_verified.is_(True), Vet.deactivated_at.is_(None)).offset(skip).limit(limit)
+        query = select(Vet).where(search_filter, *LISTED).offset(skip).limit(limit)
         vets = self.db.scalars(query).all()
 
-        total = self.db.scalar(select(func.count(Vet.id)).where(search_filter, Vet.is_verified.is_(True), Vet.deactivated_at.is_(None)))
+        total = self.db.scalar(select(func.count(Vet.id)).where(search_filter, *LISTED))
 
         return list(vets), total or 0
 

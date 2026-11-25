@@ -60,7 +60,7 @@ function VetsList() {
       setNotice({ kind: 'ok', text: `Ο λογαριασμός του ${vet.name} δημιουργήθηκε και στάλθηκε email στο ${vet.email} για να ορίσει κωδικό.` });
       void list.load();
     }} />}
-    <ClinicPageHeader title="Κτηνίατροι" description="Οι λογαριασμοί κτηνιάτρων δημιουργούνται από εδώ ή από ένα αίτημα demo." actions={<ClinicButton variant="primary" onClick={() => { setNotice(null); setCreating(true); }}>Νέος κτηνίατρος</ClinicButton>} />
+    <ClinicPageHeader title="Κτηνίατροι" description="Οι λογαριασμοί δημιουργούνται από εδώ ή από ένα αίτημα demo. Το ιατρείο εμφανίζεται στους κηδεμόνες όταν ο κτηνίατρος ορίσει κωδικό και προσθέσει υπηρεσίες." actions={<ClinicButton variant="primary" onClick={() => { setNotice(null); setCreating(true); }}>Νέος κτηνίατρος</ClinicButton>} />
     {notice && <p role={notice.kind === 'error' ? 'alert' : 'status'} className={`mb-3 break-words rounded-[10px] px-3 py-2 text-sm ${notice.kind === 'error' ? 'bg-red-50 text-red-700' : 'bg-clinic-50 text-clinic-800'}`}>{notice.text}</p>}
     <ClinicPanel className="overflow-hidden">
       <ClinicFilterTabs label="Κατάσταση" options={FILTERS} value={list.status} onChange={status => list.navigate({ status })} />
@@ -87,7 +87,7 @@ function VetsList() {
               <ClinicTableCell className="text-right"><div className="flex justify-end gap-2">
                 {vet.status === 'active' && vet.slug && <a href={`/vets/${vet.slug}`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-8 items-center rounded-[10px] px-3 text-[13px] font-medium text-ink-700 hover:bg-black/[0.06]">Προφίλ</a>}
                 {vet.status === 'invited' && <ClinicButton disabled={!!busyId} onClick={() => act(vet, 'resend-invite')}>{busy ? 'Περιμένετε…' : 'Νέο email'}</ClinicButton>}
-                {(vet.status === 'active' || vet.status === 'invited') && <ClinicButton variant="danger" disabled={!!busyId} onClick={() => act(vet, 'suspend')}>Απενεργοποίηση</ClinicButton>}
+                {vet.status === 'active' && <ClinicButton variant="danger" disabled={!!busyId} onClick={() => act(vet, 'suspend')}>Απενεργοποίηση</ClinicButton>}
                 {vet.status === 'suspended' && <ClinicButton disabled={!!busyId} onClick={() => act(vet, 'reactivate')}>{busy ? 'Περιμένετε…' : 'Ενεργοποίηση'}</ClinicButton>}
               </div></ClinicTableCell>
             </tr>;

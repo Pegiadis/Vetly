@@ -117,14 +117,16 @@ class AuthService:
     def activate_vet(self, data: VetActivateRequest) -> VerifyEmailResponse:
         consent = consent_fields(data.accept_terms)
         vet = self._vet_from_activation(data.token, lock=True)
+        if vet.password_hash:
+            # Already activated: a password is changed from the settings or the reset link, not from an invite.
+            raise HTTPException(400, "Ο λογαριασμός είναι ήδη ενεργός. Συνδεθείτε με τον κωδικό σας.")
         vet.password_hash = get_password_hash(data.password)
         vet.email_verified = True  # the link reached this inbox
+        vet.is_verified = True  # from now on the clinic is shown to owners and can be booked
         vet.auth_version += 1
         vet.terms_accepted_at = consent["terms_accepted_at"]
         vet.terms_version = consent["terms_version"]
         self.db.commit()
-        if not vet.is_verified:
-            raise HTTPException(403, VET_SUSPENDED)
         access_token = create_access_token(subject=str(vet.id), token_type="vet", version=vet.auth_version)
         return VerifyEmailResponse(access_token=access_token, message="Ο κωδικός ορίστηκε. Καλώς ήρθατε στο Vetly Pro.")
 

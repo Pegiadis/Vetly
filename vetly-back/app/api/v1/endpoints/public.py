@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.core.rate_limit import register_limit
+from app.repositories.vet import LISTED
 from app.schemas.demo_request import DemoRequestCreate
 from app.services.demo_requests import DemoRequestService
 from app.models.review import Review
@@ -97,7 +98,7 @@ def list_public_vets(
     query = select(Vet)
     count_query = select(func.count(Vet.id))
 
-    filters = [Vet.is_verified.is_(True), Vet.deactivated_at.is_(None)]
+    filters = [*LISTED]
     if city:
         filters.append(Vet.city.ilike(f"%{city}%"))
     if specialty:

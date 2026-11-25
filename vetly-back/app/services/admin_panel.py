@@ -51,9 +51,9 @@ def _search(term: str | None, *columns):
 def _vet_status(vet: Vet) -> str:
     if vet.deactivated_at is not None:
         return "closed"
-    if not vet.is_verified:
-        return "suspended"
-    return "active" if vet.password_hash and vet.email_verified else "invited"
+    if not vet.password_hash:
+        return "invited"
+    return "active" if vet.is_verified else "suspended"
 
 
 def _owner_status(owner: PetOwner) -> str:
@@ -62,12 +62,13 @@ def _owner_status(owner: PetOwner) -> str:
     return "active" if owner.email_verified else "unverified"
 
 
-# A vet the team created has no password until it opens the invite link.
-VET_ACTIVATED = and_(Vet.password_hash.is_not(None), Vet.email_verified.is_(True))
+# A vet the team created has no password, and is not shown to owners (is_verified is false),
+# until it opens the invite link. Setting the password activates the account.
+VET_ACTIVATED = Vet.password_hash.is_not(None)
 VET_STATUS_FILTERS = {
     "active": and_(Vet.is_verified.is_(True), Vet.deactivated_at.is_(None), VET_ACTIVATED),
-    "invited": and_(Vet.is_verified.is_(True), Vet.deactivated_at.is_(None), ~VET_ACTIVATED),
-    "suspended": and_(Vet.is_verified.is_(False), Vet.deactivated_at.is_(None)),
+    "invited": and_(Vet.deactivated_at.is_(None), ~VET_ACTIVATED),
+    "suspended": and_(Vet.is_verified.is_(False), Vet.deactivated_at.is_(None), VET_ACTIVATED),
     "closed": Vet.deactivated_at.is_not(None),
 }
 
@@ -157,8 +158,8 @@ class AdminPanelService:
         clients = select(func.count(VetClient.id)).where(VetClient.vet_id == Vet.id).correlate(Vet).scalar_subquery()
         conditions = [c for c in (VET_STATUS_FILTERS.get(status_filter or ""),
                                   _search(q, Vet.name, Vet.email, Vet.license_number, Vet.city)) if c is not None]
-        # Active and invited first, then suspended, then closed; newest first within each.
-        rank = case((Vet.deactivated_at.is_not(None), 2), (Vet.is_verified.is_(False), 1), else_=0)
+        # Invited first (they wait on us), then active, suspended and closed; newest first within each.
+        rank = case((Vet.deactivated_at.is_not(None), 3), (Vet.password_hash.is_(None), 0), (Vet.is_verified.is_(False), 2), else_=1)
         stmt = select(Vet, appointments, clients).where(*conditions).order_by(rank, Vet.created_at.desc())
         rows, total = self._page(stmt, select(func.count(Vet.id)).where(*conditions), page, page_size)
         items = [
@@ -204,7 +205,8 @@ class AdminPanelService:
         return next(item for item in items if item.id == vet.id)
 
     def create_vet(self, data: AdminVetCreate, admin: Admin) -> AdminVetItem:
-        """Vets get accounts only here, usually after a demo. The vet sets a password from the invite email."""
+        """Vets get accounts only here, usually after a demo. The vet sets a password from the invite email;
+        until then the clinic is not shown to owners and cannot be booked."""
         demo = None
         if data.demo_request_id is not None:
             demo = self.db.get(DemoRequest, data.demo_request_id)
@@ -220,7 +222,7 @@ class AdminPanelService:
         vet = Vet(
             email=email, password_hash=None, name=data.name, slug=generate_unique_slug(self.db, data.name),
             specialty=data.specialty, license_number=data.license_number, phone=data.phone,
-            address=data.address, city=data.city, is_verified=True, is_on_call=False, email_verified=False,
+            address=data.address, city=data.city, is_verified=False, is_on_call=False, email_verified=False,
         )
         self.db.add(vet)
         try:
@@ -263,6 +265,8 @@ class AdminPanelService:
         vet = self._vet(vet_id)
         if vet.deactivated_at is not None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Ο λογαριασμός έχει κλείσει.")
+        if not vet.password_hash:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Ο κτηνίατρος δεν έχει ορίσει κωδικό ακόμα, άρα δεν είναι ενεργός.")
         if vet.is_verified:
             vet.is_verified = False
             self.db.commit()
@@ -273,6 +277,8 @@ class AdminPanelService:
         vet = self._vet(vet_id)
         if vet.deactivated_at is not None:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Ο λογαριασμός έχει κλείσει από τον κτηνίατρο.")
+        if not vet.password_hash:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Ο κτηνίατρος ενεργοποιείται όταν ορίσει κωδικό από το email του.")
         if not vet.is_verified:
             vet.is_verified = True
             self.db.commit()

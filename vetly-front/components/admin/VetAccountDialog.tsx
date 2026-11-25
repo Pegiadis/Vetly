@@ -54,7 +54,7 @@ export default function VetAccountDialog({ demo, onClose, onCreated }: { demo?: 
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10" onMouseDown={e => { if (e.target === e.currentTarget && !saving) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="w-full max-w-xl rounded-xl bg-white p-5 shadow-xl sm:p-6">
         <h2 id={titleId} className="text-lg font-semibold text-ink-900">Νέος λογαριασμός κτηνιάτρου</h2>
-        <p className="mt-1 text-sm text-ink-500">{demo ? `Από αίτημα demo: ${demo.clinic_name}. ` : ''}Ο λογαριασμός ενεργοποιείται αμέσως· ο κτηνίατρος λαμβάνει email για να ορίσει κωδικό.</p>
+        <p className="mt-1 text-sm text-ink-500">{demo ? `Από αίτημα demo: ${demo.clinic_name}. ` : ''}Ο κτηνίατρος λαμβάνει email για να ορίσει κωδικό· τότε ενεργοποιείται ο λογαριασμός.</p>
         {error && <p role="alert" className="mt-4 rounded-[10px] bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <form onSubmit={submit} className="mt-4 grid gap-3 sm:grid-cols-2">
           {FIELDS.map((f, index) => <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>

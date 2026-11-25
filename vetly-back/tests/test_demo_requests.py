@@ -159,3 +159,44 @@ def test_resend_invite_refused_once_active(client, admin_auth_header, registered
 
 def test_bad_activation_token_is_400(client):
     assert client.post(f"{API}/auth/vet/activation", json={"token": "not-a-real-token"}).status_code == 400
+
+
+# --- visibility: a clinic is shown to owners only once it can really be booked ---
+
+def _listed(client, headers, email_fragment):
+    names = [vet["name"] for vet in client.get(f"{API}/vets", params={"page_size": 100}, headers=headers).json()["items"]]
+    public = [vet["name"] for vet in client.get(f"{API}/public/vets", params={"page_size": 100}, headers=headers).json()["items"]]
+    return email_fragment in names, email_fragment in public
+
+
+def test_invited_vet_is_hidden_until_the_password_is_set(client, db, admin_auth_header, owner_auth_header, sent):
+    from decimal import Decimal
+    from app.db.base import ServiceType
+
+    created = client.post(f"{API}/admin/vets", json=NEW_VET, headers=admin_auth_header).json()
+    vet = db.scalar(select(Vet).where(Vet.email == NEW_VET["email"]))
+    db.add(ServiceType(vet_id=vet.id, name="Εξέταση", price=Decimal("30"), duration_minutes=30, is_active=True))
+    db.commit()
+
+    assert _listed(client, owner_auth_header, NEW_VET["name"]) == (False, False)
+    assert client.get(f"{API}/public/vets/{created['slug']}").status_code == 404
+    # The team cannot "suspend" an account that was never active.
+    assert client.post(f"{API}/admin/vets/{vet.id}/suspend", headers=admin_auth_header).status_code == 400
+
+    token = _activation_token(next(m for m in sent if m[0] == NEW_VET["email"])[2])
+    assert client.post(f"{API}/auth/vet/activate", json={"token": token, "password": "new-vet-pass1", "accept_terms": True}).status_code == 200
+
+    assert _listed(client, owner_auth_header, NEW_VET["name"]) == (True, True)
+    assert client.get(f"{API}/public/vets/{created['slug']}").status_code == 200
+
+
+def test_clinic_without_services_is_reachable_by_link_but_not_listed(client, db, owner_auth_header, registered_vet):
+    from decimal import Decimal
+    from app.db.base import ServiceType
+
+    assert _listed(client, owner_auth_header, registered_vet.name) == (False, False)
+    assert client.get(f"{API}/public/vets/{registered_vet.slug}").status_code == 200
+
+    db.add(ServiceType(vet_id=registered_vet.id, name="Εξέταση", price=Decimal("30"), duration_minutes=30, is_active=True))
+    db.commit()
+    assert _listed(client, owner_auth_header, registered_vet.name) == (True, True)
