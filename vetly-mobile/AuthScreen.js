@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 import { request } from './api';
 import { ui } from './mobileTheme';
-import { a, AccountButton as Button, Field, Notice } from './AccountUI';
+import { a, AccountButton as Button, Field, Notice, TermsCheckbox } from './AccountUI';
 import { accountError, parseAccountLink, passwordError, validEmail } from './accountForm.mjs';
 
 export default function AuthScreen({ onAuthenticated, intent, onCloseIntent, onReset, notice, allowedOrigins }) {
@@ -11,7 +11,7 @@ export default function AuthScreen({ onAuthenticated, intent, onCloseIntent, onR
   const [password, setPassword] = useState(''), [repeat, setRepeat] = useState('');
   const [link, setLink] = useState(''), [activeIntent, setActiveIntent] = useState(intent);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState(notice || '');
-  const [retryAt, setRetryAt] = useState(0);
+  const [retryAt, setRetryAt] = useState(0), [acceptedTerms, setAcceptedTerms] = useState(false);
   const lock = useRef(false), scroll = useRef(null);
   useEffect(() => { scroll.current?.scrollTo({ y: 0, animated: false }); }, [mode, error, message]);
   function go(next) { if (lock.current) return; setMode(next); setError(''); setMessage(''); setPassword(''); setRepeat(''); setLink(''); setActiveIntent(null); }
@@ -37,13 +37,14 @@ export default function AuthScreen({ onAuthenticated, intent, onCloseIntent, onR
         const result = await request('/auth/pet-owner/login', null, { email: address, password });
         await onAuthenticated(result.access_token);
       } catch (e) {
-        if (e.status === 403 && e.message === 'Email not verified') { setMode('pending'); setPassword(''); }
+        if (e.status === 403 && e.detail === 'Email not verified') { setMode('pending'); setPassword(''); }
         throw e;
       }
     } else if (mode === 'register') {
       const address = requireEmail(); requirePassword();
       if (name.trim().length < 2) throw new Error('Συμπλήρωσε το ονοματεπώνυμό σου.');
-      await request('/auth/pet-owner/register', null, { name: name.trim(), email: address, password, client: 'mobile' });
+      if (!acceptedTerms) throw new Error('Για να συνεχίσεις, αποδέξου τους Όρους Χρήσης και την Πολιτική Απορρήτου.');
+      await request('/auth/pet-owner/register', null, { name: name.trim(), email: address, password, client: 'mobile', accept_terms: true });
       setPassword(''); setRepeat(''); setMode('pending'); setRetryAt(Date.now() + 60000);
       setMessage('Ο λογαριασμός δημιουργήθηκε. Έλεγξε τα εισερχόμενα και την ανεπιθύμητη αλληλογραφία για την επιβεβαίωση.');
     } else if (mode === 'forgot') {
@@ -78,6 +79,7 @@ export default function AuthScreen({ onAuthenticated, intent, onCloseIntent, onR
     {['login', 'register', 'forgot', 'pending'].includes(mode) && <Field label="Email" value={email} onChangeText={setEmail} editable={!busy} autoCapitalize="none" autoCorrect={false} keyboardType="email-address" autoComplete="email" maxLength={254}/>}
     {['login', 'register', 'reset-password'].includes(mode) && <Field label={mode === 'reset-password' ? 'Νέος κωδικός' : 'Κωδικός πρόσβασης'} value={password} onChangeText={setPassword} editable={!busy} secureTextEntry autoCapitalize="none" autoCorrect={false} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} maxLength={128} onSubmitEditing={mode === 'login' ? submit : undefined}/>}
     {['register', 'reset-password'].includes(mode) && <><Text style={a.body}>Τουλάχιστον 10 χαρακτήρες, με γράμματα και αριθμούς.</Text><Field label="Επιβεβαίωση κωδικού" value={repeat} onChangeText={setRepeat} editable={!busy} secureTextEntry autoCapitalize="none" autoComplete="new-password" maxLength={128}/></>}
+    {mode === 'register' && <TermsCheckbox checked={acceptedTerms} onChange={setAcceptedTerms} disabled={busy}/>}
     {mode === 'pending' && <Text style={a.body}>Άνοιξε τον σύνδεσμο που έλαβες και ολοκλήρωσε την επιβεβαίωση. Έπειτα μπορείς να συνδεθείς εδώ.</Text>}
     {mode === 'verify-email' && <Text style={a.body}>Πάτησε επιβεβαίωση για το email του λογαριασμού που δημιούργησες.</Text>}
     {mode === 'paste' && <><Text style={a.body}>Αν το email δεν ανοίγει την εφαρμογή, αντέγραψε τον σύνδεσμό του και επικόλλησέ τον εδώ.</Text><Field label="Σύνδεσμος email" value={link} onChangeText={setLink} editable={!busy} autoCapitalize="none" autoCorrect={false} maxLength={6000}/></>}

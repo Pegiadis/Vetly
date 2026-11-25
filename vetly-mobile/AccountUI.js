@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { ui } from './mobileTheme';
 
 export function Field({ label, ...props }) {
@@ -7,6 +7,20 @@ export function Field({ label, ...props }) {
 export function AccountButton({ title, onPress, disabled, secondary, danger }) {
   return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={onPress} style={[ui.button, { backgroundColor: secondary ? 'white' : danger ? '#a32929' : ui.brand, borderColor: secondary ? ui.line : 'transparent' }, disabled && { opacity: .5 }]}><Text style={{ color: secondary ? ui.brand : 'white', fontWeight: '700', textAlign: 'center', fontSize: 14 }}>{title}</Text></Pressable>;
 }
+const WEB_URL = (process.env.EXPO_PUBLIC_WEB_URL || 'https://vetly.gr').replace(/\/$/, '');
+
+/** Consent to the terms and privacy policy; the links open the web pages. */
+export function TermsCheckbox({ checked, onChange, disabled }) {
+  const link = path => <Text accessibilityRole="link" onPress={() => Linking.openURL(`${WEB_URL}${path}`)} style={{ color: ui.brand, fontWeight: '700' }}>{path === '/terms' ? 'Όρους Χρήσης' : 'Πολιτική Απορρήτου'}</Text>;
+  return <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+    <Pressable accessibilityRole="checkbox" accessibilityLabel="Αποδέχομαι τους Όρους Χρήσης και την Πολιτική Απορρήτου" accessibilityState={{ checked, disabled: !!disabled }} disabled={disabled} onPress={() => onChange(!checked)} hitSlop={10}
+      style={{ width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: checked ? ui.brand : '#BDBDBD', backgroundColor: checked ? ui.brand : 'white', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+      {checked && <Text style={{ color: 'white', fontSize: 15, fontWeight: '800', lineHeight: 18 }}>✓</Text>}
+    </Pressable>
+    <Text style={[a.body, { flex: 1, color: ui.ink }]}>Αποδέχομαι τους {link('/terms')} και την {link('/privacy')}.</Text>
+  </View>;
+}
+
 export function Notice({ text, error }) {
   return text ? <Text accessibilityRole={error ? 'alert' : undefined} accessibilityLiveRegion="polite" style={[a.notice, error && { backgroundColor: '#fff0ed', color: '#a32929' }]}>{text}</Text> : null;
 }

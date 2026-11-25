@@ -34,12 +34,7 @@ export function parseAccountLink(value, allowedOrigins = []) {
   } catch { return null; }
 }
 
+// API errors already carry a Greek message (see apiErrors.mjs); form checks throw Greek text too.
 export function accountError(error) {
-  const messages = {
-    'Invalid email or password': 'Το email ή ο κωδικός δεν είναι σωστά.',
-    'Email already registered': 'Αυτό το email χρησιμοποιείται ήδη. Συνδέσου ή επίλεξε ανάκτηση κωδικού.',
-    'Email not verified': 'Επιβεβαίωσε πρώτα το email σου.',
-    'Invalid or expired verification token': 'Ο σύνδεσμος επιβεβαίωσης είναι άκυρος ή έχει λήξει. Ζήτησε νέο email.',
-  };
-  return messages[error.message] || error.message || 'Δεν ολοκληρώθηκε η ενέργεια. Δοκίμασε ξανά.';
+  return error.message || 'Δεν ολοκληρώθηκε η ενέργεια. Δοκίμασε ξανά.';
 }

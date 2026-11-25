@@ -8,7 +8,7 @@ import { petImage, request } from './api';
 import { petPayload, petTypes } from './petForm.mjs';
 
 function Action({ label, onPress, disabled, primary }) {
-  return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={onPress} style={[s.action, primary && s.primary, disabled && { opacity: .45 }]}><Text style={{ color: primary ? 'white' : '#121212', fontWeight: '600' }}>{label}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityState={{ disabled: !!disabled }} disabled={disabled} onPress={onPress} style={[s.action, primary && s.primary, disabled && { opacity: .45 }]}><Text style={{ color: primary ? 'white' : '#1F2937', fontWeight: '600' }}>{label}</Text></Pressable>;
 }
 export default function PetEditor({ pet, token, onSaved, onClose }) {
   const [form, setForm] = useState({ name: pet?.name || '', type: pet?.type || 'Dog', breed: pet?.breed || '', age: pet?.age == null ? '' : String(pet.age), weight: pet?.weight == null ? '' : String(pet.weight), gender: pet?.gender || 'Male', chip_number: pet?.chip_number || '' });
@@ -76,7 +76,7 @@ export default function PetEditor({ pet, token, onSaved, onClose }) {
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
       <View style={s.panel}><Text style={s.label}>Φωτογραφία κατοικιδίου</Text>{preview ? <Image accessibilityLabel="Προεπισκόπηση φωτογραφίας κατοικιδίου" source={{ uri: preview }} style={s.photo}/> : <View style={[s.photo, s.empty]}><Text style={s.hint}>Πρόσθεσε τη φωτογραφία του</Text></View>}
         <View style={s.choices}><Action label="Κάμερα" disabled={disabled} onPress={()=>choose(true)}/><Action label="Συλλογή" disabled={disabled} onPress={()=>choose(false)}/></View>
-        {picking && <ActivityIndicator accessibilityLabel="Προετοιμασία φωτογραφίας" color="#121212"/>}
+        {picking && <ActivityIndicator accessibilityLabel="Προετοιμασία φωτογραφίας" color="#1F2937"/>}
         {photo && <Action label="Ακύρωση νέας φωτογραφίας" disabled={disabled} onPress={()=>setPhoto(null)}/>}
         <Text style={s.hint}>Η φωτογραφία ανεβαίνει όταν πατήσεις αποθήκευση.</Text>
       </View>
