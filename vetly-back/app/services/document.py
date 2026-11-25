@@ -34,7 +34,9 @@ from reportlab.platypus import (
 )
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+import logging
 import os
+from xml.sax.saxutils import escape
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 TEAL = colors.HexColor("#0d9488")
@@ -45,47 +47,62 @@ DARK = colors.HexColor("#111827")
 TEXT_GREY = colors.HexColor("#6b7280")
 
 # ── Font registration (Greek support) ─────────────────────────────────────────
+logger = logging.getLogger(__name__)
 _FONT_REGISTERED = False
+
+# (regular, bold) pairs, first match wins. The Docker image installs DejaVu
+# (fonts-dejavu-core); the others cover development on Windows and macOS.
+_FONT_CANDIDATES = [
+    ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
+    ("/usr/share/fonts/dejavu/DejaVuSans.ttf", "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf"),
+    (os.path.join(os.path.dirname(__file__), "..", "..", "fonts", "DejaVuSans.ttf"),
+     os.path.join(os.path.dirname(__file__), "..", "..", "fonts", "DejaVuSans-Bold.ttf")),
+    ("C:/Windows/Fonts/arial.ttf", "C:/Windows/Fonts/arialbd.ttf"),
+    ("/System/Library/Fonts/Supplemental/Arial.ttf", "/System/Library/Fonts/Supplemental/Arial Bold.ttf"),
+    ("/Library/Fonts/Arial.ttf", "/Library/Fonts/Arial Bold.ttf"),
+]
 
 
 def _ensure_font() -> str:
-    """
-    Try to register DejaVu Sans (broad Unicode / Greek support).
-    Falls back to Helvetica if the font file is not present.
-    Returns the font family name to use throughout this module.
+    """Register a font that has Greek glyphs and return its family name.
+
+    The standard PDF fonts (Helvetica) have no Greek, so a document built with them is
+    unreadable. Without a suitable font the request fails instead of producing that.
     """
     global _FONT_REGISTERED
     if _FONT_REGISTERED:
         return "DejaVu"
-
-    # Common paths where DejaVu fonts are installed
-    search_dirs = [
-        "/usr/share/fonts/truetype/dejavu",
-        "/usr/share/fonts/dejavu",
-        "/Library/Fonts",
-        os.path.join(os.path.dirname(__file__), "..", "..", "fonts"),
-    ]
-    font_path = None
-    for d in search_dirs:
-        candidate = os.path.join(d, "DejaVuSans.ttf")
-        if os.path.isfile(candidate):
-            font_path = candidate
-            break
-
-    if font_path:
+    for regular, bold in _FONT_CANDIDATES:
+        if not os.path.isfile(regular):
+            continue
         try:
-            pdfmetrics.registerFont(TTFont("DejaVu", font_path))
-            bold_candidate = os.path.join(os.path.dirname(font_path), "DejaVuSans-Bold.ttf")
-            if os.path.isfile(bold_candidate):
-                pdfmetrics.registerFont(TTFont("DejaVu-Bold", bold_candidate))
-            else:
-                pdfmetrics.registerFont(TTFont("DejaVu-Bold", font_path))
+            pdfmetrics.registerFont(TTFont("DejaVu", regular))
+            pdfmetrics.registerFont(TTFont("DejaVu-Bold", bold if os.path.isfile(bold) else regular))
+            pdfmetrics.registerFontFamily("DejaVu", normal="DejaVu", bold="DejaVu-Bold", italic="DejaVu", boldItalic="DejaVu-Bold")
             _FONT_REGISTERED = True
             return "DejaVu"
         except Exception:
-            pass
+            logger.exception("Could not register PDF font %s", regular)
+    logger.error("No Greek-capable font found for PDF documents (install fonts-dejavu-core)")
+    raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, "Η δημιουργία εγγράφων δεν είναι διαθέσιμη αυτή τη στιγμή.")
 
-    return "Helvetica"
+
+def _x(value) -> str:
+    """Escape text typed by people before it goes into ReportLab's paragraph markup."""
+    return escape("" if value is None else str(value))
+
+
+SPECIES_GR = {"Dog": "Σκύλος", "Cat": "Γάτα", "Bird": "Πτηνό", "Rabbit": "Κουνέλι", "Hamster": "Χάμστερ",
+              "Fish": "Ψάρι", "Reptile": "Ερπετό", "Other": "Άλλο"}
+GENDER_GR = {"Male": "Αρσενικό", "Female": "Θηλυκό"}
+
+
+def _species(pet) -> str:
+    return SPECIES_GR.get(pet.type.value, pet.type.value) if pet.type else "-"
+
+
+def _gender(pet) -> str:
+    return GENDER_GR.get(pet.gender.value, pet.gender.value) if pet.gender else "-"
 
 
 # ── Helper: build paragraph styles ────────────────────────────────────────────
@@ -170,11 +187,24 @@ def _table_style(font: str, has_header: bool = True) -> TableStyle:
     return TableStyle(commands)
 
 
+# ── Helper: data table whose cells wrap inside their column ────────────────────
+def _data_table(rows: list[list], col_widths, font: str) -> Table:
+    bold = f"{font}-Bold"
+    head = ParagraphStyle("CellHead", fontName=bold, fontSize=9, textColor=colors.white, leading=11)
+    cell = ParagraphStyle("Cell", fontName=font, fontSize=9, textColor=DARK, leading=11)
+    wrapped = [[Paragraph(_x(value), head if index == 0 else cell) for value in row] for index, row in enumerate(rows)]
+    table = Table(wrapped, colWidths=col_widths, repeatRows=1)
+    table.setStyle(_table_style(font))
+    return table
+
+
 # ── Helper: info grid (label / value pairs) ───────────────────────────────────
 def _info_table(rows: list[tuple[str, str]], font: str, col_widths=None) -> Table:
     bold = f"{font}-Bold" if font != "Helvetica" else "Helvetica-Bold"
     if col_widths is None:
         col_widths = [5 * cm, 12 * cm]
+    value_style = ParagraphStyle("InfoValue", fontName=font, fontSize=9, textColor=DARK, leading=12)
+    rows = [(label, Paragraph(_x(value), value_style)) for label, value in rows]
     table = Table(rows, colWidths=col_widths)
     table.setStyle(
         TableStyle(
@@ -253,11 +283,11 @@ def _build_footer(vet: Vet, doc_date: date, styles: dict) -> list:
             Paragraph(f"Ημερομηνία: {doc_date.strftime('%d/%m/%Y')}", styles["small"]),
         ],
         [
-            Paragraph(f"<b>{vet.name}</b>", styles["body"]),
+            Paragraph(f"<b>{_x(vet.name)}</b>", styles["body"]),
             Paragraph("", styles["small"]),
         ],
         [
-            Paragraph(f"ΑΜ: {vet.license_number}", styles["small"]),
+            Paragraph(f"ΑΜ: {_x(vet.license_number)}", styles["small"]),
             Paragraph("", styles["small"]),
         ],
     ]
@@ -395,7 +425,7 @@ class DocumentService:
             _info_table(
                 [
                     ("Όνομα:", pet.name),
-                    ("Είδος:", pet.type.value if pet.type else "-"),
+                    ("Είδος:", _species(pet)),
                     ("Φυλή:", pet.breed),
                     ("Ηλικία:", pet_age_str),
                     ("Βάρος:", f"{pet.weight} kg"),
@@ -411,10 +441,10 @@ class DocumentService:
 
         # Diagnosis
         elements.append(Paragraph("Διάγνωση", styles["section"]))
-        elements.append(Paragraph(f"<b>{diagnosis}</b>", styles["body"]))
+        elements.append(Paragraph(f"<b>{_x(diagnosis)}</b>", styles["body"]))
         if exam_notes:
             elements.append(Spacer(1, 0.2 * cm))
-            elements.append(Paragraph(exam_notes, styles["body"]))
+            elements.append(Paragraph(_x(exam_notes).replace(chr(10), "<br/>"), styles["body"]))
 
         elements.append(Spacer(1, 0.4 * cm))
 
@@ -437,8 +467,7 @@ class DocumentService:
                     ]
                 )
             col_widths = [3.5 * cm, 2 * cm, 2.5 * cm, 2 * cm, 2 * cm, 5 * cm]
-            med_table = Table(med_rows, colWidths=col_widths)
-            med_table.setStyle(_table_style(font))
+            med_table = _data_table(med_rows, col_widths, font)
             elements.append(med_table)
         else:
             elements.append(Paragraph("Δεν καταγράφηκε φαρμακευτική αγωγή.", styles["body"]))
@@ -519,9 +548,9 @@ class DocumentService:
             _info_table(
                 [
                     ("Όνομα:", pet.name),
-                    ("Είδος:", pet.type.value if pet.type else "-"),
+                    ("Είδος:", _species(pet)),
                     ("Φυλή:", pet.breed),
-                    ("Φύλο:", pet.gender.value if pet.gender else "-"),
+                    ("Φύλο:", _gender(pet)),
                     ("Ηλικία:", pet_age_str),
                     ("Βάρος:", f"{pet.weight} kg"),
                     ("Αρ. Μικροτσίπ:", pet.chip_number or "-"),
@@ -549,9 +578,8 @@ class DocumentService:
                         ev.vet.name if ev.vet else "-",
                     ]
                 )
-            col_widths = [2.5 * cm, 2.5 * cm, 4 * cm, 5 * cm, 3 * cm]
-            ev_table = Table(ev_rows, colWidths=col_widths)
-            ev_table.setStyle(_table_style(font))
+            col_widths = [2.3 * cm, 3.3 * cm, 3.9 * cm, 4.3 * cm, 3.2 * cm]
+            ev_table = _data_table(ev_rows, col_widths, font)
             elements.append(ev_table)
         else:
             elements.append(Paragraph("Δεν υπάρχουν καταγεγραμμένα ιατρικά συμβάντα.", styles["body"]))
@@ -576,8 +604,7 @@ class DocumentService:
                     ]
                 )
             col_widths = [4.5 * cm, 2.5 * cm, 3 * cm, 2.5 * cm, 2.5 * cm]
-            med_table = Table(med_rows, colWidths=col_widths)
-            med_table.setStyle(_table_style(font))
+            med_table = _data_table(med_rows, col_widths, font)
             elements.append(med_table)
         else:
             elements.append(Paragraph("Δεν υπάρχει ενεργή φαρμακευτική αγωγή.", styles["body"]))
@@ -597,8 +624,7 @@ class DocumentService:
                     ]
                 )
             col_widths = [5 * cm, 5 * cm]
-            wt_table = Table(wt_rows, colWidths=col_widths)
-            wt_table.setStyle(_table_style(font))
+            wt_table = _data_table(wt_rows, col_widths, font)
             elements.append(wt_table)
         else:
             elements.append(Paragraph("Δεν υπάρχει ιστορικό βάρους.", styles["body"]))
@@ -683,7 +709,7 @@ class DocumentService:
             _info_table(
                 [
                     ("Όνομα:", pet.name),
-                    ("Είδος:", pet.type.value if pet.type else "-"),
+                    ("Είδος:", _species(pet)),
                     ("Φυλή:", pet.breed),
                     ("Αρ. Μικροτσίπ:", pet.chip_number or "-"),
                     ("Ιδιοκτήτης:", owner.name if owner else "-"),
@@ -708,8 +734,7 @@ class DocumentService:
                     ]
                 )
             col_widths = [2.5 * cm, 5 * cm, 6 * cm, 3.5 * cm]
-            vac_table = Table(vac_rows, colWidths=col_widths)
-            vac_table.setStyle(_table_style(font))
+            vac_table = _data_table(vac_rows, col_widths, font)
             elements.append(vac_table)
         else:
             elements.append(Paragraph("Δεν υπάρχουν καταγεγραμμένοι εμβολιασμοί.", styles["body"]))
@@ -720,8 +745,8 @@ class DocumentService:
         elements.append(HRFlowable(width="100%", thickness=0.5, color=GREY_MID))
         elements.append(Spacer(1, 0.4 * cm))
         cert_text = (
-            f"Βεβαιώνεται ότι το ζώο <b>{pet.name}</b> ({pet.type.value if pet.type else ''} - {pet.breed}), "
-            f"που ανήκει στον/ην <b>{owner.name if owner else '-'}</b>, "
+            f"Βεβαιώνεται ότι το ζώο <b>{_x(pet.name)}</b> ({_x(_species(pet))} - {_x(pet.breed)}), "
+            f"που ανήκει στον/ην <b>{_x(owner.name) if owner else '-'}</b>, "
             f"έχει υποβληθεί στους εμβολιασμούς που αναγράφονται στο παρόν πιστοποιητικό, "
             f"σύμφωνα με τα στοιχεία του ιατρικού φακέλου."
         )
