@@ -1244,20 +1244,6 @@ export async function updateCustomReminderTypes(types: string[]): Promise<string
   return data.types;
 }
 
-// --- Admin: professional verification of vets ---
-
-export async function fetchPendingVets(): Promise<{ items: import('@/types/vet').AdminVet[]; total: number }> {
-  return api.get<{ items: import('@/types/vet').AdminVet[]; total: number }>('/admin/vets/pending');
-}
-
-export async function approveVet(vetId: string): Promise<import('@/types/vet').AdminVet> {
-  return api.post<import('@/types/vet').AdminVet>(`/admin/vets/${vetId}/approve`, {});
-}
-
-export async function rejectVet(vetId: string): Promise<void> {
-  await api.post<void>(`/admin/vets/${vetId}/reject`, {});
-}
-
 // --- Account security ---
 
 export async function changeVetPassword(currentPassword: string, newPassword: string): Promise<{ access_token: string }> {

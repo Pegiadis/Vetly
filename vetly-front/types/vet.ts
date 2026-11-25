@@ -18,8 +18,6 @@ export interface Vet {
   image_url: string | null;
   is_on_call: boolean;
   is_verified: boolean;
-  /** Only present on the signed-in vet's own profile (/auth/me). */
-  is_admin?: boolean;
   rating_average: number;
   reviews_count: number;
   created_at: string;
@@ -119,15 +117,3 @@ export interface Reminder {
 
 // --- Admin: professional verification of vets ---
 
-export interface AdminVet {
-  id: string;
-  name: string;
-  email: string;
-  license_number: string;
-  specialty: string;
-  city: string;
-  phone: string;
-  email_verified: boolean;
-  is_verified: boolean;
-  created_at: string;
-}

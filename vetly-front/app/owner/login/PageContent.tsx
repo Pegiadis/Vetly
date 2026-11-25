@@ -44,7 +44,7 @@ export default function OwnerLoginPageContent() {
       router.push(nextPath ?? '/owner/dashboard');
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.status === 403) {
+        if (err.status === 403 && err.detail === 'Email not verified') {
           rememberPendingNext(nextPath);
           router.push(`/verify-email/pending?email=${encodeURIComponent(email)}&userType=pet_owner`);
           return;
