@@ -125,13 +125,15 @@ class TestPriceSnapshot:
     def test_approve_fills_missing_price_and_accepts_override(self, db, world):
         vet, owner, pet = world
         service = _service(db, vet, price="45.00")
+        # A request is approved before its time; one whose time has passed is refused.
+        later = datetime.now(ATHENS).replace(tzinfo=None) + timedelta(days=2)
         pending = _appointment(db, vet, owner, pet, status=AppointmentStatus.PENDING,
-                               service_type_id=service.id)
+                               service_type_id=service.id, when=later)
         out = AppointmentService(db).approve_appointment(pending.id, vet.id)
         assert out.price == Decimal("45.00")
 
         other = _appointment(db, vet, owner, pet, status=AppointmentStatus.PENDING,
-                             service_type_id=service.id, price=Decimal("45.00"))
+                             service_type_id=service.id, price=Decimal("45.00"), when=later + timedelta(hours=1))
         out = AppointmentService(db).approve_appointment(other.id, vet.id, price=Decimal("50.00"))
         assert out.price == Decimal("50.00")
 

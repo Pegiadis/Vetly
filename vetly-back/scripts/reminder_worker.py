@@ -5,7 +5,9 @@ from datetime import datetime
 from threading import Event
 
 from app.db.session import SessionLocal
+from app.services.appointment_expiry import expire_unanswered_requests
 from app.services.appointment_reminders import send_appointment_reminders
+from app.services.medication_cleanup import finish_ended_medications
 from app.services.reminder import ReminderService
 from app.services.push import create_medication_notifications, process_push
 from app.services.purge import purge_deleted_pets
@@ -40,6 +42,10 @@ def main():
             reminded = send_appointment_reminders(db)
             if reminded:
                 logging.info("Sent %d appointment reminders", reminded)
+            expired = expire_unanswered_requests(db)
+            if expired:
+                logging.info("Closed %d unanswered appointment requests", expired)
+            finish_ended_medications(db)
             create_medication_notifications(db)
             process_push(db)
             last_purge_day = run_daily_purge(db, last_purge_day)

@@ -250,6 +250,8 @@ class AppointmentService:
             )
         if new_status == AppointmentStatus.COMPLETED:
             self._require_visit_day_reached(appointment)
+        if new_status == AppointmentStatus.CONFIRMED:
+            self._require_time_not_passed(appointment)
         try:
             updated = self.repository.update_status(
                 appointment, new_status, data.notes, commit=False
@@ -307,6 +309,7 @@ class AppointmentService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Can only approve pending appointments",
             )
+        self._require_time_not_passed(appointment)
 
         from app.services.scheduling import check_time_off
         check_time_off(self.db, vet_id, appointment.scheduled_at, appointment.duration_minutes or 30)
@@ -407,6 +410,16 @@ class AppointmentService:
         self._commit()
 
         return self._build_detail_response(updated)
+
+    @staticmethod
+    def _require_time_not_passed(appointment) -> None:
+        """A request is confirmed before its time: confirming a visit in the past tells the owner
+        about an appointment that can no longer happen. The worker closes such requests."""
+        if appointment.scheduled_at < datetime.now(ATHENS).replace(tzinfo=None):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Η ώρα που ζητήθηκε έχει περάσει. Απορρίψτε το αίτημα ή κανονίστε νέα ώρα με τον κηδεμόνα.",
+            )
 
     @staticmethod
     def _require_visit_day_reached(appointment) -> None:

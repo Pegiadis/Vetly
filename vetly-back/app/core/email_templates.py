@@ -99,6 +99,27 @@ def appointment_rejected_email(
     return subject, _owner_email("Το ραντεβού δεν επιβεβαιώθηκε", body)
 
 
+# ── Template: Request expired without an answer (→ owner) ──────
+
+@_escaped
+def appointment_expired_email(
+    owner_name: str, vet_name: str, pet_name: str, date_str: str,
+) -> tuple[str, str]:
+    details = _details_box(
+        _detail("Κτηνίατρος", vet_name),
+        _detail("Κατοικίδιο", pet_name),
+        _detail("Ζητήθηκε για", date_str),
+    )
+    body = (
+        _p(f"Αγαπητέ/ή {owner_name},")
+        + _p("Το ιατρείο δεν απάντησε στο αίτημά σας πριν από την ώρα που ζητήσατε, οπότε το αίτημα έκλεισε.")
+        + details
+        + _p("Μπορείτε να ζητήσετε νέα ώρα μέσω του Vetly ή να καλέσετε το ιατρείο.")
+    )
+    subject = "Το αίτημα ραντεβού έληξε - Vetly"
+    return subject, _owner_email("Το αίτημά σας έληξε", body)
+
+
 # ── Template: Appointment cancelled by owner (→ vet) ────────────
 
 @_escaped
