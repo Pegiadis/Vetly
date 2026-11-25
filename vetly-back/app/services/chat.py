@@ -105,6 +105,15 @@ BASE_SYSTEM_PROMPT = (
     "ΥΠΕΝΘΥΜΙΣΗ: Η απάντησή σου ΠΡΕΠΕΙ να είναι στα ελληνικά."
 )
 
+# Owners are addressed in the singular everywhere in the web and mobile apps; clinics in the polite plural.
+OWNER_TONE = (
+    "ΥΦΟΣ: Μιλάς στον κηδεμόνα στον ενικό, φιλικά και απλά (π.χ. «έχεις», «δες», «το κατοικίδιό σου»), "
+    "ποτέ στον πληθυντικό ευγενείας."
+)
+VET_TONE = (
+    "ΥΦΟΣ: Μιλάς στον κτηνίατρο στον πληθυντικό ευγενείας, επαγγελματικά και σύντομα (π.χ. «έχετε», «δείτε»)."
+)
+
 
 class ChatService:
     """Service for AI chat operations"""
@@ -365,9 +374,12 @@ class ChatService:
         """Build a personalized system prompt with user-specific data"""
         context_parts: list[str] = [BASE_SYSTEM_PROMPT]
 
+        # The assistant speaks the way the rest of each app does.
         if pet_owner_id:
+            context_parts.append(OWNER_TONE)
             context_parts.append(self._get_owner_context(pet_owner_id))
         elif vet_id:
+            context_parts.append(VET_TONE)
             context_parts.append(self._get_vet_context(vet_id))
 
         return "\n\n".join(context_parts)
