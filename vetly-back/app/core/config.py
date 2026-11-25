@@ -33,7 +33,6 @@ class Settings(BaseSettings):
     RATE_LIMIT_ENABLED: bool = True
 
     # Vets with these emails (comma-separated) can approve new clinics. Empty: nobody.
-    ADMIN_EMAILS: str = ""
 
     # Closed pilot: only these email addresses can register or use authenticated APIs.
     PILOT_MODE: bool = False

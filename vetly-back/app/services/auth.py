@@ -30,6 +30,7 @@ from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
 from app.utils.slug import generate_unique_slug
 from app.core.pilot import require_pilot_access
+from app.core.deps import ACCOUNT_SUSPENDED
 from app.core.legal import consent_fields
 
 
@@ -214,6 +215,8 @@ class AuthService:
                 detail="Email not verified",
             )
 
+        if pet_owner.suspended_at is not None:
+            raise HTTPException(status.HTTP_403_FORBIDDEN, ACCOUNT_SUSPENDED)
         require_pilot_access(pet_owner.email)
         access_token = create_access_token(subject=str(pet_owner.id), token_type="pet_owner", version=pet_owner.auth_version)
         return TokenResponse(access_token=access_token)

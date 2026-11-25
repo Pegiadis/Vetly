@@ -200,3 +200,25 @@ def owner_auth_header(owner_token):
 def vet_auth_header(vet_token):
     """Authorization header dict for the registered vet."""
     return {"Authorization": f"Bearer {vet_token}"}
+
+
+ADMIN_PASSWORD = "admin-password-123"
+
+
+@pytest.fixture()
+def admin(db):
+    """An admin panel account."""
+    from app.db.base import Admin
+
+    account = Admin(email=f"admin-{uuid.uuid4().hex[:6]}@example.com", name="Test Admin",
+                    password_hash=get_password_hash(ADMIN_PASSWORD))
+    db.add(account)
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+@pytest.fixture()
+def admin_auth_header(admin):
+    token = create_access_token(subject=str(admin.id), token_type="admin", version=admin.auth_version)
+    return {"Authorization": f"Bearer {token}"}

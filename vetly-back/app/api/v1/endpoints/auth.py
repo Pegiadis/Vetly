@@ -15,7 +15,6 @@ from app.schemas.auth import (
     RegisterResponse, VerifyEmailRequest, VerifyEmailResponse, ResendVerificationRequest,
     ForgotPasswordRequest, ResetPasswordRequest,
 )
-from app.core.admin import is_admin_email
 from app.schemas.vet import VetMeResponse
 from app.schemas.owner import PetOwnerResponse
 
@@ -58,9 +57,7 @@ def get_current_vet_profile(
     current_vet: Vet = Depends(get_current_vet),
 ) -> VetMeResponse:
     """Get the current authenticated vet's profile"""
-    me = VetMeResponse.model_validate(current_vet)
-    me.is_admin = is_admin_email(current_vet.email)
-    return me
+    return VetMeResponse.model_validate(current_vet)
 
 
 @router.post("/pet-owner/login", response_model=TokenResponse, dependencies=[Depends(login_limit)])

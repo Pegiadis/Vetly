@@ -35,6 +35,9 @@ class PetOwner(BaseModel):
     # Verification
     email_verified = Column(Boolean, default=False, nullable=False)
 
+    # Set by a platform admin; a suspended owner cannot sign in.
+    suspended_at = Column(DateTime, nullable=True)
+
     # Relationships
     pets = relationship(
         "Pet",

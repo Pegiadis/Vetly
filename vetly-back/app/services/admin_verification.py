@@ -3,14 +3,14 @@ import logging
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core import email as email_module
 from app.core.email_templates import vet_account_approved_email
-from app.db.base import Vet
+from app.db.base import Admin, Vet
 
 logger = logging.getLogger(__name__)
 
@@ -19,19 +19,13 @@ class AdminVerificationService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_pending(self) -> tuple[list[Vet], int]:
-        condition = Vet.is_verified.is_(False) & Vet.deactivated_at.is_(None)
-        items = list(self.db.scalars(select(Vet).where(condition).order_by(Vet.created_at.asc())))
-        total = self.db.scalar(select(func.count(Vet.id)).where(condition)) or 0
-        return items, total
-
     def _get(self, vet_id: UUID) -> Vet:
         vet = self.db.scalar(select(Vet).where(Vet.id == vet_id))
         if vet is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Ο κτηνίατρος δεν βρέθηκε.")
         return vet
 
-    def approve(self, vet_id: UUID, admin: Vet) -> Vet:
+    def approve(self, vet_id: UUID, admin: Admin) -> Vet:
         vet = self._get(vet_id)
         if not vet.email_verified:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, "Το email του κτηνιάτρου δεν έχει επαληθευτεί ακόμη.")
@@ -53,10 +47,8 @@ class AdminVerificationService:
         except Exception:
             logger.exception("Could not send approval email to vet %s", vet.id)
 
-    def revoke(self, vet_id: UUID, admin: Vet) -> Vet:
+    def revoke(self, vet_id: UUID, admin: Admin) -> Vet:
         vet = self._get(vet_id)
-        if vet.id == admin.id:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Δεν μπορείτε να ανακαλέσετε τη δική σας έγκριση.")
         if vet.is_verified:
             vet.is_verified = False
             self.db.commit()
@@ -64,7 +56,7 @@ class AdminVerificationService:
             logger.info("Admin %s revoked vet %s", admin.id, vet.id)
         return vet
 
-    def reject(self, vet_id: UUID, admin: Vet) -> None:
+    def reject(self, vet_id: UUID, admin: Admin) -> None:
         """Deletes a registration that was never approved, which frees its email and licence number."""
         vet = self._get(vet_id)
         if vet.is_verified:

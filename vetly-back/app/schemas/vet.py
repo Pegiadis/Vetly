@@ -69,8 +69,7 @@ class VetResponse(VetBase):
 
 
 class VetMeResponse(VetResponse):
-    """The signed-in vet's own profile. is_admin is never part of any other vet response."""
-    is_admin: bool = False
+    """The signed-in vet's own profile."""
 
 
 class VetListResponse(BaseModel):

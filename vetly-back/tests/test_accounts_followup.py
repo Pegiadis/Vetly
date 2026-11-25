@@ -1,5 +1,5 @@
 """Consent recording, invite registration without account probing, licence squatting,
-approval email and the admin flag on /auth/me."""
+and the approval email."""
 from datetime import datetime, timedelta
 
 import pytest
@@ -176,47 +176,29 @@ def test_verified_or_approved_holder_still_blocks_licence(client, db, email_veri
 
 # --- approval email ---
 
-@pytest.fixture()
-def admin_env(monkeypatch):
-    monkeypatch.setattr("app.core.config.settings.ADMIN_EMAILS", VET_DATA["email"])
-
-
-def test_approval_sends_greek_email_with_login_link(client, db, registered_vet, vet_auth_header, admin_env, sent):
+def test_approval_sends_greek_email_with_login_link(client, db, admin_auth_header, sent):
     pending = _vet_row(db, "pending@example.com", "LIC-PEND", email_verified=True, is_verified=False)
-    resp = client.post(f"{API}/admin/vets/{pending.id}/approve", headers=vet_auth_header)
+    resp = client.post(f"{API}/admin/vets/{pending.id}/approve", headers=admin_auth_header)
     assert resp.status_code == 200
     mails = [m for m in sent if m[0] == "pending@example.com"]
     assert len(mails) == 1
     assert "εγκρίθηκε" in mails[0][1] and "/vet/login" in mails[0][2]
 
 
-def test_approval_survives_email_failure(client, db, registered_vet, vet_auth_header, admin_env, monkeypatch):
+def test_approval_survives_email_failure(client, db, admin_auth_header, monkeypatch):
     def boom(*args, **kwargs):
         raise RuntimeError("smtp down")
     monkeypatch.setattr("app.core.email.send_email", boom)
     pending = _vet_row(db, "pending2@example.com", "LIC-PEND2", email_verified=True, is_verified=False)
-    resp = client.post(f"{API}/admin/vets/{pending.id}/approve", headers=vet_auth_header)
+    resp = client.post(f"{API}/admin/vets/{pending.id}/approve", headers=admin_auth_header)
     assert resp.status_code == 200
     db.refresh(pending)
     assert pending.is_verified is True
 
 
-def test_repeat_approval_does_not_resend(client, db, registered_vet, vet_auth_header, admin_env, sent):
+def test_repeat_approval_does_not_resend(client, db, admin_auth_header, sent):
     pending = _vet_row(db, "pending3@example.com", "LIC-PEND3", email_verified=True, is_verified=False)
-    client.post(f"{API}/admin/vets/{pending.id}/approve", headers=vet_auth_header)
-    client.post(f"{API}/admin/vets/{pending.id}/approve", headers=vet_auth_header)
+    client.post(f"{API}/admin/vets/{pending.id}/approve", headers=admin_auth_header)
+    client.post(f"{API}/admin/vets/{pending.id}/approve", headers=admin_auth_header)
     assert len([m for m in sent if m[0] == "pending3@example.com"]) == 1
 
-
-# --- is_admin on /auth/me ---
-
-def test_me_exposes_is_admin_only_for_listed_emails(client, vet_auth_header, monkeypatch):
-    monkeypatch.setattr("app.core.config.settings.ADMIN_EMAILS", "")
-    assert client.get(f"{API}/auth/me", headers=vet_auth_header).json()["is_admin"] is False
-    monkeypatch.setattr("app.core.config.settings.ADMIN_EMAILS", VET_DATA["email"].upper())
-    assert client.get(f"{API}/auth/me", headers=vet_auth_header).json()["is_admin"] is True
-
-
-def test_is_admin_is_not_in_other_vet_responses():
-    from app.schemas.vet import VetResponse
-    assert "is_admin" not in VetResponse.model_fields

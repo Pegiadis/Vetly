@@ -13,6 +13,8 @@ from app.db.base import Vet, PetOwner
 from app.core.security import decode_token
 from app.core.pilot import require_pilot_access
 
+ACCOUNT_SUSPENDED = "Ο λογαριασμός σας έχει ανασταλεί. Επικοινωνήστε με την υποστήριξη του Vetly."
+
 
 # OAuth2 scheme for token authentication
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/vet/login")
@@ -128,6 +130,8 @@ def get_current_pet_owner(
 
     if pet_owner is None or not pet_owner.email or not pet_owner.password_hash or token_data.version != pet_owner.auth_version:
         raise credentials_exception
+    if pet_owner.suspended_at is not None:
+        raise HTTPException(403, ACCOUNT_SUSPENDED)
 
     require_pilot_access(pet_owner.email)
     if not pet_owner.email_verified:

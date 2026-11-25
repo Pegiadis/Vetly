@@ -70,7 +70,7 @@ def decode_token(token: str) -> TokenData | None:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM], options={"require": ["sub", "type", "exp"]})
         if payload.get("purpose") is not None:
             return None
-        if payload.get("type") not in ("vet", "pet_owner"):
+        if payload.get("type") not in ("vet", "pet_owner", "admin"):
             return None
         return TokenData(
             sub=payload.get("sub"),
