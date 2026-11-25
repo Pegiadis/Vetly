@@ -39,13 +39,14 @@ export default function AdminOverviewPage() {
     {error ? <ClinicPanel className="space-y-3 p-5"><p role="alert" className="text-sm text-red-700">{error}</p><ClinicButton onClick={() => { void load(); }}>Δοκιμή ξανά</ClinicButton></ClinicPanel>
       : !data ? <ClinicPanel><ClinicLoading /></ClinicPanel>
       : <>
-        {data.vets.pending > 0 && <Link href="/admin/vets?status=pending" className="mb-5 flex items-center justify-between gap-3 rounded-xl bg-[#ffe0c7] px-4 py-3 text-sm font-medium text-[#622700] hover:bg-[#ffd4b0]">
-          <span>{data.vets.pending === 1 ? '1 κτηνίατρος περιμένει έγκριση' : `${data.vets.pending} κτηνίατροι περιμένουν έγκριση`}</span><span aria-hidden="true">→</span>
+        {data.demo_requests.new > 0 && <Link href="/admin/demo-requests?status=new" className="mb-5 flex items-center justify-between gap-3 rounded-xl bg-[#ffe0c7] px-4 py-3 text-sm font-medium text-[#622700] hover:bg-[#ffd4b0]">
+          <span>{data.demo_requests.new === 1 ? '1 νέο αίτημα demo' : `${data.demo_requests.new} νέα αιτήματα demo`}</span><span aria-hidden="true">→</span>
         </Link>}
-        <section aria-label="Κτηνίατροι" className="grid gap-3 sm:grid-cols-3">
-          <Stat label="Κτηνίατροι σε αναμονή" value={data.vets.pending} href="/admin/vets?status=pending" />
-          <Stat label="Εγκεκριμένοι κτηνίατροι" value={data.vets.approved} href="/admin/vets?status=approved" />
-          <Stat label="Κλειστοί λογαριασμοί" value={data.vets.closed} href="/admin/vets?status=closed" />
+        <section aria-label="Κτηνίατροι" className="grid gap-3 sm:grid-cols-4">
+          <Stat label="Αιτήματα demo" value={data.demo_requests.total} href="/admin/demo-requests" note={`${data.demo_requests.new} νέα`} />
+          <Stat label="Ενεργοί κτηνίατροι" value={data.vets.active} href="/admin/vets?status=active" />
+          <Stat label="Χωρίς κωδικό ακόμα" value={data.vets.invited} href="/admin/vets?status=invited" />
+          <Stat label="Ανενεργοί ή κλειστοί" value={data.vets.suspended + data.vets.closed} href="/admin/vets?status=suspended" />
         </section>
         <section aria-label="Κηδεμόνες" className="mt-3 grid gap-3 sm:grid-cols-3">
           <Stat label="Κηδεμόνες" value={data.owners.total} href="/admin/owners" />
@@ -58,11 +59,12 @@ export default function AdminOverviewPage() {
           <Stat label="Προγραμματισμένα" value={data.appointments.upcoming} note="Σε αναμονή ή επιβεβαιωμένα" />
         </section>
         <ClinicPanel className="mt-6 overflow-hidden">
-          <div className="border-b border-ink-200 px-4 py-3"><h2 className="text-sm font-semibold">Ανά εβδομάδα</h2><p className="mt-0.5 text-xs text-ink-500">Νέες εγγραφές και νέα ραντεβού, τελευταίες 8 εβδομάδες.</p></div>
-          <div className="overflow-x-auto"><ClinicTable className="min-w-[480px]">
-            <thead><tr><ClinicTableHead>Εβδομάδα από</ClinicTableHead><ClinicTableHead className="text-right">Κτηνίατροι</ClinicTableHead><ClinicTableHead className="text-right">Κηδεμόνες</ClinicTableHead><ClinicTableHead className="text-right">Ραντεβού</ClinicTableHead></tr></thead>
+          <div className="border-b border-ink-200 px-4 py-3"><h2 className="text-sm font-semibold">Ανά εβδομάδα</h2><p className="mt-0.5 text-xs text-ink-500">Νέα αιτήματα, λογαριασμοί και ραντεβού, τελευταίες 8 εβδομάδες.</p></div>
+          <div className="overflow-x-auto"><ClinicTable className="min-w-[560px]">
+            <thead><tr><ClinicTableHead>Εβδομάδα από</ClinicTableHead><ClinicTableHead className="text-right">Αιτήματα demo</ClinicTableHead><ClinicTableHead className="text-right">Κτηνίατροι</ClinicTableHead><ClinicTableHead className="text-right">Κηδεμόνες</ClinicTableHead><ClinicTableHead className="text-right">Ραντεβού</ClinicTableHead></tr></thead>
             <tbody>{[...data.weeks].reverse().map(week => <tr key={week.week_start}>
               <ClinicTableCell className="whitespace-nowrap">{weekLabel(week.week_start)}</ClinicTableCell>
+              <ClinicTableCell className="text-right tabular-nums">{week.demo_requests}</ClinicTableCell>
               <ClinicTableCell className="text-right tabular-nums">{week.vets}</ClinicTableCell>
               <ClinicTableCell className="text-right tabular-nums">{week.owners}</ClinicTableCell>
               <ClinicTableCell className="text-right tabular-nums">{week.appointments}</ClinicTableCell>

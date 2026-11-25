@@ -3,22 +3,16 @@ import { blockRegistrationApi, formAlert, hasNoHorizontalScroll } from './helper
 
 const NO_SUCH_ACCOUNT = { email: 'e2e-no-such-account@example.com', password: 'wrong-password-123' };
 
+// Vets do not register themselves: they ask for a demo and the team creates the account.
 const roles = [
   { name: 'owner', login: '/owner/login', register: '/register', dashboard: '/owner/dashboard' },
-  { name: 'vet', login: '/vet/login', register: '/vet/register', dashboard: '/vet/dashboard' },
+  { name: 'vet', login: '/vet/login', register: null, dashboard: '/vet/dashboard' },
 ] as const;
 
 /** Fills every registration field except the consent checkbox. */
-async function fillRegistration(page: Page, role: 'owner' | 'vet', password: string) {
+async function fillRegistration(page: Page, password: string) {
   await page.locator('input[name="name"]').fill('E2E Test');
   await page.locator('input[name="email"]').fill('e2e-never-sent@example.com');
-  if (role === 'vet') {
-    await page.locator('input[name="specialty"]').fill('Γενική κτηνιατρική');
-    await page.locator('input[name="license_number"]').fill('12345');
-    await page.locator('input[name="phone"]').fill('2101234567');
-    await page.locator('input[name="address"]').fill('Οδός Δοκιμής 1');
-    await page.locator('input[name="city"]').fill('Αθήνα');
-  }
   await page.locator('input[name="password"]').fill(password);
   await page.locator('input[name="confirmPassword"]').fill(password);
 }
@@ -34,14 +28,14 @@ for (const role of roles) {
       expect(await hasNoHorizontalScroll(page)).toBe(true);
     });
 
-    test('keeps ?next= in the link to register', async ({ page }) => {
+    if (role.register) test('keeps ?next= in the link to register', async ({ page }) => {
       const next = '/owner/book?vet=abc';
       await page.goto(`${role.login}?next=${encodeURIComponent(next)}`);
       const link = page.getByRole('link', { name: /Δημιουργία λογαριασμού|Εγγραφή/ }).first();
       await expect(link).toHaveAttribute('href', `${role.register}?next=${encodeURIComponent(next)}`);
     });
 
-    test('drops an unsafe ?next= from the link to register', async ({ page }) => {
+    if (role.register) test('drops an unsafe ?next= from the link to register', async ({ page }) => {
       await page.goto(`${role.login}?next=${encodeURIComponent('//evil.example')}`);
       const link = page.getByRole('link', { name: /Δημιουργία λογαριασμού|Εγγραφή/ }).first();
       await expect(link).toHaveAttribute('href', role.register);
@@ -62,11 +56,11 @@ for (const role of roles) {
     });
   });
 
-  test.describe(`${role.name} registration form`, () => {
+  if (role.register) test.describe(`${role.name} registration form`, () => {
     test('blocks submit until the consent checkbox is ticked', async ({ page }) => {
       const calls = await blockRegistrationApi(page);
-      await page.goto(role.register);
-      await fillRegistration(page, role.name, 'valid-password-1');
+      await page.goto(role.register!);
+      await fillRegistration(page, 'valid-password-1');
       await expect(page.locator('input[name="acceptTerms"]')).not.toBeChecked();
       await page.getByRole('button', { name: 'Δημιουργία λογαριασμού' }).click();
       await expect(formAlert(page)).toContainText('Όρους Χρήσης');
@@ -75,8 +69,8 @@ for (const role of roles) {
 
     test('blocks submit while the password is shorter than 8 characters', async ({ page }) => {
       const calls = await blockRegistrationApi(page);
-      await page.goto(role.register);
-      await fillRegistration(page, role.name, 'short7!');
+      await page.goto(role.register!);
+      await fillRegistration(page, 'short7!');
       await expect(page.getByText('Τουλάχιστον 8 χαρακτήρες.')).toBeVisible();
       await page.getByRole('button', { name: 'Δημιουργία λογαριασμού' }).click();
       // The browser's own minLength validation or the form's check stops it; either way no request.
@@ -85,7 +79,7 @@ for (const role of roles) {
     });
 
     test('links to the terms and privacy pages', async ({ page }) => {
-      await page.goto(role.register);
+      await page.goto(role.register!);
       await expect(page.getByRole('link', { name: 'Όρους Χρήσης' })).toHaveAttribute('href', '/terms');
       await expect(page.getByRole('link', { name: 'Πολιτική Απορρήτου' })).toHaveAttribute('href', '/privacy');
     });
@@ -97,6 +91,17 @@ for (const role of roles) {
     await expect(page.getByRole('button', { name: 'Είσοδος' })).toBeVisible();
   });
 }
+
+test('vet login points new clinics to the demo form', async ({ page }) => {
+  await page.goto('/vet/login');
+  await expect(page.getByRole('link', { name: 'Κλείστε demo' })).toHaveAttribute('href', '/for-vets#demo');
+});
+
+test('the old vet registration page sends visitors to the demo form', async ({ page }) => {
+  await page.goto('/vet/register');
+  await expect(page).toHaveURL(/\/for-vets#demo$/);
+  await expect(page.getByRole('button', { name: 'Κλείστε demo' })).toBeVisible();
+});
 
 test('anonymous visitors to other protected pages are sent to the right login', async ({ page }) => {
   await page.goto('/owner/appointments');

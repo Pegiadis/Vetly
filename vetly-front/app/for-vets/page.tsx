@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { AssistantAvatar } from '@/components/AssistantAvatar';
+import DemoRequestForm from '@/components/DemoRequestForm';
 
 export const metadata: Metadata = {
   title: 'Για κτηνιάτρους',
@@ -29,8 +30,8 @@ const features: { d: string; title: string; text: string }[] = [
 ];
 
 const steps: [string, string][] = [
-  ['Εγγραφή ιατρείου', 'Δημιουργήστε λογαριασμό με τα επαγγελματικά σας στοιχεία: όνομα, ειδικότητα, αριθμό άδειας και στοιχεία επικοινωνίας. Επιβεβαιώστε το email σας.'],
-  ['Επαλήθευση επαγγελματικών στοιχείων', 'Ελέγχουμε τα στοιχεία σας πριν ενεργοποιηθεί ο λογαριασμός. Έως τότε δεν μπορείτε να συνδεθείτε, και θα το δείτε καθαρά στην οθόνη σύνδεσης.'],
+  ['Κλείστε demo', 'Συμπληρώστε τη φόρμα και σας καλούμε για μια σύντομη παρουσίαση, στο ιατρείο ή online, ώστε να δείτε αν σας ταιριάζει.'],
+  ['Σας ετοιμάζουμε τον λογαριασμό', 'Δημιουργούμε τον λογαριασμό του ιατρείου σας και σας στέλνουμε email για να ορίσετε κωδικό.'],
   ['Μοιραστείτε τον σύνδεσμό σας', 'Ρυθμίστε ωράριο και υπηρεσίες και στείλτε στους κηδεμόνες σας τον σύνδεσμο του ιατρείου για να ζητούν ραντεβού.'],
 ];
 
@@ -72,7 +73,7 @@ export default function ForVetsPage() {
             <h1 className="mt-3 text-4xl font-semibold leading-[1.1] tracking-tight text-ink-900 sm:text-5xl">Το ιατρείο σας, <span className="text-clinic-600">οργανωμένο σε ένα μέρος.</span></h1>
             <p className="mt-4 max-w-lg text-base leading-7 text-ink-600">Ραντεβού, κηδεμόνες, ασθενείς, ιστορικό και υπενθυμίσεις στην ίδια εφαρμογή, χωρίς χαρτιά και σημειώσεις.</p>
             <div className="mt-7 flex flex-wrap gap-2">
-              <Link href="/vet/register" className={primary}>Εγγραφή ιατρείου</Link>
+              <Link href="#demo" className={primary}>Κλείστε demo</Link>
               <Link href="/vet/login" className={secondary}>Σύνδεση</Link>
             </div>
             <p className="mt-3 text-xs text-ink-500">Το Vetly βρίσκεται σε πιλοτική λειτουργία.</p>
@@ -115,10 +116,15 @@ export default function ForVetsPage() {
         </div>
       </section>
 
-      <section className="border-t border-ink-200 bg-ink-50">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-10 sm:px-6">
-          <div><h2 className="text-xl font-semibold tracking-tight text-ink-900">Έτοιμοι να δοκιμάσετε;</h2><p className="mt-1 text-sm text-ink-600">Η εγγραφή απαιτεί επαλήθευση των επαγγελματικών σας στοιχείων.</p></div>
-          <div className="flex flex-wrap gap-2"><Link href="/vet/login" className={secondary}>Σύνδεση</Link><Link href="/vet/register" className={primary}>Εγγραφή ιατρείου</Link></div>
+      <section id="demo" className="scroll-mt-20 border-t border-ink-200 bg-ink-50">
+        <div className="mx-auto grid max-w-6xl gap-8 px-4 py-14 sm:px-6 lg:grid-cols-[0.8fr_1.2fr]">
+          <div>
+            <p className="text-xs font-semibold text-clinic-700">Κλείστε demo</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-ink-900 sm:text-3xl">Δείτε το Vetly στο δικό σας ιατρείο</h2>
+            <p className="mt-3 text-sm leading-6 text-ink-600">Αφήστε μας τα στοιχεία σας και θα σας καλέσουμε για μια σύντομη παρουσίαση. Μετά το demo ετοιμάζουμε εμείς τον λογαριασμό σας.</p>
+            <p className="mt-4 text-sm text-ink-600">Έχετε ήδη λογαριασμό; <Link href="/vet/login" className="font-medium text-clinic-700 underline-offset-4 hover:underline">Σύνδεση</Link></p>
+          </div>
+          <DemoRequestForm />
         </div>
       </section>
     </main>

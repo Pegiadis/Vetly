@@ -35,13 +35,11 @@ test.describe('home page', () => {
 });
 
 test.describe('for vets', () => {
-  test('renders with registration and sign-in links and fits the viewport', async ({ page }) => {
+  test('renders with the demo form and sign-in link and fits the viewport', async ({ page }) => {
     await page.goto('/for-vets');
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await expect(page.locator('main').getByRole('link', { name: 'Εγγραφή ιατρείου' }).first()).toHaveAttribute(
-      'href',
-      '/vet/register',
-    );
+    await expect(page.locator('main').getByRole('link', { name: 'Κλείστε demo' }).first()).toHaveAttribute('href', '#demo');
+    await expect(page.getByLabel('Κτηνιατρείο')).toBeVisible();
     await expect(page.locator('main').getByRole('link', { name: 'Σύνδεση' }).first()).toHaveAttribute(
       'href',
       '/vet/login',

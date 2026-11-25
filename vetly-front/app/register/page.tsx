@@ -165,7 +165,7 @@ function OwnerRegisterForm() {
         </div>
 
         <p className="mt-5 text-center text-xs text-ink-500">
-          Είστε κτηνίατρος; <Link href="/vet/register" className="font-medium text-clinic-700 underline-offset-4 hover:underline">Εγγραφή ιατρείου</Link>
+          Είστε κτηνίατρος; <Link href="/for-vets#demo" className="font-medium text-clinic-700 underline-offset-4 hover:underline">Κλείστε demo</Link>
         </p>
       </div>
     </div>

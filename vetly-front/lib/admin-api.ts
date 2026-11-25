@@ -60,4 +60,5 @@ async function request<T>(endpoint: string, init?: RequestInit): Promise<T> {
 export const adminApi = {
   get: <T>(endpoint: string) => request<T>(endpoint),
   post: <T>(endpoint: string, data: unknown = {}) => request<T>(endpoint, { method: 'POST', body: JSON.stringify(data) }),
+  patch: <T>(endpoint: string, data: unknown) => request<T>(endpoint, { method: 'PATCH', body: JSON.stringify(data) }),
 };

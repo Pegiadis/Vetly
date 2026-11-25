@@ -3,7 +3,7 @@ import Image from 'next/image';
 
 const columns = [
   { title: 'Για ιδιοκτήτες', links: [['/register', 'Δημιουργία λογαριασμού'], ['/owner/login', 'Σύνδεση']] },
-  { title: 'Για κτηνιάτρους', links: [['/vet/register', 'Εγγραφή ιατρείου'], ['/vet/login', 'Είσοδος κτηνιατρείου']] },
+  { title: 'Για κτηνιάτρους', links: [['/for-vets#demo', 'Κλείστε demo'], ['/vet/login', 'Είσοδος κτηνιατρείου']] },
 ] as const;
 
 export default function Footer() {

@@ -130,7 +130,7 @@ export default function HomePage() {
             {['Η μέρα σας με μια ματιά: επόμενο ραντεβού και εκκρεμότητες', 'Έγκριση ή απόρριψη αιτημάτων με ένα κλικ', 'Αυτόματες υπενθυμίσεις εμβολίων στους κηδεμόνες', 'Βοηθός AI για μηνύματα και σημειώσεις'].map(item => <li key={item} className="flex items-start gap-2.5"><svg className="mt-0.5 h-4 w-4 shrink-0 text-clinic-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l4 4L19 6" /></svg><span className="text-white/90">{item}</span></li>)}
           </ul>
             <div className="mt-6 flex flex-wrap gap-2">
-              <Link href="/vet/register" className="inline-flex h-10 items-center justify-center rounded-[10px] bg-white px-4 text-sm font-medium text-clinic-800 hover:bg-clinic-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Εγγραφή ιατρείου</Link>
+              <Link href="/for-vets#demo" className="inline-flex h-10 items-center justify-center rounded-[10px] bg-white px-4 text-sm font-medium text-clinic-800 hover:bg-clinic-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Κλείστε demo</Link>
               <Link href="/vet/login" className="inline-flex h-10 items-center justify-center rounded-[10px] bg-white/10 px-4 text-sm font-medium text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Είσοδος κτηνιατρείου</Link>
             </div>
           </div>

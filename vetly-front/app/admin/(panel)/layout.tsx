@@ -12,6 +12,7 @@ import type { AdminMe } from '@/types/admin';
 
 const links = [
   ['/admin', 'Επισκόπηση', 'chart'],
+  ['/admin/demo-requests', 'Αιτήματα demo', 'inbox'],
   ['/admin/vets', 'Κτηνίατροι', 'shield'],
   ['/admin/owners', 'Κηδεμόνες', 'users'],
 ] as const;
