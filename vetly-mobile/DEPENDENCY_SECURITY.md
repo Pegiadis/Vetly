@@ -1,4 +1,18 @@
-# Mobile dependency security — 2026-10-25
+# Mobile dependency security
+
+## Update 2026-11-25
+
+- Expo SDK 58 patch updates through `expo install --fix`: expo 58.0.26 (CLI 58.1.21), React Native 0.88.1,
+  safe-area-context 5.11.1 and the expo-* packages to the versions `expo install --check` expects.
+- Expo CLI 58.1.21 no longer depends on Zod, so the scoped `zod@4.6.7` override for CLI 58.1.15 was removed
+  together with its Zod contract tests. `dependencyCompatibility.test.mjs` now checks that Zod is gone and keeps
+  the plist round-trip check.
+- `npm audit`: 1 high (the same node-forge advisory below, still only in Expo CLI tooling) and 3 moderate
+  (minimatch through `@expo/fingerprint`, also build tooling). Before: 4 high. Still not clear for release
+  until node-forge ships a fix or the risk is accepted explicitly.
+- `npm test`, `expo install --check` and `expo-doctor` (20/20) pass; Android and iOS bundles export.
+
+## Review 2026-10-25
 
 ## Release status
 
