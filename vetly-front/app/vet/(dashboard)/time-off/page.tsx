@@ -1,5 +1,6 @@
 'use client';
 
+import { greekDay } from '@/lib/dates';
 import { useState } from 'react';
 import Link from 'next/link';
 import { ClinicButton, ClinicInput, ClinicLoading, ClinicPageHeader, ClinicPanel, ClinicEmptyState } from '@/components/vet/ClinicUI';
@@ -68,6 +69,7 @@ export default function VetTimeOffPage() {
           <label className="block text-xs font-medium">Από<ClinicInput type="date" min={today()} value={start} onChange={e => { setStart(e.target.value); if (end && e.target.value > end) setEnd(''); }} disabled={busy} className="mt-2 w-full" required /></label>
           <label className="block text-xs font-medium">Έως (προαιρετικά, αλλιώς μία ημέρα)<ClinicInput type="date" min={start || today()} value={end} onChange={e => setEnd(e.target.value)} disabled={busy} className="mt-2 w-full" /></label>
         </div>
+        {start && <p role="status" className="rounded-[10px] bg-ink-50 px-3 py-2 text-xs text-ink-700">{end && end !== start ? <>Κλειστά από <strong>{greekDay(start)}</strong> έως <strong>{greekDay(end)}</strong>.</> : <>Κλειστά: <strong>{greekDay(start)}</strong>.</>}</p>}
         <label className="flex items-center gap-2 text-xs font-medium"><input type="checkbox" checked={partial} onChange={e => setPartial(e.target.checked)} disabled={busy} className="h-4 w-4 accent-clinic-600" />Μόνο συγκεκριμένες ώρες (κάθε ημέρα της περιόδου)</label>
         {partial && <div className="grid gap-3 sm:grid-cols-2"><label className="block text-xs font-medium">Από ώρα<ClinicInput type="time" step={900} value={from} onChange={e => setFrom(e.target.value)} disabled={busy} className="mt-2 w-full" /></label><label className="block text-xs font-medium">Έως ώρα<ClinicInput type="time" step={900} value={to} onChange={e => setTo(e.target.value)} disabled={busy} className="mt-2 w-full" /></label></div>}
         <label className="block text-xs font-medium">Αιτιολογία (προαιρετικά, φαίνεται μόνο σε εσένα)<ClinicInput maxLength={255} value={reason} onChange={e => setReason(e.target.value)} disabled={busy} placeholder="π.χ. Διακοπές, σεμινάριο" className="mt-2 w-full" /></label>
