@@ -2,10 +2,10 @@
 import logging
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.db.base import Appointment, Vet
+from app.db.base import Appointment, Reminder, Vet
 from app.models.appointment import AppointmentStatus
 from app.services.notification import NotificationService
 from app.services.scheduling import ATHENS
@@ -43,6 +43,13 @@ def deactivate_vet(db: Session, vet: Vet, now: datetime | None = None) -> int:
         notice = notices.setdefault(key, {"owner_id": appointment.pet_owner_id, "pets": [], "at": appointment.scheduled_at})
         if appointment.pet and appointment.pet.name not in notice["pets"]:
             notice["pets"].append(appointment.pet.name)
+
+    # Reminders the clinic scheduled must not reach owners in the name of a closed clinic.
+    db.execute(
+        update(Reminder)
+        .where(Reminder.vet_id == vet.id, Reminder.is_sent.is_(False), Reminder.is_dismissed.is_(False))
+        .values(is_dismissed=True)
+    )
 
     photo = vet.image_url
     vet_name = vet.name

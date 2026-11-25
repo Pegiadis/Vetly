@@ -138,3 +138,23 @@ def test_deactivated_vet_gets_no_emails(db, registered_vet, monkeypatch):
     db.commit()
     NotificationService(db)._send_vet_email(registered_vet.id, "appointment_new", None, "Rex", "d", "s", 0, "")
     assert sent == []
+
+
+def test_closing_the_account_stops_reminders_that_were_not_sent(client, db, registered_vet, registered_owner):
+    from datetime import date
+    from app.db.base import Reminder
+
+    headers = {"Authorization": "Bearer " + create_access_token(subject=str(registered_vet.id), token_type="vet", version=registered_vet.auth_version)}
+    pet, _ = _pet_and_appointment(db, registered_owner, registered_vet, days=-3, status=AppointmentStatus.COMPLETED)
+    waiting = Reminder(pet_id=pet.id, vet_id=registered_vet.id, pet_owner_id=registered_owner.id, type="vaccination",
+                       title="Εμβόλιο", due_date=date(2030, 2, 1), reminder_date=date(2030, 1, 20))
+    already_sent = Reminder(pet_id=pet.id, vet_id=registered_vet.id, pet_owner_id=registered_owner.id, type="vaccination",
+                            title="Παλιό", due_date=date(2026, 1, 1), reminder_date=date(2025, 12, 20), is_sent=True)
+    db.add_all([waiting, already_sent])
+    db.commit()
+
+    assert _delete(client, headers).status_code in (200, 204)
+    db.refresh(waiting)
+    db.refresh(already_sent)
+    assert waiting.is_dismissed is True
+    assert already_sent.is_dismissed is False
