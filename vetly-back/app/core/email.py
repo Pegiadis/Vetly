@@ -133,10 +133,12 @@ def send_email(to_email: str, subject: str, html_body: str) -> None:
     provider = settings.effective_email_provider
 
     if provider == "console":
-        print(f"\n{'='*60}")
-        print(f"EMAIL TO: {to_email}")
-        print(f"SUBJECT: {subject}")
-        print(f"{'='*60}\n")
+        summary = f"\n{'='*60}\nEMAIL TO: {to_email}\nSUBJECT: {subject}\n{'='*60}\n"
+        try:
+            print(summary)
+        except UnicodeEncodeError:
+            # A Windows console in a legacy code page cannot print Greek; never fail the request for it.
+            print(summary.encode("ascii", "backslashreplace").decode("ascii"))
         return
 
     try:
