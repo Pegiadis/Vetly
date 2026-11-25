@@ -21,22 +21,19 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
-class VetRegisterRequest(BaseModel):
-    """Vet registration request schema"""
-    email: EmailStr
+class VetActivationLookup(BaseModel):
+    token: str = Field(..., min_length=10, max_length=2000)
+
+
+class VetActivationInfo(BaseModel):
+    name: str
+    email: str
+
+
+class VetActivateRequest(BaseModel):
+    """Sets the password of a vet account created by the team, from the invite email."""
+    token: str = Field(..., min_length=10, max_length=2000)
     password: str = Field(..., min_length=8, max_length=128)
-    name: str = Field(..., min_length=2, max_length=255)
-    specialty: str = Field(..., min_length=2, max_length=255)
-    license_number: str = Field(..., min_length=2, max_length=100)
-    phone: str = Field(..., min_length=5, max_length=50)
-    address: str = Field(..., min_length=5, max_length=500)
-    city: str = Field(..., min_length=2, max_length=100)
-    description: str | None = Field(None, max_length=2000)
-    image_url: str | None = Field(
-        None,
-        max_length=500,
-        pattern=r"^/uploads/(vet|pet|pet_cover|owner)/[a-f0-9]{32}\.(jpg|png)$",
-    )
     accept_terms: bool = False
 
 

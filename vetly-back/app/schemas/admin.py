@@ -3,9 +3,9 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-VetStatus = Literal["pending", "approved", "closed"]
+VetStatus = Literal["active", "invited", "suspended", "closed"]
 OwnerStatus = Literal["active", "unverified", "suspended"]
 
 
@@ -17,8 +17,19 @@ class AdminMe(BaseModel):
     name: str
 
 
-class PendingVet(BaseModel):
-    """Returned by the approve and revoke actions."""
+class AdminVetCreate(BaseModel):
+    """A vet account the team creates, usually after a demo."""
+    name: str = Field(..., min_length=2, max_length=255)
+    email: EmailStr
+    phone: str = Field(..., min_length=5, max_length=50)
+    city: str = Field(..., min_length=2, max_length=100)
+    address: str = Field(..., min_length=5, max_length=500)
+    specialty: str = Field(..., min_length=2, max_length=255)
+    license_number: str = Field(..., min_length=2, max_length=100)
+    demo_request_id: UUID | None = None
+
+
+class AdminVetItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
@@ -31,9 +42,6 @@ class PendingVet(BaseModel):
     email_verified: bool
     is_verified: bool
     created_at: datetime
-
-
-class AdminVetItem(PendingVet):
     slug: str | None = None
     deactivated_at: datetime | None = None
     status: VetStatus
@@ -70,9 +78,15 @@ class AdminOwnerList(BaseModel):
 
 
 class VetCounts(BaseModel):
-    pending: int
-    approved: int
+    active: int
+    invited: int
+    suspended: int
     closed: int
+
+
+class DemoCounts(BaseModel):
+    new: int
+    total: int
 
 
 class OwnerCounts(BaseModel):
@@ -89,12 +103,14 @@ class AppointmentCounts(BaseModel):
 
 class WeekRow(BaseModel):
     week_start: date
+    demo_requests: int
     vets: int
     owners: int
     appointments: int
 
 
 class AdminOverview(BaseModel):
+    demo_requests: DemoCounts
     vets: VetCounts
     owners: OwnerCounts
     appointments: AppointmentCounts

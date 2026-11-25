@@ -8,7 +8,7 @@ from html import escape
 
 from app.core.config import settings
 from app.core.email import send_email
-from app.core.email_layout import button, details_box, detail, email_shell, paragraph, quote
+from app.core.email_layout import button, details_box, detail, email_shell, muted, paragraph, quote
 
 
 # ── Layout helpers ───────────────────────────────────────────────
@@ -288,18 +288,58 @@ def new_reminder_email(
     return subject, _owner_email("Νέα υπενθύμιση", body)
 
 
-# ── Template: Vet account approved (→ vet) ──────────────────────
+# ── Template: Vet account created by the team (→ vet) ──────────
 
 @_escaped
-def vet_account_approved_email(vet_name: str, login_url: str) -> tuple[str, str]:
-    """Return (subject, html) telling a vet that the professional verification passed."""
+def vet_account_invite_email(vet_name: str, activation_url: str, valid_days: int) -> tuple[str, str]:
+    """Return (subject, html) inviting a vet to set a password for the account the team created."""
     body = (
         _p(f"Αγαπητέ/ή {vet_name},")
-        + _p("Ο λογαριασμός σας εγκρίθηκε. Μπορείτε πλέον να συνδεθείτε και να ξεκινήσετε να χρησιμοποιείτε το Vetly Pro.")
-        + button(login_url, "Σύνδεση στο Vetly Pro")
+        + _p("Δημιουργήσαμε τον λογαριασμό του ιατρείου σας στο Vetly Pro. "
+             "Ορίστε κωδικό πρόσβασης για να συνδεθείτε και να ξεκινήσετε.")
+        + button(activation_url, "Ορισμός κωδικού")
+        + muted(f"Ο σύνδεσμος ισχύει για {valid_days} ημέρες και χρησιμοποιείται μία φορά.")
     )
-    subject = "Ο λογαριασμός σας εγκρίθηκε - Vetly Pro"
-    return subject, _vet_email("Ο λογαριασμός σας εγκρίθηκε", body)
+    subject = "Ο λογαριασμός σας στο Vetly Pro είναι έτοιμος"
+    return subject, _vet_email("Καλώς ήρθατε στο Vetly Pro", body)
+
+
+# ── Templates: Demo request (→ team, → clinic) ──────────────────
+
+@_escaped
+def demo_request_team_email(
+    name: str, clinic_name: str, email: str, phone: str, city: str, message: str, admin_url: str,
+) -> tuple[str, str]:
+    """Return (subject, html) telling the team a clinic asked for a demo."""
+    details = _details_box(
+        _detail("Όνομα", name),
+        _detail("Ιατρείο", clinic_name),
+        _detail("Email", email),
+        _detail("Τηλέφωνο", phone),
+        _detail("Πόλη", city),
+    )
+    note = quote(message.replace(chr(10), "<br>")) if message else ""
+    body = (
+        _p(f"Νέο αίτημα demo από το <strong>{clinic_name}</strong>.")
+        + details
+        + note
+        + button(admin_url, "Άνοιγμα στη διαχείριση")
+    )
+    subject = f"Αίτημα demo: {clinic_name} ({city})"
+    return subject, _vet_email("Νέο αίτημα demo", body)
+
+
+@_escaped
+def demo_request_received_email(name: str) -> tuple[str, str]:
+    """Return (subject, html) confirming to the clinic that its request arrived."""
+    body = (
+        _p(f"Αγαπητέ/ή {name},")
+        + _p("Λάβαμε το αίτημά σας για παρουσίαση του Vetly Pro. "
+             "Θα επικοινωνήσουμε μαζί σας σύντομα για να κλείσουμε μια ώρα που σας βολεύει.")
+        + muted("Αν δεν κάνατε εσείς αυτό το αίτημα, αγνοήστε αυτό το email.")
+    )
+    subject = "Λάβαμε το αίτημά σας - Vetly Pro"
+    return subject, _vet_email("Λάβαμε το αίτημά σας", body)
 
 
 # ── Template: New review (→ vet) ────────────────────────────────

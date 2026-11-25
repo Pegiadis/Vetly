@@ -8,6 +8,9 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
+from app.core.rate_limit import register_limit
+from app.schemas.demo_request import DemoRequestCreate
+from app.services.demo_requests import DemoRequestService
 from app.models.review import Review
 from app.models.vet import Vet
 from app.models.pet_owner import PetOwner
@@ -208,3 +211,10 @@ def get_public_vet_services(
             for s in services
         ]
     )
+
+
+@router.post("/demo-requests", status_code=201, dependencies=[Depends(register_limit)])
+def request_demo(data: DemoRequestCreate, db: Session = Depends(get_db)) -> dict:
+    """The 'Book a demo' form on the vets page. Vets no longer register themselves."""
+    DemoRequestService(db).create(data)
+    return {"message": "Λάβαμε το αίτημά σας. Θα επικοινωνήσουμε μαζί σας σύντομα."}

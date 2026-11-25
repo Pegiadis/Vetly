@@ -167,3 +167,27 @@ def decode_password_reset_token(token: str) -> TokenData | None:
         )
     except (JWTError, ValidationError):
         return None
+
+
+def create_vet_activation_token(vet_id: str, version: int) -> str:
+    """Single-use link for a vet account the team created: the account's version changes once it is used."""
+    expire = datetime.utcnow() + timedelta(days=settings.VET_ACTIVATION_EXPIRE_DAYS)
+    to_encode = {
+        "sub": str(vet_id),
+        "type": "vet",
+        "purpose": "vet_activation",
+        "version": version,
+        "exp": expire,
+        "iat": datetime.utcnow(),
+    }
+    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
+
+
+def decode_vet_activation_token(token: str) -> TokenData | None:
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM], options={"require": ["sub", "type", "exp"]})
+        if payload.get("purpose") != "vet_activation" or payload.get("type") != "vet":
+            return None
+        return TokenData(sub=payload["sub"], version=payload.get("version", 0), type="vet", purpose="vet_activation")
+    except (JWTError, ValidationError):
+        return None

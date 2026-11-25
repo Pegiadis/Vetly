@@ -89,57 +89,40 @@ def test_vet_me_no_longer_has_admin_flag(client, vet_auth_header):
 # --- vets ---
 
 def test_vet_list_filters_and_counts(client, admin_auth_header, registered_vet, pending_vet):
-    pending = client.get(f"{API}/vets", params={"status": "pending"}, headers=admin_auth_header).json()
-    row = next(item for item in pending["items"] if item["id"] == str(pending_vet.id))
-    assert row["status"] == "pending" and row["license_number"] == "VET-NEW-999"
+    suspended = client.get(f"{API}/vets", params={"status": "suspended"}, headers=admin_auth_header).json()
+    row = next(item for item in suspended["items"] if item["id"] == str(pending_vet.id))
+    assert row["status"] == "suspended" and row["license_number"] == "VET-NEW-999"
     assert row["appointments_count"] == 0 and row["clients_count"] == 0
-    assert all(item["status"] == "pending" for item in pending["items"])
+    assert all(item["status"] == "suspended" for item in suspended["items"])
 
     found = client.get(f"{API}/vets", params={"q": "vet-test-123"}, headers=admin_auth_header).json()
     assert [item["id"] for item in found["items"]] == [str(registered_vet.id)]
-    assert found["items"][0]["status"] == "approved"
+    assert found["items"][0]["status"] == "active"
 
 
 def test_unknown_status_filter_is_rejected(client, admin_auth_header):
-    assert client.get(f"{API}/vets", params={"status": "everything"}, headers=admin_auth_header).status_code == 422
+    assert client.get(f"{API}/vets", params={"status": "pending"}, headers=admin_auth_header).status_code == 422
 
 
-def test_approve_lets_vet_sign_in(client, db, admin_auth_header, pending_vet):
-    assert vet_login(client, pending_vet.email).status_code == 403
-    response = client.post(f"{API}/vets/{pending_vet.id}/approve", headers=admin_auth_header)
-    assert response.status_code == 200, response.text
-    assert response.json()["is_verified"] is True
-    assert vet_login(client, pending_vet.email).status_code == 200
+def test_approval_endpoints_are_gone(client, admin_auth_header, pending_vet):
+    for action in ("approve", "revoke", "reject"):
+        assert client.post(f"{API}/vets/{pending_vet.id}/{action}", headers=admin_auth_header).status_code == 404
 
 
-def test_cannot_approve_vet_with_unconfirmed_email(client, db, admin_auth_header, pending_vet):
-    pending_vet.email_verified = False
-    db.commit()
-    assert client.post(f"{API}/vets/{pending_vet.id}/approve", headers=admin_auth_header).status_code == 400
-    db.refresh(pending_vet)
-    assert pending_vet.is_verified is False
-
-
-def test_reject_removes_unapproved_registration(client, db, admin_auth_header, pending_vet):
-    vet_id = pending_vet.id
-    assert client.post(f"{API}/vets/{vet_id}/reject", headers=admin_auth_header).status_code == 204
-    db.expire_all()
-    assert db.scalar(select(Vet).where(Vet.id == vet_id)) is None
-
-
-def test_reject_refuses_approved_vet(client, admin_auth_header, registered_vet):
-    assert client.post(f"{API}/vets/{registered_vet.id}/reject", headers=admin_auth_header).status_code == 409
-
-
-def test_revoke_blocks_sign_in_and_open_sessions(client, admin_auth_header, registered_vet, vet_auth_header):
-    response = client.post(f"{API}/vets/{registered_vet.id}/revoke", headers=admin_auth_header)
-    assert response.status_code == 200 and response.json()["is_verified"] is False
-    assert vet_login(client, registered_vet.email).status_code == 403
+def test_suspend_blocks_sign_in_and_open_sessions_and_reactivate_restores(client, admin_auth_header, registered_vet, vet_auth_header):
+    response = client.post(f"{API}/vets/{registered_vet.id}/suspend", headers=admin_auth_header)
+    assert response.status_code == 200 and response.json()["status"] == "suspended"
+    blocked = vet_login(client, registered_vet.email)
+    assert blocked.status_code == 403 and "ανενεργός" in blocked.json()["detail"]
     assert client.get("/api/v1/auth/me", headers=vet_auth_header).status_code == 403
+
+    response = client.post(f"{API}/vets/{registered_vet.id}/reactivate", headers=admin_auth_header)
+    assert response.status_code == 200 and response.json()["status"] == "active"
+    assert vet_login(client, registered_vet.email).status_code == 200
 
 
 def test_unknown_vet_is_404(client, admin_auth_header):
-    assert client.post(f"{API}/vets/{uuid.uuid4()}/approve", headers=admin_auth_header).status_code == 404
+    assert client.post(f"{API}/vets/{uuid.uuid4()}/suspend", headers=admin_auth_header).status_code == 404
 
 
 # --- owners ---
@@ -189,7 +172,7 @@ def test_suspending_unknown_owner_is_404(client, admin_auth_header):
 
 def test_overview_counts_and_eight_weeks(client, admin_auth_header, pending_vet, registered_owner):
     body = client.get(f"{API}/overview", headers=admin_auth_header).json()
-    assert body["vets"]["pending"] >= 1 and body["owners"]["total"] >= 1
+    assert body["vets"]["suspended"] >= 1 and body["owners"]["total"] >= 1
     assert len(body["weeks"]) == 8
     starts = [row["week_start"] for row in body["weeks"]]
     assert starts == sorted(starts)

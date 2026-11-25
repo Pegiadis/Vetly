@@ -69,6 +69,10 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     EMAIL_VERIFY_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_EXPIRE_HOURS: int = 1
+    # Link a new clinic gets to set its password; the team creates vet accounts from the admin panel.
+    VET_ACTIVATION_EXPIRE_DAYS: int = 7
+    # Where demo requests from the 'Για κτηνιάτρους' page are emailed. Empty: they are only stored.
+    DEMO_REQUEST_EMAIL: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

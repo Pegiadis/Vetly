@@ -15,6 +15,7 @@ from app.core.security import (
     decode_email_verification_token,
     create_password_reset_token,
     decode_password_reset_token,
+    decode_vet_activation_token,
     verify_password,
     get_password_hash,
 )
@@ -22,15 +23,14 @@ from app.core import email as email_module
 from app.core.config import settings
 from app.core.email import send_verification_email, send_password_reset_email
 from app.schemas.auth import (
-    LoginRequest, TokenResponse, VetRegisterRequest, PetOwnerRegisterRequest,
+    LoginRequest, TokenResponse, PetOwnerRegisterRequest, VetActivateRequest, VetActivationInfo,
     RegisterResponse, VerifyEmailRequest, VerifyEmailResponse,
     ForgotPasswordRequest, ResetPasswordRequest,
 )
 from app.schemas.vet import VetResponse
 from app.schemas.owner import PetOwnerResponse
-from app.utils.slug import generate_unique_slug
 from app.core.pilot import require_pilot_access
-from app.core.deps import ACCOUNT_SUSPENDED
+from app.core.deps import ACCOUNT_SUSPENDED, VET_SUSPENDED
 from app.core.legal import consent_fields
 
 
@@ -94,91 +94,39 @@ class AuthService:
 
         require_pilot_access(vet.email)
         if not vet.is_verified:
-            raise HTTPException(403, "Εκκρεμεί η επαγγελματική επαλήθευση του λογαριασμού σας.")
+            raise HTTPException(403, VET_SUSPENDED)
         access_token = create_access_token(subject=str(vet.id), token_type="vet", version=vet.auth_version)
         return TokenResponse(access_token=access_token)
 
-    def register_vet(self, data: VetRegisterRequest) -> RegisterResponse:
-        require_pilot_access(data.email)
-        # Checked before any account lookup so the answer never depends on the email.
+    def _vet_from_activation(self, token: str, *, lock: bool = False) -> Vet:
+        token_data = decode_vet_activation_token(token)
+        invalid = HTTPException(400, "Ο σύνδεσμος δεν είναι έγκυρος ή έχει λήξει. Ζητήστε νέο από την ομάδα του Vetly.")
+        if token_data is None:
+            raise invalid
+        query = select(Vet).where(Vet.id == token_data.sub)
+        vet = self.db.scalar(query.with_for_update() if lock else query)
+        # The link is single-use: setting the password (or a new invite) changes the version.
+        if vet is None or vet.deactivated_at is not None or token_data.version != vet.auth_version:
+            raise invalid
+        return vet
+
+    def vet_activation_info(self, token: str) -> VetActivationInfo:
+        vet = self._vet_from_activation(token)
+        return VetActivationInfo(name=vet.name, email=vet.email)
+
+    def activate_vet(self, data: VetActivateRequest) -> VerifyEmailResponse:
         consent = consent_fields(data.accept_terms)
-        response = RegisterResponse(message=REGISTER_MESSAGE, email=data.email)
-        existing = self.db.scalar(select(Vet).where(Vet.email == data.email).with_for_update())
-
-        if existing and (existing.email_verified or not existing.password_hash):
-            # Same answer as a new registration, so the form cannot be used to
-            # discover which emails have accounts. The account is left untouched.
-            if existing.email_verified:
-                _send_already_registered_email(data.email, "vet")
-            return response
-
-        # A licence number is public professional data, so rejecting a duplicate is acceptable.
-        license_owner = self.db.scalar(select(Vet).where(Vet.license_number == data.license_number).with_for_update())
-        if license_owner and (existing is None or license_owner.id != existing.id):
-            if license_owner.email_verified or license_owner.is_verified:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="License number already registered",
-                )
-            # The holder never proved access to its email and was never approved, so it
-            # cannot have signed in or created data. Its row is removed instead of being
-            # given a placeholder licence; the new registration takes the number.
-            try:
-                with self.db.begin_nested():
-                    self.db.delete(license_owner)
-                    self.db.flush()
-            except IntegrityError:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="License number already registered",
-                )
-
-        if existing:
-            # An unverified registration never proved access to the address, so a
-            # new submission replaces it and the real owner is not locked out.
-            existing.password_hash = get_password_hash(data.password)
-            existing.auth_version += 1
-            existing.name = data.name
-            existing.specialty = data.specialty
-            existing.license_number = data.license_number
-            existing.phone = data.phone
-            existing.address = data.address
-            existing.city = data.city
-            existing.description = data.description
-            existing.image_url = data.image_url
-            existing.terms_accepted_at = consent["terms_accepted_at"]
-            existing.terms_version = consent["terms_version"]
-            vet = existing
-        else:
-            vet = Vet(
-                email=data.email,
-                password_hash=get_password_hash(data.password),
-                name=data.name,
-                slug=generate_unique_slug(self.db, data.name),
-                specialty=data.specialty,
-                license_number=data.license_number,
-                phone=data.phone,
-                address=data.address,
-                city=data.city,
-                description=data.description,
-                image_url=data.image_url,
-                is_verified=False,
-                is_on_call=False,
-                email_verified=False,
-                **consent,
-            )
-            self.db.add(vet)
-        try:
-            self.db.commit()
-        except IntegrityError:
-            # A concurrent registration won the race for the same email or licence.
-            self.db.rollback()
-            return response
-        self.db.refresh(vet)
-
-        token = create_email_verification_token(str(vet.id), "vet")
-        send_verification_email(data.email, token, "vet")
-        return response
+        vet = self._vet_from_activation(data.token, lock=True)
+        vet.password_hash = get_password_hash(data.password)
+        vet.email_verified = True  # the link reached this inbox
+        vet.auth_version += 1
+        vet.terms_accepted_at = consent["terms_accepted_at"]
+        vet.terms_version = consent["terms_version"]
+        self.db.commit()
+        if not vet.is_verified:
+            raise HTTPException(403, VET_SUSPENDED)
+        access_token = create_access_token(subject=str(vet.id), token_type="vet", version=vet.auth_version)
+        return VerifyEmailResponse(access_token=access_token, message="Ο κωδικός ορίστηκε. Καλώς ήρθατε στο Vetly Pro.")
 
     def get_vet_by_id(self, vet_id: UUID) -> Vet | None:
         query = select(Vet).where(Vet.id == vet_id)

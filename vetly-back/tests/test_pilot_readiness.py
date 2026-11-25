@@ -92,24 +92,6 @@ def test_vet_can_book_existing_patient_and_cannot_access_another_vets_booking(cl
     assert client.get(f'/api/v1/vet/patients/{pet.id}/history', headers=headers).status_code == 404
 
 
-def test_registration_does_not_verify_professional(client, db):
-    response = client.post('/api/v1/auth/vet/register', json={
-        'email':'pending-pilot@example.com', 'password':'TestPass123', 'name':'Pending',
-        'specialty':'General', 'license_number':'PILOT-123', 'phone':'2101234567',
-        'address':'Test Street', 'city':'Athens', 'accept_terms':True,
-    })
-    assert response.status_code == 201, response.text
-    vet = db.scalar(select(Vet).where(Vet.email == 'pending-pilot@example.com'))
-    assert vet.is_verified is False
-    from app.core.security import create_email_verification_token
-    verified = client.post('/api/v1/auth/verify-email', json={
-        'token': create_email_verification_token(str(vet.id), 'vet')})
-    assert verified.status_code == 200
-    assert verified.json()['pending_professional_verification'] is True
-    assert client.get('/api/v1/vet/patients', headers={
-        'Authorization': f"Bearer {verified.json()['access_token']}"}).status_code == 403
-
-
 def test_unverified_vet_cannot_operate_or_receive_bookings(client, db, pilot_data, owner_auth_header, vet_auth_header):
     vet, pet = pilot_data
     vet.is_verified = False

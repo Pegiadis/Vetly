@@ -13,6 +13,7 @@ from app.db.base import Vet, PetOwner
 from app.core.security import decode_token
 from app.core.pilot import require_pilot_access
 
+VET_SUSPENDED = "Ο λογαριασμός του ιατρείου σας είναι ανενεργός. Επικοινωνήστε με την ομάδα του Vetly."
 ACCOUNT_SUSPENDED = "Ο λογαριασμός σας έχει ανασταλεί. Επικοινωνήστε με την υποστήριξη του Vetly."
 
 
@@ -82,7 +83,7 @@ def get_current_vet(
 
     require_pilot_access(vet.email)
     if not vet.is_verified or not vet.email_verified:
-        raise HTTPException(403, "Εκκρεμεί η επαλήθευση του λογαριασμού σας.")
+        raise HTTPException(403, VET_SUSPENDED)
     return vet
 
 

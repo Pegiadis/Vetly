@@ -11,7 +11,7 @@ from app.core.rate_limit import email_request_limit, login_limit, register_limit
 from app.db.base import Vet, PetOwner
 from app.services.auth import AuthService
 from app.schemas.auth import (
-    LoginRequest, TokenResponse, VetRegisterRequest, PetOwnerRegisterRequest,
+    LoginRequest, TokenResponse, PetOwnerRegisterRequest, VetActivateRequest, VetActivationInfo, VetActivationLookup,
     RegisterResponse, VerifyEmailRequest, VerifyEmailResponse, ResendVerificationRequest,
     ForgotPasswordRequest, ResetPasswordRequest,
 )
@@ -42,14 +42,16 @@ def login_vet_form(
     return service.login_vet(credentials)
 
 
-@router.post("/vet/register", response_model=RegisterResponse, status_code=201, dependencies=[Depends(register_limit)])
-def register_vet(
-    data: VetRegisterRequest,
-    db: Session = Depends(get_db),
-) -> RegisterResponse:
-    """Register a new vet account"""
-    service = AuthService(db)
-    return service.register_vet(data)
+@router.post("/vet/activation", response_model=VetActivationInfo, dependencies=[Depends(token_limit)])
+def vet_activation_info(data: VetActivationLookup, db: Session = Depends(get_db)) -> VetActivationInfo:
+    """Who an invite link is for, so the page can greet the vet before the password is set."""
+    return AuthService(db).vet_activation_info(data.token)
+
+
+@router.post("/vet/activate", response_model=VerifyEmailResponse, dependencies=[Depends(token_limit)])
+def activate_vet(data: VetActivateRequest, db: Session = Depends(get_db)) -> VerifyEmailResponse:
+    """Set the password of a vet account the team created and sign in. Vets do not register themselves."""
+    return AuthService(db).activate_vet(data)
 
 
 @router.get("/me", response_model=VetMeResponse)

@@ -148,7 +148,7 @@ def test_logout_all_returns_fresh_token_and_revokes_old(client, db, registered_v
 
 def test_new_passwords_need_eight_characters_but_login_accepts_old_short_ones(client, db):
     short = "abc1234"
-    assert client.post(f"{API}/auth/vet/register", json=vet_payload(password=short)).status_code == 422
+    assert client.post(f"{API}/auth/vet/activate", json={"token": "x" * 20, "password": short}).status_code == 422
     assert client.post(f"{API}/auth/pet-owner/register",
                        json={"email": "o@example.com", "password": short, "name": "Owner"}).status_code == 422
     assert client.post(f"{API}/auth/reset-password", json={"token": "x", "new_password": short}).status_code == 422
@@ -160,52 +160,6 @@ def test_new_passwords_need_eight_characters_but_login_accepts_old_short_ones(cl
     db.add(old)
     db.commit()
     assert client.post(f"{API}/auth/vet/login", json={"email": "old@example.com", "password": "abc123"}).status_code == 200
-
-
-# --- registration: vets ---
-
-def test_vet_register_new_sends_verification(client, db, sent):
-    resp = client.post(f"{API}/auth/vet/register", json=vet_payload())
-    assert resp.status_code == 201
-    assert len(sent) == 1 and sent[0][0] == "new-vet@example.com"
-    vet = db.scalar(select(Vet).where(Vet.email == "new-vet@example.com"))
-    assert vet and not vet.email_verified
-
-
-def test_vet_register_verified_email_is_generic_and_changes_nothing(client, db, registered_vet, sent):
-    fresh = client.post(f"{API}/auth/vet/register", json=vet_payload())
-    existing = client.post(f"{API}/auth/vet/register",
-                           json=vet_payload(email=VET_DATA["email"], password="hijack-pass1", name="Hijacker",
-                                            license_number="LIC-OTHER"))
-    assert existing.status_code == fresh.status_code == 201
-    assert existing.json()["message"] == fresh.json()["message"]
-    db.refresh(registered_vet)
-    assert registered_vet.name == VET_DATA["name"]
-    assert verify_password(VET_DATA["password"], registered_vet.password_hash)
-    assert registered_vet.auth_version == 0
-    # Only the "you already have an account" notice goes to the existing address, no verification link.
-    to_existing = [m for m in sent if m[0] == VET_DATA["email"]]
-    assert len(to_existing) == 1 and "reset-password" not in to_existing[0][2] and "verify-email" not in to_existing[0][2]
-
-
-def test_vet_register_replaces_unverified_squatter(client, db, sent):
-    assert client.post(f"{API}/auth/vet/register",
-                       json=vet_payload(password="squatter-pass1", name="Squatter")).status_code == 201
-    squatter = db.scalar(select(Vet).where(Vet.email == "new-vet@example.com"))
-    slug = squatter.slug
-    assert client.post(f"{API}/auth/vet/register",
-                       json=vet_payload(password="real-owner-pass1", name="Real Owner", license_number="LIC-REAL")).status_code == 201
-    db.refresh(squatter)
-    assert squatter.name == "Real Owner" and squatter.license_number == "LIC-REAL" and squatter.slug == slug
-    assert verify_password("real-owner-pass1", squatter.password_hash)
-    assert not verify_password("squatter-pass1", squatter.password_hash)
-    assert db.scalars(select(Vet).where(Vet.email == "new-vet@example.com")).all() == [squatter]
-    assert len(sent) == 2  # verification re-sent each time
-
-
-def test_vet_register_duplicate_license_still_rejected(client, registered_vet):
-    resp = client.post(f"{API}/auth/vet/register", json=vet_payload(license_number=VET_DATA["license_number"]))
-    assert resp.status_code == 400
 
 
 # --- registration: pet owners ---

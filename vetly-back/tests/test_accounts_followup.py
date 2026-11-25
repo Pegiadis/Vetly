@@ -1,13 +1,12 @@
-"""Consent recording, invite registration without account probing, licence squatting,
-and the approval email."""
+"""Consent recording and invite registration without account probing."""
 from datetime import datetime, timedelta
 
 import pytest
 from sqlalchemy import select
 
 from app.core.legal import TERMS_VERSION
-from app.core.security import create_access_token, create_email_verification_token, get_password_hash, verify_password
-from app.db.base import PetOwner, Vet, VetClient
+from app.core.security import create_email_verification_token, get_password_hash, verify_password
+from app.db.base import PetOwner, VetClient
 from tests.conftest import OWNER_DATA, VET_DATA
 
 API = "/api/v1"
@@ -47,28 +46,6 @@ def invite_payload(**over):
 
 
 # --- consent ---
-
-def test_vet_register_requires_terms_and_records_them(client, db):
-    refused = client.post(f"{API}/auth/vet/register", json=vet_payload(accept_terms=False))
-    assert refused.status_code == 400 and "Όρους" in refused.json()["detail"]
-    assert db.scalar(select(Vet).where(Vet.email == "fresh-vet@example.com")) is None
-
-    assert client.post(f"{API}/auth/vet/register", json=vet_payload()).status_code == 201
-    vet = db.scalar(select(Vet).where(Vet.email == "fresh-vet@example.com"))
-    assert vet.terms_version == TERMS_VERSION and vet.terms_accepted_at is not None
-
-
-def test_missing_flag_is_refused_like_false(client):
-    data = vet_payload()
-    del data["accept_terms"]
-    assert client.post(f"{API}/auth/vet/register", json=data).status_code == 400
-
-
-def test_consent_check_does_not_depend_on_existing_account(client, registered_vet, registered_owner):
-    existing = client.post(f"{API}/auth/vet/register", json=vet_payload(email=VET_DATA["email"], accept_terms=False))
-    fresh = client.post(f"{API}/auth/vet/register", json=vet_payload(accept_terms=False))
-    assert existing.status_code == fresh.status_code == 400 and existing.json() == fresh.json()
-
 
 def test_owner_register_requires_terms_on_web(client, db):
     assert client.post(f"{API}/auth/pet-owner/register", json=owner_payload(accept_terms=False)).status_code == 400
@@ -147,58 +124,4 @@ def test_invite_register_replaces_unverified_account_and_still_claims(client, db
 
 # --- licence squatting ---
 
-def _vet_row(db, email, licence, *, email_verified, is_verified):
-    vet = Vet(email=email, password_hash=get_password_hash("whatever-123"), name="Holder", slug=f"holder-{licence.lower()}",
-              specialty="x", license_number=licence, phone="12345", address="Somewhere 1", city="Athens",
-              email_verified=email_verified, is_verified=is_verified)
-    db.add(vet)
-    db.commit()
-    return vet
-
-
-def test_unverified_unapproved_holder_does_not_block_licence(client, db):
-    squatter = _vet_row(db, "squatter@example.com", "LIC-SQUAT", email_verified=False, is_verified=False)
-    resp = client.post(f"{API}/auth/vet/register", json=vet_payload(license_number="LIC-SQUAT"))
-    assert resp.status_code == 201
-    assert db.scalar(select(Vet).where(Vet.email == "squatter@example.com")) is None
-    new = db.scalar(select(Vet).where(Vet.email == "fresh-vet@example.com"))
-    assert new.license_number == "LIC-SQUAT" and new.id != squatter.id
-
-
-@pytest.mark.parametrize("email_verified,is_verified", [(True, False), (False, True), (True, True)])
-def test_verified_or_approved_holder_still_blocks_licence(client, db, email_verified, is_verified):
-    _vet_row(db, "holder@example.com", "LIC-HELD", email_verified=email_verified, is_verified=is_verified)
-    resp = client.post(f"{API}/auth/vet/register", json=vet_payload(license_number="LIC-HELD"))
-    assert resp.status_code == 400
-    assert db.scalar(select(Vet).where(Vet.email == "holder@example.com")) is not None
-    assert db.scalar(select(Vet).where(Vet.email == "fresh-vet@example.com")) is None
-
-
-# --- approval email ---
-
-def test_approval_sends_greek_email_with_login_link(client, db, admin_auth_header, sent):
-    pending = _vet_row(db, "pending@example.com", "LIC-PEND", email_verified=True, is_verified=False)
-    resp = client.post(f"{API}/admin/vets/{pending.id}/approve", headers=admin_auth_header)
-    assert resp.status_code == 200
-    mails = [m for m in sent if m[0] == "pending@example.com"]
-    assert len(mails) == 1
-    assert "εγκρίθηκε" in mails[0][1] and "/vet/login" in mails[0][2]
-
-
-def test_approval_survives_email_failure(client, db, admin_auth_header, monkeypatch):
-    def boom(*args, **kwargs):
-        raise RuntimeError("smtp down")
-    monkeypatch.setattr("app.core.email.send_email", boom)
-    pending = _vet_row(db, "pending2@example.com", "LIC-PEND2", email_verified=True, is_verified=False)
-    resp = client.post(f"{API}/admin/vets/{pending.id}/approve", headers=admin_auth_header)
-    assert resp.status_code == 200
-    db.refresh(pending)
-    assert pending.is_verified is True
-
-
-def test_repeat_approval_does_not_resend(client, db, admin_auth_header, sent):
-    pending = _vet_row(db, "pending3@example.com", "LIC-PEND3", email_verified=True, is_verified=False)
-    client.post(f"{API}/admin/vets/{pending.id}/approve", headers=admin_auth_header)
-    client.post(f"{API}/admin/vets/{pending.id}/approve", headers=admin_auth_header)
-    assert len([m for m in sent if m[0] == "pending3@example.com"]) == 1
 

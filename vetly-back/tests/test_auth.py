@@ -7,7 +7,6 @@ Covers:
   - Auth-required endpoints (missing token, wrong user type)
 """
 
-import pytest
 
 
 # ---------------------------------------------------------------------------
@@ -45,47 +44,10 @@ class TestOwnerRegistration:
         assert "message" in resp.json()
 
 
-class TestVetRegistration:
-    """Tests for POST /api/v1/auth/vet/register"""
-
-    ENDPOINT = "/api/v1/auth/vet/register"
-
-    def _vet_payload(self, **overrides):
-        base = {
-            "email": "newvet@example.com",
-            "password": "secure123",
-            "name": "Dr. New Vet",
-            "specialty": "Surgery",
-            "license_number": "NEW-LIC-001",
-            "phone": "6900000099",
-            "address": "Thessaloniki 10",
-            "city": "Thessaloniki",
-            "accept_terms": True,
-        }
-        base.update(overrides)
-        return base
-
-    def test_register_vet_success(self, client):
-        resp = client.post(self.ENDPOINT, json=self._vet_payload())
-        assert resp.status_code == 201
-        data = resp.json()
-        assert data["email"] == "newvet@example.com"
-        assert "message" in data
-
-    def test_register_vet_duplicate_email(self, client, registered_vet):
-        payload = self._vet_payload(email=registered_vet.email)
-        resp = client.post(self.ENDPOINT, json=payload)
-        assert resp.status_code == 201
-        assert "message" in resp.json()
-
-    def test_register_vet_duplicate_license(self, client, registered_vet):
-        payload = self._vet_payload(
-            email="other@example.com",
-            license_number=registered_vet.license_number,
-        )
-        resp = client.post(self.ENDPOINT, json=payload)
-        assert resp.status_code == 400
-        assert "license" in resp.json()["detail"].lower()
+def test_vets_cannot_register_themselves(client):
+    """Clinics ask for a demo; the team creates vet accounts from the admin panel."""
+    resp = client.post("/api/v1/auth/vet/register", json={"email": "newvet@example.com", "password": "secure123"})
+    assert resp.status_code in (404, 405)
 
 
 # ---------------------------------------------------------------------------
