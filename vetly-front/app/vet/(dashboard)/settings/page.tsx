@@ -205,6 +205,7 @@ function AccountDataSection() {
     setDeleteError(null);
     try {
       await deleteVetAccount(password, confirmation);
+      try { sessionStorage.setItem('vetly_account_closed', '1'); } catch { /* storage unavailable: no notice */ }
       logout();
     } catch (err) {
       setDeleteError(errorText(err));
@@ -756,6 +757,7 @@ export default function VetSettingsPage() {
                     <label className="flex flex-wrap items-center gap-2">
                       <input
                         type="checkbox"
+                        aria-label={`${dayNames[day]}: ανοιχτά`}
                         checked={!schedule.closed}
                         onChange={() =>
                           setHours({ ...hours, [day]: { ...schedule, closed: !schedule.closed } })

@@ -97,7 +97,7 @@ export default function VerifyEmailPageContent() {
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             </div>
-            <h2 className="text-2xl font-semibold text-ink-900">Επιβεβαίωση email...</h2>
+            <h1 className="text-2xl font-semibold text-ink-900">Επιβεβαίωση email...</h1>
             <p className="text-sm text-ink-600">Παρακαλώ περιμένετε.</p>
           </>
         )}
@@ -109,7 +109,7 @@ export default function VerifyEmailPageContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-2xl font-semibold text-ink-900">Επιτυχής επιβεβαίωση!</h2>
+            <h1 className="text-2xl font-semibold text-ink-900">Επιτυχής επιβεβαίωση!</h1>
             <p className="text-sm text-ink-600">{successMessage}</p>
           </>
         )}
@@ -121,7 +121,7 @@ export default function VerifyEmailPageContent() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="text-2xl font-semibold text-ink-900">Αποτυχία επιβεβαίωσης</h2>
+            <h1 className="text-2xl font-semibold text-ink-900">Αποτυχία επιβεβαίωσης</h1>
             <p className="text-sm text-red-600">{errorMessage}</p>
             <Link
               href={`/verify-email/pending?userType=${userType}`}

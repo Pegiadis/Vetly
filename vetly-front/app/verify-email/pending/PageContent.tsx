@@ -47,9 +47,9 @@ export default function VerifyEmailPendingPageContent() {
         </div>
 
         <div>
-          <h2 className="text-2xl font-semibold text-ink-900 tracking-tight">
+          <h1 className="text-2xl font-semibold text-ink-900 tracking-tight">
             Ελέγξτε το email σας
-          </h2>
+          </h1>
           <p className="mt-3 text-sm text-ink-600 leading-relaxed">
             Αν το email{' '}
             {email && <span className="font-semibold text-ink-800">{email}</span>}{' '}

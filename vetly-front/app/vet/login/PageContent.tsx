@@ -28,6 +28,15 @@ export default function VetLoginPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const sessionExpired = searchParams.get('expired') === 'true';
+  const [accountClosed, setAccountClosed] = useState(false);
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('vetly_account_closed')) {
+        sessionStorage.removeItem('vetly_account_closed');
+        setAccountClosed(true);
+      }
+    } catch { /* storage unavailable */ }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,7 +72,12 @@ export default function VetLoginPageContent() {
           <h1 className="text-xl font-semibold tracking-tight text-ink-900">Είσοδος κτηνιατρείου</h1>
           <p className="mt-1 text-sm text-ink-500">Για επαγγελματίες κτηνιάτρους.</p>
 
-          {sessionExpired && !error && (
+          {accountClosed && !error && (
+            <div role="status" className="mt-4 rounded-[10px] bg-clinic-50 px-3 py-2.5 text-sm text-clinic-800">
+              Ο λογαριασμός σας έκλεισε. Ευχαριστούμε που χρησιμοποιήσατε το Vetly.
+            </div>
+          )}
+          {sessionExpired && !accountClosed && !error && (
             <div role="status" className="mt-4 rounded-[10px] bg-[#fff1e4] px-3 py-2.5 text-sm text-[#8a3f0c]">
               Η συνεδρία σας έληξε. Συνδεθείτε ξανά.
             </div>
