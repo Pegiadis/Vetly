@@ -8,7 +8,8 @@ import { SITE_URL } from '@/lib/site'
 const inter = Inter({ subsets: ['latin', 'greek'] })
 
 const description = 'Βρείτε κτηνιάτρους, κλείστε ραντεβού και διαχειριστείτε την υγεία του κατοικιδίου σας.'
-const shareImage = { url: '/branding/vetly-logo-transparent.png', width: 2109, height: 746, alt: 'Vetly' }
+// 1200x630, the size link previews expect.
+const shareImage = { url: '/branding/vetly-share.png', width: 1200, height: 630, alt: 'Vetly: η φροντίδα του κατοικιδίου σου, οργανωμένη σε ένα μέρος' }
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
