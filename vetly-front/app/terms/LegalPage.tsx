@@ -20,11 +20,7 @@ export default function LegalPage({ title, updated, intro, sections }: {
       <Navbar />
       <main className="bg-ink-50 pt-16 text-ink-800">
         <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
-          <div role="note" className="rounded-[10px] bg-[#fff1e4] px-4 py-3 text-sm font-medium text-[#8a3f0c]">
-            Προσχέδιο — εκκρεμεί νομικός έλεγχος
-          </div>
-
-          <h1 className="mt-6 text-3xl font-semibold tracking-tight text-ink-900">{title}</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-ink-900">{title}</h1>
           <p className="mt-2 text-sm text-ink-500">Τελευταία ενημέρωση: {updated}</p>
           <div className="mt-6 space-y-3 text-[15px] leading-7 text-ink-700">{intro}</div>
 

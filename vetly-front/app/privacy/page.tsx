@@ -2,11 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import LegalPage, { type LegalSection } from '../terms/LegalPage';
 
-// Draft: kept out of search engines until the legal review is complete.
 export const metadata: Metadata = {
   title: 'Πολιτική Απορρήτου - Vetly',
   description: 'Πώς το Vetly συλλέγει, χρησιμοποιεί και προστατεύει τα προσωπικά δεδομένα σας.',
-  robots: { index: false, follow: false },
 };
 
 const sections: LegalSection[] = [
@@ -139,7 +137,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage
       title="Πολιτική Απορρήτου"
-      updated="25 Νοεμβρίου 2026"
+      updated="26 Νοεμβρίου 2026"
       intro={<p>Η προστασία των προσωπικών σας δεδομένων είναι σημαντική. Εδώ εξηγούμε ποια δεδομένα επεξεργάζεται το Vetly, γιατί, με ποιον τα μοιραζόμαστε, για πόσο τα διατηρούμε και ποια δικαιώματα έχετε, σύμφωνα με τον Γενικό Κανονισμό Προστασίας Δεδομένων (ΕΕ) 2016/679 (ΓΚΠΔ) και τη σχετική ελληνική νομοθεσία.</p>}
       sections={sections}
     />

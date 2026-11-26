@@ -50,12 +50,13 @@ test.describe('for vets', () => {
 
 for (const path of ['/terms', '/privacy']) {
   test.describe(path, () => {
-    test('shows the draft notice and is noindex', async ({ page, request }) => {
+    test('is published: no draft notice, open to search engines', async ({ page, request }) => {
       await page.goto(path);
-      await expect(page.getByRole('note')).toContainText('Προσχέδιο');
+      await expect(page.getByText('Προσχέδιο')).toHaveCount(0);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+      await expect(page.getByText('167661383').first()).toBeVisible();
       const robots = await page.locator('meta[name="robots"]').getAttribute('content');
-      expect(robots).toMatch(/noindex/);
+      expect(robots ?? '').not.toMatch(/noindex/);
       const response = await request.get(path);
       expect(response.ok()).toBe(true);
     });

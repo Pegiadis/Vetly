@@ -2,11 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import LegalPage, { type LegalSection } from './LegalPage';
 
-// Draft: kept out of search engines until the legal review is complete.
 export const metadata: Metadata = {
   title: 'Όροι Χρήσης - Vetly',
   description: 'Οι όροι χρήσης της πλατφόρμας Vetly.',
-  robots: { index: false, follow: false },
 };
 
 const sections: LegalSection[] = [
@@ -148,7 +146,7 @@ export default function TermsPage() {
   return (
     <LegalPage
       title="Όροι Χρήσης"
-      updated="25 Νοεμβρίου 2026"
+      updated="26 Νοεμβρίου 2026"
       intro={<p>Οι παρόντες όροι ρυθμίζουν τη χρήση της πλατφόρμας Vetly από ιδιοκτήτες κατοικιδίων και κτηνιάτρους. Δημιουργώντας λογαριασμό ή χρησιμοποιώντας την υπηρεσία, τους αποδέχεστε. Αν δεν συμφωνείτε, μη χρησιμοποιείτε την υπηρεσία.</p>}
       sections={sections}
     />
