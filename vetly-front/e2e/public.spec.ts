@@ -55,8 +55,7 @@ for (const path of ['/terms', '/privacy']) {
       await expect(page.getByText('Προσχέδιο')).toHaveCount(0);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       await expect(page.getByText('167661383').first()).toBeVisible();
-      const robots = await page.locator('meta[name="robots"]').getAttribute('content');
-      expect(robots ?? '').not.toMatch(/noindex/);
+      await expect(page.locator('meta[name="robots"][content*="noindex"]')).toHaveCount(0);
       const response = await request.get(path);
       expect(response.ok()).toBe(true);
     });
